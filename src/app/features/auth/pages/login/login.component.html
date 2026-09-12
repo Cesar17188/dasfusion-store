@@ -1,0 +1,54 @@
+<div class="flex min-h-[70vh] items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+  <div class="w-full max-w-md space-y-8">
+    <div class="text-center">
+      <h2 class="text-3xl font-extrabold tracking-tight text-white">Inicia sesión en tu cuenta</h2>
+      <p class="mt-2 text-sm text-zinc-400">
+        ¿Aún no tienes cuenta?
+        <a routerLink="/auth/register" class="font-medium text-blue-400 hover:text-blue-300"> Regístrate gratis </a>
+      </p>
+    </div>
+
+    <app-card>
+      <form [formGroup]="loginForm" (ngSubmit)="onSubmit()" class="space-y-5">
+        @if (errorMessage()) {
+          <div class="p-3 bg-red-950/50 border border-red-500/50 rounded-lg text-xs text-red-300">
+            {{ errorMessage() }}
+          </div>
+        }
+
+        <app-input
+          label="Correo electrónico"
+          placeholder="tu@correo.com"
+          type="email"
+          [required]="true"
+          formControlName="email"
+          [error]="loginForm.get('email')?.touched && loginForm.get('email')?.invalid ? 'Ingresa un correo electrónico válido' : ''"
+        ></app-input>
+
+        <app-input
+          label="Contraseña"
+          placeholder="••••••••"
+          type="password"
+          [required]="true"
+          formControlName="password"
+          [error]="loginForm.get('password')?.touched && loginForm.get('password')?.invalid ? 'La contraseña debe tener al menos 6 caracteres' : ''"
+        ></app-input>
+
+        <div class="flex items-center justify-end">
+          <a routerLink="/auth/forgot-password" class="text-xs text-blue-400 hover:text-blue-300">
+            ¿Olvidaste tu contraseña?
+          </a>
+        </div>
+
+        <app-button
+          type="submit"
+          variant="primary"
+          [fullWidth]="true"
+          [loading]="isLoading()"
+        >
+          Entrar a DASFUSION
+        </app-button>
+      </form>
+    </app-card>
+  </div>
+</div>

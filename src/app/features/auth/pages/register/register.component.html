@@ -1,0 +1,56 @@
+<div class="flex min-h-[70vh] items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+  <div class="w-full max-w-md space-y-8">
+    <div class="text-center">
+      <h2 class="text-3xl font-extrabold tracking-tight text-white">Crea tu cuenta DASFUSION</h2>
+      <p class="mt-2 text-sm text-zinc-400">
+        ¿Ya tienes cuenta?
+        <a routerLink="/auth/login" class="font-medium text-blue-400 hover:text-blue-300"> Inicia sesión aquí </a>
+      </p>
+    </div>
+
+    <app-card>
+      <form [formGroup]="registerForm" (ngSubmit)="onSubmit()" class="space-y-5">
+        @if (errorMessage()) {
+          <div class="p-3 bg-red-950/50 border border-red-500/50 rounded-lg text-xs text-red-300">
+            {{ errorMessage() }}
+          </div>
+        }
+
+        <app-input
+          label="Nombre Completo"
+          placeholder="Ej. Carlos Mendoza"
+          [required]="true"
+          formControlName="name"
+          [error]="registerForm.get('name')?.touched && registerForm.get('name')?.invalid ? 'Ingresa tu nombre completo' : ''"
+        ></app-input>
+
+        <app-input
+          label="Correo electrónico"
+          placeholder="tu@correo.com"
+          type="email"
+          [required]="true"
+          formControlName="email"
+          [error]="registerForm.get('email')?.touched && registerForm.get('email')?.invalid ? 'Ingresa un correo electrónico válido' : ''"
+        ></app-input>
+
+        <app-input
+          label="Contraseña"
+          placeholder="Mínimo 6 caracteres"
+          type="password"
+          [required]="true"
+          formControlName="password"
+          [error]="registerForm.get('password')?.touched && registerForm.get('password')?.invalid ? 'La contraseña debe tener al menos 6 caracteres' : ''"
+        ></app-input>
+
+        <app-button
+          type="submit"
+          variant="primary"
+          [fullWidth]="true"
+          [loading]="isLoading()"
+        >
+          Crear cuenta
+        </app-button>
+      </form>
+    </app-card>
+  </div>
+</div>

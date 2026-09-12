@@ -1,0 +1,86 @@
+@if (isOpen()) {
+  <!-- Backdrop -->
+  <div
+    class="fixed inset-0 z-50 bg-black/80 backdrop-blur-md lg:hidden transition-opacity duration-300"
+    (click)="closed.emit()"
+  ></div>
+
+  <!-- Offcanvas Mobile Menu -->
+  <div class="fixed inset-y-0 left-0 z-50 w-4/5 max-w-xs bg-[#121316] border-r border-[#44474e]/40 p-5 flex flex-col justify-between lg:hidden shadow-2xl animate-in slide-in-from-left duration-200">
+    <div class="space-y-6">
+      <!-- Header -->
+      <div class="flex items-center justify-between pb-4 border-b border-[#44474e]/40">
+        <div class="flex items-center gap-2">
+          <span class="text-base font-extrabold text-[#e3e2e6] tracking-wider">DASFUSION</span>
+          <span class="text-[10px] bg-[#1b365d] text-[#aec7f7] px-1.5 py-0.5 rounded border border-[#aec7f7]/30 font-bold">STORE</span>
+        </div>
+        <button
+          type="button"
+          (click)="closed.emit()"
+          class="flex h-9 w-9 items-center justify-center rounded-lg text-[#c4c6cf] hover:bg-[#1e2022] hover:text-white transition"
+          aria-label="Cerrar menú"
+        >
+          <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+          </svg>
+        </button>
+      </div>
+
+      <!-- Navigation Links with Touch Targets -->
+      <nav class="flex flex-col gap-2">
+        <a
+          routerLink="/catalog"
+          (click)="closed.emit()"
+          routerLinkActive="bg-[#1b365d] text-[#aec7f7] font-bold border-l-4 border-[#aec7f7]"
+          class="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold text-[#c4c6cf] hover:bg-[#1e2022] hover:text-[#e3e2e6] transition active:scale-[0.98]"
+        >
+          <svg class="h-5 w-5 text-[#8e9099]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"></path>
+          </svg>
+          <span>Catálogo General</span>
+        </a>
+
+        <a
+          routerLink="/pc-builder"
+          (click)="closed.emit()"
+          routerLinkActive="bg-[#1b365d] text-[#aec7f7] font-bold border-l-4 border-[#aec7f7]"
+          class="flex items-center justify-between px-4 py-3 rounded-xl text-sm font-semibold text-[#c4c6cf] hover:bg-[#1e2022] hover:text-[#e3e2e6] transition active:scale-[0.98]"
+        >
+          <div class="flex items-center gap-3">
+            <svg class="h-5 w-5 text-[#8e9099]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z"></path>
+            </svg>
+            <span>PC Builder</span>
+          </div>
+          <span class="rounded bg-[#1b365d] text-[10px] font-bold text-[#aec7f7] px-1.5 py-0.5 border border-[#aec7f7]/30">PRO</span>
+        </a>
+
+        <a
+          routerLink="/checkout/cart"
+          (click)="closed.emit()"
+          routerLinkActive="bg-[#1b365d] text-[#aec7f7] font-bold border-l-4 border-[#aec7f7]"
+          class="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold text-[#c4c6cf] hover:bg-[#1e2022] hover:text-[#e3e2e6] transition active:scale-[0.98]"
+        >
+          <svg class="h-5 w-5 text-[#8e9099]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"></path>
+          </svg>
+          <span>Carrito de Compras</span>
+        </a>
+      </nav>
+    </div>
+
+    <!-- Mobile Drawer Footer -->
+    <div class="pt-4 border-t border-[#44474e]/40 space-y-3">
+      <a
+        routerLink="/auth/login"
+        (click)="closed.emit()"
+        class="btn-primary w-full text-center text-xs !py-3 font-bold"
+      >
+        Mi Cuenta / Iniciar Sesión
+      </a>
+      <p class="text-[11px] text-[#8e9099] text-center">
+        DASFUSION Core © {{ 2026 }}
+      </p>
+    </div>
+  </div>
+}

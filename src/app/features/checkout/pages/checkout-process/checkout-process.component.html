@@ -1,0 +1,194 @@
+<div class="space-y-6 sm:space-y-8 max-w-5xl mx-auto pb-16 sm:pb-0">
+  <div class="pb-3 sm:pb-4 border-b border-[#44474e]/40">
+    <h1 class="text-xl sm:text-3xl font-extrabold text-[#e3e2e6]">Finalizar Compra Segura</h1>
+    <p class="text-xs sm:text-sm text-[#8e9099] mt-1">
+      Transacción encriptada con certificado de seguridad SSL de 256 bits.
+    </p>
+  </div>
+
+  <form [formGroup]="checkoutForm" (ngSubmit)="onPlaceOrder()" class="grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8">
+    <!-- Form Data (2 cols on desktop) -->
+    <div class="lg:col-span-2 space-y-6 sm:space-y-8">
+      <!-- Shipping Info -->
+      <div class="bg-[#1e2022]/80 border border-[#44474e]/40 rounded-2xl p-4 sm:p-6 backdrop-blur-md space-y-4">
+        <h3 class="text-sm sm:text-base font-bold text-[#e3e2e6] flex items-center gap-2">
+          <span class="flex h-6 w-6 items-center justify-center rounded-full bg-[#1b365d] text-[#aec7f7] border border-[#aec7f7]/40 text-xs font-bold font-mono">1</span>
+          Información de Envío
+        </h3>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5 sm:gap-4 pt-2">
+          <app-input
+            label="Nombre Completo"
+            placeholder="Juan Pérez"
+            [required]="true"
+            formControlName="fullName"
+            [error]="checkoutForm.get('fullName')?.touched && checkoutForm.get('fullName')?.invalid ? 'Campo requerido' : ''"
+          ></app-input>
+
+          <app-input
+            label="Correo Electrónico"
+            placeholder="juan@ejemplo.com"
+            type="email"
+            [required]="true"
+            formControlName="email"
+            [error]="checkoutForm.get('email')?.touched && checkoutForm.get('email')?.invalid ? 'Correo no válido' : ''"
+          ></app-input>
+
+          <app-input
+            label="Teléfono Móvil"
+            placeholder="+1 (555) 000-0000"
+            type="tel"
+            [required]="true"
+            formControlName="phone"
+            [error]="checkoutForm.get('phone')?.touched && checkoutForm.get('phone')?.invalid ? 'Campo requerido' : ''"
+          ></app-input>
+
+          <app-input
+            label="Dirección Principal"
+            placeholder="Av. Principal #123"
+            [required]="true"
+            formControlName="addressLine1"
+            [error]="checkoutForm.get('addressLine1')?.touched && checkoutForm.get('addressLine1')?.invalid ? 'Campo requerido' : ''"
+          ></app-input>
+
+          <app-input
+            label="Ciudad"
+            placeholder="Ciudad"
+            [required]="true"
+            formControlName="city"
+            [error]="checkoutForm.get('city')?.touched && checkoutForm.get('city')?.invalid ? 'Campo requerido' : ''"
+          ></app-input>
+
+          <div class="grid grid-cols-2 gap-2">
+            <app-input
+              label="Estado"
+              placeholder="Estado"
+              [required]="true"
+              formControlName="state"
+            ></app-input>
+            <app-input
+              label="Código Postal"
+              placeholder="00000"
+              [required]="true"
+              formControlName="postalCode"
+            ></app-input>
+          </div>
+        </div>
+      </div>
+
+      <!-- Payment Method -->
+      <div class="bg-[#1e2022]/80 border border-[#44474e]/40 rounded-2xl p-4 sm:p-6 backdrop-blur-md space-y-4">
+        <h3 class="text-sm sm:text-base font-bold text-[#e3e2e6] flex items-center gap-2">
+          <span class="flex h-6 w-6 items-center justify-center rounded-full bg-[#1b365d] text-[#aec7f7] border border-[#aec7f7]/40 text-xs font-bold font-mono">2</span>
+          Método de Pago
+        </h3>
+
+        <div class="grid grid-cols-3 gap-2 sm:gap-3 pt-2">
+          <button
+            type="button"
+            (click)="selectedPayment.set('credit_card')"
+            class="p-2.5 sm:p-3 rounded-xl border text-[11px] sm:text-xs font-bold text-center transition cursor-pointer"
+            [class.border-[#aec7f7]]="selectedPayment() === 'credit_card'"
+            [class.bg-[#1b365d]]="selectedPayment() === 'credit_card'"
+            [class.text-[#aec7f7]]="selectedPayment() === 'credit_card'"
+            [class.border-[#44474e]/40]="selectedPayment() !== 'credit_card'"
+            [class.bg-[#121316]]="selectedPayment() !== 'credit_card'"
+            [class.text-[#8e9099]]="selectedPayment() !== 'credit_card'"
+          >
+            Tarjeta
+          </button>
+          <button
+            type="button"
+            (click)="selectedPayment.set('paypal')"
+            class="p-2.5 sm:p-3 rounded-xl border text-[11px] sm:text-xs font-bold text-center transition cursor-pointer"
+            [class.border-[#aec7f7]]="selectedPayment() === 'paypal'"
+            [class.bg-[#1b365d]]="selectedPayment() === 'paypal'"
+            [class.text-[#aec7f7]]="selectedPayment() === 'paypal'"
+            [class.border-[#44474e]/40]="selectedPayment() !== 'paypal'"
+            [class.bg-[#121316]]="selectedPayment() !== 'paypal'"
+            [class.text-[#8e9099]]="selectedPayment() !== 'paypal'"
+          >
+            PayPal
+          </button>
+          <button
+            type="button"
+            (click)="selectedPayment.set('crypto')"
+            class="p-2.5 sm:p-3 rounded-xl border text-[11px] sm:text-xs font-bold text-center transition cursor-pointer"
+            [class.border-[#aec7f7]]="selectedPayment() === 'crypto'"
+            [class.bg-[#1b365d]]="selectedPayment() === 'crypto'"
+            [class.text-[#aec7f7]]="selectedPayment() === 'crypto'"
+            [class.border-[#44474e]/40]="selectedPayment() !== 'crypto'"
+            [class.bg-[#121316]]="selectedPayment() !== 'crypto'"
+            [class.text-[#8e9099]]="selectedPayment() !== 'crypto'"
+          >
+            Crypto / USDT
+          </button>
+        </div>
+
+        @if (selectedPayment() === 'credit_card') {
+          <div class="space-y-3 sm:space-y-4 pt-2">
+            <app-input
+              label="Número de Tarjeta"
+              placeholder="4000 1234 5678 9010"
+              formControlName="cardNumber"
+            ></app-input>
+            <div class="grid grid-cols-2 gap-3 sm:gap-4">
+              <app-input label="Exp. (MM/AA)" placeholder="12/28" formControlName="cardExp"></app-input>
+              <app-input label="CVV" placeholder="123" formControlName="cardCvc"></app-input>
+            </div>
+          </div>
+        }
+      </div>
+    </div>
+
+    <!-- Order Summary Column -->
+    <div class="lg:col-span-1 space-y-4 sm:space-y-6">
+      <div class="bg-[#1e2022]/90 border border-[#44474e]/40 rounded-2xl p-5 sm:p-6 backdrop-blur-md space-y-4 sm:space-y-5">
+        <h3 class="text-sm sm:text-base font-bold text-[#e3e2e6]">Resumen Final</h3>
+
+        <div class="space-y-2.5 max-h-48 overflow-y-auto pr-1">
+          @for (item of cartService.items(); track item.id) {
+            <div class="flex items-center justify-between text-xs">
+              <span class="text-[#c4c6cf] truncate max-w-[140px] sm:max-w-[160px]">{{ item.quantity }}x {{ item.product.name }}</span>
+              <span class="font-bold text-[#e3e2e6] font-mono">{{ item.totalPrice | currencyFormat }}</span>
+            </div>
+          }
+        </div>
+
+        <div class="space-y-2 pt-3 border-t border-[#44474e]/40 text-xs">
+          <div class="flex justify-between text-[#c4c6cf]">
+            <span>Subtotal:</span>
+            <span class="font-mono">{{ cartService.subtotal() | currencyFormat }}</span>
+          </div>
+          @if (cartService.discount() > 0) {
+            <div class="flex justify-between text-[#f1bd81]">
+              <span>Descuento:</span>
+              <span class="font-mono">-{{ cartService.discount() | currencyFormat }}</span>
+            </div>
+          }
+          <div class="flex justify-between text-[#c4c6cf]">
+            <span>Envío:</span>
+            <span class="font-mono">{{ cartService.shipping() === 0 ? 'GRATIS' : (cartService.shipping() | currencyFormat) }}</span>
+          </div>
+          <div class="flex justify-between text-[#c4c6cf]">
+            <span>Impuestos (16%):</span>
+            <span class="font-mono">{{ cartService.tax() | currencyFormat }}</span>
+          </div>
+          <div class="flex justify-between text-sm sm:text-base font-bold text-[#e3e2e6] pt-2 border-t border-[#44474e]/40">
+            <span>Total a Pagar:</span>
+            <span class="text-[#aec7f7] font-extrabold font-mono text-lg sm:text-xl">{{ cartService.total() | currencyFormat }}</span>
+          </div>
+        </div>
+
+        <app-button
+          type="submit"
+          variant="primary"
+          [fullWidth]="true"
+          [loading]="isProcessing()"
+        >
+          Confirmar y Pagar
+        </app-button>
+      </div>
+    </div>
+  </form>
+</div>

@@ -1,0 +1,15 @@
+<div class="min-h-screen flex flex-col bg-surface text-on-surface font-sans antialiased bg-deep-tech selection:bg-primary selection:text-on-primary">
+  <!-- Header -->
+  <app-header (toggleSidebar)="toggleSidebar()"></app-header>
+
+  <!-- Mobile Sidebar / Drawer -->
+  <app-sidebar [isOpen]="isSidebarOpen()" (closed)="closeSidebar()"></app-sidebar>
+
+  <!-- Main Body Content with 1280px max-width container -->
+  <main class="flex-1 w-full max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <router-outlet></router-outlet>
+  </main>
+
+  <!-- Footer -->
+  <app-footer></app-footer>
+</div>

@@ -1,0 +1,49 @@
+<div class="space-y-4">
+  <div class="flex items-center justify-between">
+    <h4 class="text-sm font-bold text-zinc-100 uppercase tracking-wider">Combos & Bundles Recomendados</h4>
+    <span class="text-xs text-blue-400 font-semibold">Ahorra hasta un 15%</span>
+  </div>
+
+  <div class="grid grid-cols-1 gap-3">
+    @for (bundle of bundles(); track bundle.id) {
+      <div
+        (click)="selectBundle(bundle)"
+        class="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 rounded-xl border transition-all cursor-pointer"
+        [class.border-blue-500]="selectedBundle()?.id === bundle.id"
+        [class.bg-blue-950/20]="selectedBundle()?.id === bundle.id"
+        [class.border-zinc-800]="selectedBundle()?.id !== bundle.id"
+        [class.bg-zinc-900/60]="selectedBundle()?.id !== bundle.id"
+        [class.hover:border-zinc-700]="selectedBundle()?.id !== bundle.id"
+      >
+        <div class="space-y-1">
+          <div class="flex items-center gap-2">
+            <span class="text-xs font-bold text-zinc-100">{{ bundle.name }}</span>
+            <span class="rounded bg-emerald-500/20 px-1.5 py-0.2 text-[10px] font-bold text-emerald-400 border border-emerald-500/30">
+              COMBO
+            </span>
+          </div>
+          <p class="text-xs text-zinc-400">{{ bundle.description }}</p>
+        </div>
+
+        <div class="mt-3 sm:mt-0 flex items-center gap-3 self-end sm:self-auto">
+          <div class="text-right">
+            <span class="text-xs text-zinc-500 line-through block">{{ bundle.originalPrice | currencyFormat }}</span>
+            <span class="text-sm font-bold text-emerald-400">{{ bundle.price | currencyFormat }}</span>
+          </div>
+          <div
+            class="h-5 w-5 rounded-full border flex items-center justify-center"
+            [class.border-blue-500]="selectedBundle()?.id === bundle.id"
+            [class.bg-blue-600]="selectedBundle()?.id === bundle.id"
+            [class.border-zinc-700]="selectedBundle()?.id !== bundle.id"
+          >
+            @if (selectedBundle()?.id === bundle.id) {
+              <svg class="h-3 w-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path>
+              </svg>
+            }
+          </div>
+        </div>
+      </div>
+    }
+  </div>
+</div>
