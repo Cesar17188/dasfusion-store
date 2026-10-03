@@ -37,7 +37,8 @@ export interface DbCategory {
   id: string; // uuid, Primary
   name: string;
   slug: string; // Unique
-  parent_id?: string | null; // uuid, Nullable
+  parent_id?: string | null; // uuid, Nullable for subcategories
+  is_active?: boolean;
 }
 
 /**
@@ -47,6 +48,9 @@ export interface DbBrand {
   id: string; // uuid, Primary
   name: string;
   slug: string; // Unique
+  category_id?: string | null; // Linked category ID
+  category_ids?: string[]; // Multiple linked categories
+  is_active?: boolean;
 }
 
 /**

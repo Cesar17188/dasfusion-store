@@ -202,7 +202,7 @@ export class AdminService {
   }
 
   // ====================================================================
-  // 2. CATEGORIES & BRANDS
+  // 2. CATEGORIES & BRANDS (WITH SUBCATEGORIES & BRAND LINKING)
   // ====================================================================
   async fetchCategoriesAndBrands(): Promise<void> {
     try {
@@ -212,34 +212,208 @@ export class AdminService {
       ]);
 
       if (!catRes.error && catRes.data?.length) {
-        this.categories.set(catRes.data as DbCategory[]);
+        this.categories.set((catRes.data as any[]).map((c) => ({
+          ...c,
+          is_active: c.is_active ?? true
+        })));
       } else if (this.categories().length === 0) {
         this.categories.set([
-          { id: 'cat-gpu', name: 'Tarjetas Gráficas (GPU)', slug: 'gpus', parent_id: null },
-          { id: 'cat-cpu', name: 'Procesadores (CPU)', slug: 'cpus', parent_id: null },
-          { id: 'cat-ram', name: 'Memorias RAM', slug: 'ram', parent_id: null },
-          { id: 'cat-ssd', name: 'Almacenamiento SSD', slug: 'storage', parent_id: null },
-          { id: 'cat-mb', name: 'Placas Madre (Motherboards)', slug: 'motherboards', parent_id: null },
-          { id: 'cat-psu', name: 'Fuentes de Poder (PSU)', slug: 'power-supplies', parent_id: null },
-          { id: 'cat-cases', name: 'Gabinetes & Chasis', slug: 'cases', parent_id: null },
-          { id: 'cat-bundles', name: 'Combos & Bundles DAS', slug: 'bundles', parent_id: null }
+          { id: 'cat-gpu', name: 'Tarjetas Gráficas (GPU)', slug: 'gpus', parent_id: null, is_active: true },
+          { id: 'cat-gpu-nvidia', name: 'NVIDIA GeForce RTX', slug: 'gpus-nvidia', parent_id: 'cat-gpu', is_active: true },
+          { id: 'cat-gpu-amd', name: 'AMD Radeon RX', slug: 'gpus-amd', parent_id: 'cat-gpu', is_active: true },
+          { id: 'cat-cpu', name: 'Procesadores (CPU)', slug: 'cpus', parent_id: null, is_active: true },
+          { id: 'cat-cpu-intel', name: 'Intel Core & Ultra', slug: 'cpus-intel', parent_id: 'cat-cpu', is_active: true },
+          { id: 'cat-cpu-amd', name: 'AMD Ryzen 7000/9000', slug: 'cpus-amd', parent_id: 'cat-cpu', is_active: true },
+          { id: 'cat-ram', name: 'Memorias RAM', slug: 'ram', parent_id: null, is_active: true },
+          { id: 'cat-ssd', name: 'Almacenamiento SSD', slug: 'storage', parent_id: null, is_active: true },
+          { id: 'cat-mb', name: 'Placas Madre (Motherboards)', slug: 'motherboards', parent_id: null, is_active: true },
+          { id: 'cat-psu', name: 'Fuentes de Poder (PSU)', slug: 'power-supplies', parent_id: null, is_active: true },
+          { id: 'cat-cases', name: 'Gabinetes & Chasis', slug: 'cases', parent_id: null, is_active: true },
+          { id: 'cat-bundles', name: 'Combos & Bundles DAS', slug: 'bundles', parent_id: null, is_active: true }
         ]);
       }
 
       if (!brandRes.error && brandRes.data?.length) {
-        this.brands.set(brandRes.data as DbBrand[]);
+        this.brands.set((brandRes.data as any[]).map((b) => ({
+          ...b,
+          is_active: b.is_active ?? true,
+          category_ids: b.category_ids || (b.category_id ? [b.category_id] : [])
+        })));
       } else if (this.brands().length === 0) {
         this.brands.set([
-          { id: 'b-nvidia', name: 'NVIDIA RTX', slug: 'nvidia' },
-          { id: 'b-amd', name: 'AMD Ryzen / Radeon', slug: 'amd' },
-          { id: 'b-intel', name: 'Intel Core', slug: 'intel' },
-          { id: 'b-corsair', name: 'Corsair', slug: 'corsair' },
-          { id: 'b-asus', name: 'ASUS ROG / TUF', slug: 'asus' },
-          { id: 'b-msi', name: 'MSI Gaming', slug: 'msi' },
-          { id: 'b-kingston', name: 'Kingston Fury', slug: 'kingston' }
+          { id: 'b-nvidia', name: 'NVIDIA', slug: 'nvidia', category_ids: ['cat-gpu', 'cat-gpu-nvidia'], is_active: true },
+          { id: 'b-amd', name: 'AMD', slug: 'amd', category_ids: ['cat-gpu', 'cat-gpu-amd', 'cat-cpu', 'cat-cpu-amd'], is_active: true },
+          { id: 'b-intel', name: 'Intel', slug: 'intel', category_ids: ['cat-cpu', 'cat-cpu-intel'], is_active: true },
+          { id: 'b-corsair', name: 'Corsair', slug: 'corsair', category_ids: ['cat-ram', 'cat-psu', 'cat-cases'], is_active: true },
+          { id: 'b-asus', name: 'ASUS ROG / TUF', slug: 'asus', category_ids: ['cat-gpu', 'cat-mb'], is_active: true },
+          { id: 'b-msi', name: 'MSI Gaming', slug: 'msi', category_ids: ['cat-gpu', 'cat-mb'], is_active: true },
+          { id: 'b-kingston', name: 'Kingston Fury', slug: 'kingston', category_ids: ['cat-ram', 'cat-ssd'], is_active: true },
+          { id: 'b-samsung', name: 'Samsung', slug: 'samsung', category_ids: ['cat-ssd'], is_active: true }
         ]);
       }
     } catch {}
+  }
+
+  // --- Category CRUD ---
+  async createCategory(cat: { name: string; slug?: string; parent_id?: string | null; is_active?: boolean }): Promise<DbCategory> {
+    const slug = cat.slug || cat.name.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+    const newCategory: DbCategory = {
+      id: crypto.randomUUID(),
+      name: cat.name,
+      slug,
+      parent_id: cat.parent_id || null,
+      is_active: cat.is_active ?? true
+    };
+
+    try {
+      const { data, error } = await (this.supabase.from('categories') as any).insert({
+        id: newCategory.id,
+        name: newCategory.name,
+        slug: newCategory.slug,
+        parent_id: newCategory.parent_id
+      }).select().single();
+      if (!error && data) {
+        newCategory.id = data.id;
+      }
+    } catch (err) {
+      console.warn('Error al guardar categoría en Supabase, guardando localmente:', err);
+    }
+
+    this.categories.update((prev) => [...prev, newCategory]);
+    return newCategory;
+  }
+
+  async updateCategory(id: string, updates: Partial<DbCategory>): Promise<DbCategory | null> {
+    let updatedCat: DbCategory | null = null;
+    this.categories.update((prev) =>
+      prev.map((c) => {
+        if (c.id === id) {
+          updatedCat = { ...c, ...updates };
+          return updatedCat;
+        }
+        return c;
+      })
+    );
+
+    if (updatedCat) {
+      try {
+        await (this.supabase.from('categories') as any).update({
+          name: updates.name,
+          slug: updates.slug,
+          parent_id: updates.parent_id
+        }).eq('id', id);
+      } catch (err) {
+        console.warn('Error al actualizar categoría en Supabase:', err);
+      }
+    }
+    return updatedCat;
+  }
+
+  async deleteCategory(id: string): Promise<boolean> {
+    try {
+      await (this.supabase.from('categories') as any).delete().eq('id', id);
+    } catch {}
+
+    // Remove category and any child subcategories
+    this.categories.update((prev) => prev.filter((c) => c.id !== id && c.parent_id !== id));
+    return true;
+  }
+
+  async toggleCategoryStatus(id: string): Promise<void> {
+    const target = this.categories().find((c) => c.id === id);
+    if (!target) return;
+    const newStatus = target.is_active === false;
+    await this.updateCategory(id, { is_active: newStatus });
+  }
+
+  // --- Brand CRUD ---
+  async createBrand(brand: { name: string; slug?: string; category_ids?: string[]; is_active?: boolean }): Promise<DbBrand> {
+    const slug = brand.slug || brand.name.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+    const newBrand: DbBrand = {
+      id: crypto.randomUUID(),
+      name: brand.name,
+      slug,
+      category_ids: brand.category_ids || [],
+      category_id: brand.category_ids?.[0] || null,
+      is_active: brand.is_active ?? true
+    };
+
+    try {
+      const { data, error } = await (this.supabase.from('brands') as any).insert({
+        id: newBrand.id,
+        name: newBrand.name,
+        slug: newBrand.slug
+      }).select().single();
+      if (!error && data) {
+        newBrand.id = data.id;
+      }
+    } catch (err) {
+      console.warn('Error al guardar marca en Supabase, guardando localmente:', err);
+    }
+
+    this.brands.update((prev) => [...prev, newBrand]);
+    return newBrand;
+  }
+
+  async updateBrand(id: string, updates: Partial<DbBrand>): Promise<DbBrand | null> {
+    let updatedBrand: DbBrand | null = null;
+    this.brands.update((prev) =>
+      prev.map((b) => {
+        if (b.id === id) {
+          updatedBrand = { ...b, ...updates };
+          return updatedBrand;
+        }
+        return b;
+      })
+    );
+
+    if (updatedBrand) {
+      try {
+        await (this.supabase.from('brands') as any).update({
+          name: updates.name,
+          slug: updates.slug
+        }).eq('id', id);
+      } catch (err) {
+        console.warn('Error al actualizar marca en Supabase:', err);
+      }
+    }
+    return updatedBrand;
+  }
+
+  async deleteBrand(id: string): Promise<boolean> {
+    try {
+      await (this.supabase.from('brands') as any).delete().eq('id', id);
+    } catch {}
+
+    this.brands.update((prev) => prev.filter((b) => b.id !== id));
+    return true;
+  }
+
+  async toggleBrandStatus(id: string): Promise<void> {
+    const target = this.brands().find((b) => b.id === id);
+    if (!target) return;
+    const newStatus = target.is_active === false;
+    await this.updateBrand(id, { is_active: newStatus });
+  }
+
+  /**
+   * Returns only active brands linked to a given category ID (or all active brands if no category selected)
+   */
+  getBrandsForCategory(categoryId?: string | null): DbBrand[] {
+    const activeBrands = this.brands().filter((b) => b.is_active !== false);
+    if (!categoryId || categoryId === 'ALL') {
+      return activeBrands;
+    }
+
+    // Also find parent category ID if categoryId is a subcategory
+    const catObj = this.categories().find((c) => c.id === categoryId);
+    const parentId = catObj?.parent_id;
+
+    return activeBrands.filter((b) => {
+      // If brand has no specific categories assigned, it is considered generic/available everywhere
+      if (!b.category_ids || b.category_ids.length === 0) return true;
+      return b.category_ids.includes(categoryId) || (parentId ? b.category_ids.includes(parentId) : false);
+    });
   }
 
   // ====================================================================
