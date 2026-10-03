@@ -38,14 +38,20 @@ export class LoginComponent {
 
     const credentials = this.loginForm.getRawValue();
     this.authService.login(credentials).subscribe({
-      next: () => {
+      next: (user) => {
         this.isLoading.set(false);
-        const returnUrl = this.route.snapshot.queryParams['returnUrl'] || '/catalog';
-        this.router.navigateByUrl(returnUrl);
+        const returnUrl = this.route.snapshot.queryParams['returnUrl'];
+        if (returnUrl) {
+          this.router.navigateByUrl(returnUrl);
+        } else if (user.role === 'admin') {
+          this.router.navigateByUrl('/admin/crm');
+        } else {
+          this.router.navigateByUrl('/catalog');
+        }
       },
-      error: () => {
+      error: (err) => {
         this.isLoading.set(false);
-        this.errorMessage.set('Credenciales incorrectas o error en el servidor');
+        this.errorMessage.set(err?.message || 'Credenciales incorrectas o error en el servidor');
       }
     });
   }

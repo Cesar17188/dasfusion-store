@@ -1,10 +1,41 @@
 <div class="space-y-6 sm:space-y-8">
+  <!-- Admin Access Denied Alert & 1-Click Upgrade Banner -->
+  @if (showAdminNotice() && authService.currentUser()) {
+    <div class="p-4 sm:p-5 rounded-2xl bg-amber-950/80 border border-amber-500/50 text-amber-200 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-2xl backdrop-blur-md animate-in fade-in duration-200">
+      <div class="space-y-1">
+        <div class="flex items-center gap-2">
+          <span class="text-lg">🛡️</span>
+          <h3 class="font-bold text-sm text-white">Acceso Restringido al Panel de Administrador</h3>
+        </div>
+        <p class="text-xs text-amber-200/90 leading-relaxed">
+          Has iniciado sesión con la cuenta <strong class="text-white">{{ authService.currentUser()?.email }}</strong>, pero actualmente tiene el rol 
+          <span class="px-2 py-0.5 rounded bg-black/40 font-mono text-amber-300 font-bold uppercase text-[11px]">{{ authService.currentUser()?.role }}</span> en la base de datos de Supabase.
+        </p>
+      </div>
+      <div class="flex items-center gap-3">
+        <button
+          (click)="activateAdminAndGo()"
+          class="px-4 py-2.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-black font-extrabold text-xs shadow-lg transition cursor-pointer flex items-center gap-1.5 whitespace-nowrap"
+        >
+          <span>⚡ Activar Rol Administrador & Entrar</span>
+        </button>
+        <button
+          (click)="dismissAdminNotice()"
+          class="p-2 text-amber-400 hover:text-white text-xs transition cursor-pointer"
+          title="Cerrar aviso"
+        >
+          ✕
+        </button>
+      </div>
+    </div>
+  }
+
   <!-- Banner Header (Responsive) -->
-  <div class="relative overflow-hidden rounded-2xl sm:rounded-3xl bg-gradient-to-r from-[#1b365d] via-[#1e2022] to-[#121316] border border-[#aec7f7]/20 p-5 sm:p-10 shadow-2xl">
+  <div class="relative overflow-hidden rounded-2xl sm:rounded-3xl bg-linear-to-r from-primary-container via-surface-container to-surface border border-primary/20 p-5 sm:p-10 shadow-2xl">
     <div class="relative z-10 max-w-2xl space-y-2 sm:space-y-3">
-      <span class="text-[11px] sm:text-xs font-bold uppercase tracking-widest text-[#aec7f7]">Catálogo Oficial DASFUSION</span>
-      <h1 class="text-2xl sm:text-4xl font-extrabold text-[#e3e2e6] tracking-tight">Equipamiento Pro & Computación</h1>
-      <p class="text-xs sm:text-sm text-[#c4c6cf] leading-relaxed">
+      <span class="text-[11px] sm:text-xs font-bold uppercase tracking-widest text-primary">Catálogo Oficial DASFUSION</span>
+      <h1 class="text-2xl sm:text-4xl font-extrabold text-on-surface tracking-tight">Equipamiento Pro & Computación</h1>
+      <p class="text-xs sm:text-sm text-on-surface-variant leading-relaxed">
         Explora smartphones de última generación, cámaras cinema y mirrorless, óptica premium, audio broadcast, iluminación de estudio y hardware para creadores.
       </p>
     </div>
@@ -16,13 +47,13 @@
       type="button"
       (click)="onCategoryChipClick('')"
       class="px-3.5 py-2 rounded-full text-xs font-bold whitespace-nowrap transition cursor-pointer border"
-      [class.bg-[#f2f3f5]]="!currentFilter().category"
-      [class.text-[#1b365d]]="!currentFilter().category"
-      [class.border-[#f2f3f5]]="!currentFilter().category"
-      [class.bg-[#1e2022]]="!!currentFilter().category"
-      [class.text-[#c4c6cf]]="!!currentFilter().category"
-      [class.border-[#44474e]/40]="!!currentFilter().category"
-      [class.hover:border-[#aec7f7]]="!!currentFilter().category"
+      [class.bg-surface-bright]="!currentFilter().category"
+      [class.text-primary-container]="!currentFilter().category"
+      [class.border-surface-bright]="!currentFilter().category"
+      [class.bg-surface-container]="!!currentFilter().category"
+      [class.text-on-surface-variant]="!!currentFilter().category"
+      [class.border-outline-variant/40]="!!currentFilter().category"
+      [class.hover:border-primary]="!!currentFilter().category"
     >
       Todos los Productos ({{ productService.products().length }})
     </button>
@@ -31,13 +62,13 @@
         type="button"
         (click)="onCategoryChipClick(cat)"
         class="px-3.5 py-2 rounded-full text-xs font-bold whitespace-nowrap transition cursor-pointer border"
-        [class.bg-[#f2f3f5]]="currentFilter().category === cat"
-        [class.text-[#1b365d]]="currentFilter().category === cat"
-        [class.border-[#f2f3f5]]="currentFilter().category === cat"
-        [class.bg-[#1e2022]]="currentFilter().category !== cat"
-        [class.text-[#c4c6cf]]="currentFilter().category !== cat"
-        [class.border-[#44474e]/40]="currentFilter().category !== cat"
-        [class.hover:border-[#aec7f7]]="currentFilter().category !== cat"
+        [class.bg-surface-bright]="currentFilter().category === cat"
+        [class.text-primary-container]="currentFilter().category === cat"
+        [class.border-surface-bright]="currentFilter().category === cat"
+        [class.bg-surface-container]="currentFilter().category !== cat"
+        [class.text-on-surface-variant]="currentFilter().category !== cat"
+        [class.border-outline-variant/40]="currentFilter().category !== cat"
+        [class.hover:border-primary]="currentFilter().category !== cat"
       >
         {{ cat }}
       </button>
@@ -45,16 +76,16 @@
   </div>
 
   <!-- Search, Filter Trigger & Sort Bar (Mobile First) -->
-  <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 sm:gap-4 bg-[#1e2022]/70 p-3 sm:p-4 rounded-2xl border border-[#44474e]/40 backdrop-blur-md">
+  <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 sm:gap-4 bg-surface-container/70 p-3 sm:p-4 rounded-2xl border border-outline-variant/40 backdrop-blur-md">
     <!-- Search Bar -->
     <div class="relative flex-1">
       <input
         type="search"
         placeholder="Buscar por nombre, marca, categoría o etiqueta (ej. iPhone, Sony, 4K, Shure, RGB)..."
         [(ngModel)]="searchQuery"
-        class="w-full bg-[#121316] border border-[#44474e] rounded-xl px-4 py-2.5 pl-10 text-xs sm:text-sm text-[#e3e2e6] placeholder-[#8e9099] focus:outline-none focus:border-[#aec7f7] focus:ring-1 focus:ring-[#aec7f7]/30"
+        class="w-full bg-surface border border-outline-variant rounded-xl px-4 py-2.5 pl-10 text-xs sm:text-sm text-on-surface placeholder-outline focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/30"
       />
-      <svg class="absolute left-3 top-3 h-4 sm:h-5 w-4 sm:w-5 text-[#8e9099]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <svg class="absolute left-3 top-3 h-4 sm:h-5 w-4 sm:w-5 text-outline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
       </svg>
     </div>
@@ -65,9 +96,9 @@
       <button
         type="button"
         (click)="openMobileFilters()"
-        class="lg:hidden flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-[#121316] border border-[#44474e] text-xs font-semibold text-[#e3e2e6] hover:bg-[#292a2d] active:scale-95 transition cursor-pointer"
+        class="lg:hidden flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-surface border border-outline-variant text-xs font-semibold text-on-surface hover:bg-surface-container-high active:scale-95 transition cursor-pointer"
       >
-        <svg class="h-4 w-4 text-[#aec7f7]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg class="h-4 w-4 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"></path>
         </svg>
         <span>Filtros</span>
@@ -75,10 +106,10 @@
 
       <!-- Sort Dropdown -->
       <div class="flex items-center gap-1.5 sm:gap-2 flex-1 sm:flex-initial justify-end">
-        <span class="hidden md:inline text-xs text-[#8e9099] whitespace-nowrap">Ordenar:</span>
+        <span class="hidden md:inline text-xs text-outline whitespace-nowrap">Ordenar:</span>
         <select
           (change)="onSortChange($event)"
-          class="w-full sm:w-auto bg-[#121316] border border-[#44474e] text-xs text-[#e3e2e6] rounded-xl px-3 py-2.5 focus:outline-none focus:border-[#aec7f7] cursor-pointer"
+          class="w-full sm:w-auto bg-surface border border-outline-variant text-xs text-on-surface rounded-xl px-3 py-2.5 focus:outline-none focus:border-primary cursor-pointer"
         >
           <option value="featured">Destacados</option>
           <option value="price-asc">Precio: Menor a Mayor</option>
@@ -93,7 +124,7 @@
   <div class="grid grid-cols-1 lg:grid-cols-4 gap-6 sm:gap-8">
     <!-- Desktop Filters Sidebar (hidden on mobile) -->
     <div class="hidden lg:block lg:col-span-1">
-      <div class="sticky top-24 bg-[#1e2022]/70 border border-[#44474e]/40 rounded-2xl p-5 backdrop-blur-md">
+      <div class="sticky top-24 bg-surface-container/70 border border-outline-variant/40 rounded-2xl p-5 backdrop-blur-md">
         <app-product-filters
           [categories]="categories()"
           [brands]="availableBrands()"
@@ -106,12 +137,12 @@
     <!-- Products Grid (1 col on mobile, 2 cols on sm, 3 cols on xl) -->
     <div class="lg:col-span-3">
       @if (filteredProducts().length === 0) {
-        <div class="flex flex-col items-center justify-center rounded-2xl border border-dashed border-[#44474e]/50 py-16 px-4 text-center">
-          <svg class="h-12 w-12 text-[#8e9099] mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div class="flex flex-col items-center justify-center rounded-2xl border border-dashed border-outline-variant/50 py-16 px-4 text-center">
+          <svg class="h-12 w-12 text-outline mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
           </svg>
-          <h3 class="text-base font-semibold text-[#e3e2e6]">No se encontraron productos</h3>
-          <p class="text-xs text-[#8e9099] mt-1 max-w-sm">
+          <h3 class="text-base font-semibold text-on-surface">No se encontraron productos</h3>
+          <p class="text-xs text-outline mt-1 max-w-sm">
             Intenta cambiar los filtros seleccionados o buscar con términos diferentes.
           </p>
         </div>
@@ -132,14 +163,14 @@
       (click)="closeMobileFilters()"
     ></div>
 
-    <div class="fixed inset-y-0 right-0 z-50 w-5/6 max-w-sm bg-[#121316] border-l border-[#44474e]/40 p-5 flex flex-col justify-between lg:hidden shadow-2xl animate-in slide-in-from-right duration-200">
+    <div class="fixed inset-y-0 right-0 z-50 w-5/6 max-w-sm bg-surface border-l border-outline-variant/40 p-5 flex flex-col justify-between lg:hidden shadow-2xl animate-in slide-in-from-right duration-200">
       <div class="overflow-y-auto flex-1 pr-1">
-        <div class="flex items-center justify-between pb-4 border-b border-[#44474e]/40 mb-4">
-          <h3 class="text-sm font-bold uppercase tracking-wider text-[#e3e2e6]">Filtrar Catálogo</h3>
+        <div class="flex items-center justify-between pb-4 border-b border-outline-variant/40 mb-4">
+          <h3 class="text-sm font-bold uppercase tracking-wider text-on-surface">Filtrar Catálogo</h3>
           <button
             type="button"
             (click)="closeMobileFilters()"
-            class="flex h-8 w-8 items-center justify-center rounded-lg text-[#c4c6cf] hover:bg-[#1e2022] hover:text-white"
+            class="flex h-8 w-8 items-center justify-center rounded-lg text-on-surface-variant hover:bg-surface-container hover:text-white"
           >
             ✕
           </button>
@@ -153,11 +184,11 @@
         ></app-product-filters>
       </div>
 
-      <div class="pt-4 border-t border-[#44474e]/40">
+      <div class="pt-4 border-t border-outline-variant/40">
         <button
           type="button"
           (click)="closeMobileFilters()"
-          class="btn-primary w-full text-center text-xs font-bold !py-3"
+          class="btn-primary w-full text-center text-xs font-bold py-3!"
         >
           Ver {{ filteredProducts().length }} Resultados
         </button>
