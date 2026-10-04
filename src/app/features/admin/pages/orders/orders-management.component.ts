@@ -18,7 +18,7 @@ import { OrderStatus } from '../../../../core/models/supabase.model';
         </div>
         <div class="flex items-center gap-3">
           <button
-            (click)="adminService.fetchSalesOrders()"
+            (click)="refreshOrders()"
             class="btn-secondary py-2! px-3! text-xs flex items-center gap-2"
           >
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -316,6 +316,10 @@ export class OrdersManagementComponent {
 
   countByStatus(status: OrderStatus): number {
     return this.adminService.salesOrders().filter((o) => o.status === status).length;
+  }
+
+  async refreshOrders(): Promise<void> {
+    await this.adminService.fetchSalesOrders();
   }
 
   async onUpdateStatus(orderId: string, status: OrderStatus): Promise<void> {

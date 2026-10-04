@@ -270,7 +270,8 @@ export class AdminService {
         id: newCategory.id,
         name: newCategory.name,
         slug: newCategory.slug,
-        parent_id: newCategory.parent_id
+        parent_id: newCategory.parent_id,
+        is_active: newCategory.is_active
       }).select().single();
       if (!error && data) {
         newCategory.id = data.id;
@@ -297,11 +298,13 @@ export class AdminService {
 
     if (updatedCat) {
       try {
-        await (this.supabase.from('categories') as any).update({
-          name: updates.name,
-          slug: updates.slug,
-          parent_id: updates.parent_id
-        }).eq('id', id);
+        const payload: any = {
+          name: (updatedCat as DbCategory).name,
+          slug: (updatedCat as DbCategory).slug,
+          parent_id: (updatedCat as DbCategory).parent_id,
+          is_active: (updatedCat as DbCategory).is_active ?? true
+        };
+        await (this.supabase.from('categories') as any).update(payload).eq('id', id);
       } catch (err) {
         console.warn('Error al actualizar categoría en Supabase:', err);
       }
@@ -342,7 +345,9 @@ export class AdminService {
       const { data, error } = await (this.supabase.from('brands') as any).insert({
         id: newBrand.id,
         name: newBrand.name,
-        slug: newBrand.slug
+        slug: newBrand.slug,
+        is_active: newBrand.is_active,
+        category_ids: newBrand.category_ids
       }).select().single();
       if (!error && data) {
         newBrand.id = data.id;
@@ -369,10 +374,13 @@ export class AdminService {
 
     if (updatedBrand) {
       try {
-        await (this.supabase.from('brands') as any).update({
-          name: updates.name,
-          slug: updates.slug
-        }).eq('id', id);
+        const payload: any = {
+          name: (updatedBrand as DbBrand).name,
+          slug: (updatedBrand as DbBrand).slug,
+          is_active: (updatedBrand as DbBrand).is_active ?? true,
+          category_ids: (updatedBrand as DbBrand).category_ids || []
+        };
+        await (this.supabase.from('brands') as any).update(payload).eq('id', id);
       } catch (err) {
         console.warn('Error al actualizar marca en Supabase:', err);
       }
