@@ -881,72 +881,204 @@ export interface SpecGroup {
               }
             </div>
 
-            <!-- 4. Variant Info -->
+            <!-- 4. Ediciones / Variantes & Existencias -->
             <div class="space-y-3 border-t border-outline-variant/40 pt-3">
-              <h4 class="text-xs font-bold uppercase tracking-wider text-primary">4. Variante Inicial & Inventario</h4>
-              <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                 <div>
-                  <label class="block text-xs font-semibold text-on-surface-variant mb-1">SKU Único *</label>
-                  <input
-                    type="text"
-                    [(ngModel)]="newVarForm.sku"
-                    name="sku"
-                    required
-                    class="das-input text-xs font-mono uppercase"
-                    placeholder="GPU-RTX-5080-16G"
-                  />
+                  <h4 class="text-xs font-bold uppercase tracking-wider text-primary">4. Ediciones, Variantes & Inventario</h4>
+                  <p class="text-[11px] text-outline">
+                    Define si este producto tiene una única edición estándar o múltiples variantes (capacidad, color, etc.).
+                  </p>
                 </div>
-                <div>
-                  <label class="block text-xs font-semibold text-on-surface-variant mb-1">Nombre de la Variante *</label>
-                  <input
-                    type="text"
-                    [(ngModel)]="newVarForm.variant_name"
-                    name="variant_name"
-                    required
-                    class="das-input text-xs"
-                    placeholder="Standard Edition OC"
-                  />
-                </div>
-              </div>
-
-              <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label class="block text-xs font-semibold text-on-surface-variant mb-1">Precio de Venta ($ USD) *</label>
-                  <input
-                    type="number"
-                    [(ngModel)]="newVarForm.price"
-                    name="price"
-                    required
-                    min="0"
-                    step="0.01"
-                    class="das-input text-xs"
-                    placeholder="999.00"
-                  />
-                </div>
-                <div>
-                  <label class="block text-xs font-semibold text-on-surface-variant mb-1">Stock Inicial *</label>
-                  <input
-                    type="number"
-                    [(ngModel)]="newVarForm.stock"
-                    name="stock"
-                    required
-                    min="0"
-                    class="das-input text-xs"
-                    placeholder="10"
-                  />
+                <!-- Mode selector pills -->
+                <div class="inline-flex rounded-lg bg-surface-container p-1 border border-outline-variant/40">
+                  <button
+                    type="button"
+                    (click)="setNewProdVariantMode(false)"
+                    [class.bg-primary]="!isNewProdMultiVariant()"
+                    [class.text-on-primary]="!isNewProdMultiVariant()"
+                    [class.text-on-surface-variant]="isNewProdMultiVariant()"
+                    class="px-2.5 py-1 rounded-md text-xs font-semibold transition cursor-pointer"
+                  >
+                    Producto Simple (1 Edición)
+                  </button>
+                  <button
+                    type="button"
+                    (click)="setNewProdVariantMode(true)"
+                    [class.bg-primary]="isNewProdMultiVariant()"
+                    [class.text-on-primary]="isNewProdMultiVariant()"
+                    [class.text-on-surface-variant]="!isNewProdMultiVariant()"
+                    class="px-2.5 py-1 rounded-md text-xs font-semibold transition cursor-pointer"
+                  >
+                    Múltiples Ediciones
+                  </button>
                 </div>
               </div>
 
-              <div class="flex items-center gap-2 pt-1">
-                <input
-                  type="checkbox"
-                  id="is_bundle"
-                  [(ngModel)]="newVarForm.is_bundle"
-                  name="is_bundle"
-                  class="rounded bg-surface border-outline-variant text-primary"
-                />
-                <label for="is_bundle" class="text-xs text-on-surface-variant">Este ítem es un Combo / Bundle con múltiples piezas</label>
-              </div>
+              @if (!isNewProdMultiVariant()) {
+                <!-- Simple Product: 1 standard edition -->
+                <div class="p-3.5 rounded-xl bg-surface-container/40 border border-outline-variant/40 space-y-3">
+                  <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label class="block text-xs font-semibold text-on-surface-variant mb-1">SKU Único *</label>
+                      <input
+                        type="text"
+                        [(ngModel)]="newVarForm.sku"
+                        name="sku"
+                        required
+                        class="das-input text-xs font-mono uppercase"
+                        placeholder="GPU-RTX-5080-16G"
+                      />
+                    </div>
+                    <div>
+                      <label class="block text-xs font-semibold text-on-surface-variant mb-1">Nombre de la Edición</label>
+                      <input
+                        type="text"
+                        [(ngModel)]="newVarForm.variant_name"
+                        name="variant_name"
+                        class="das-input text-xs"
+                        placeholder="Estándar (predeterminado)"
+                      />
+                    </div>
+                  </div>
+
+                  <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label class="block text-xs font-semibold text-on-surface-variant mb-1">Precio de Venta ($ USD) *</label>
+                      <input
+                        type="number"
+                        [(ngModel)]="newVarForm.price"
+                        name="price"
+                        required
+                        min="0"
+                        step="0.01"
+                        class="das-input text-xs"
+                        placeholder="999.00"
+                      />
+                    </div>
+                    <div>
+                      <label class="block text-xs font-semibold text-on-surface-variant mb-1">Stock Inicial *</label>
+                      <input
+                        type="number"
+                        [(ngModel)]="newVarForm.stock"
+                        name="stock"
+                        required
+                        min="0"
+                        class="das-input text-xs"
+                        placeholder="10"
+                      />
+                    </div>
+                  </div>
+
+                  <div class="flex items-center gap-2 pt-1">
+                    <input
+                      type="checkbox"
+                      id="is_bundle"
+                      [(ngModel)]="newVarForm.is_bundle"
+                      name="is_bundle"
+                      class="rounded bg-surface border-outline-variant text-primary"
+                    />
+                    <label for="is_bundle" class="text-xs text-on-surface-variant">Este ítem es un Combo / Bundle con múltiples piezas</label>
+                  </div>
+                </div>
+              } @else {
+                <!-- Multi-variant: dynamic list of editions -->
+                <div class="space-y-3">
+                  @for (v of newProdVariants(); track $index; let vIdx = $index) {
+                    <div class="p-3.5 rounded-xl bg-surface-container/60 border border-outline-variant/60 space-y-2.5">
+                      <div class="flex items-center justify-between">
+                        <span class="text-xs font-bold text-primary flex items-center gap-1.5">
+                          <span>🏷️ Edición #{{ vIdx + 1 }}</span>
+                          @if (vIdx === 0) {
+                            <span class="text-[10px] px-1.5 py-0.5 rounded bg-primary/20 text-primary font-medium">Principal</span>
+                          }
+                        </span>
+                        @if (newProdVariants().length > 1) {
+                          <button
+                            type="button"
+                            (click)="removeNewProdVariantRow(vIdx)"
+                            class="text-xs text-rose-400 hover:text-rose-300 font-semibold cursor-pointer"
+                          >
+                            🗑️ Eliminar
+                          </button>
+                        }
+                      </div>
+
+                      <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                        <div>
+                          <label class="block text-[11px] font-semibold text-on-surface-variant mb-1">Nombre de la Edición / Variante *</label>
+                          <input
+                            type="text"
+                            [(ngModel)]="v.variant_name"
+                            [name]="'new_var_name_' + vIdx"
+                            placeholder="Ej. 256GB / Negro, Edición OC, 32GB RAM"
+                            required
+                            class="das-input text-xs"
+                          />
+                        </div>
+                        <div>
+                          <label class="block text-[11px] font-semibold text-on-surface-variant mb-1">SKU Único *</label>
+                          <input
+                            type="text"
+                            [(ngModel)]="v.sku"
+                            [name]="'new_var_sku_' + vIdx"
+                            placeholder="Ej. IP16-256-BLK"
+                            required
+                            class="das-input text-xs font-mono uppercase"
+                          />
+                        </div>
+                      </div>
+
+                      <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                        <div>
+                          <label class="block text-[11px] font-semibold text-on-surface-variant mb-1">Precio ($ USD) *</label>
+                          <input
+                            type="number"
+                            [(ngModel)]="v.price"
+                            [name]="'new_var_price_' + vIdx"
+                            min="0"
+                            step="0.01"
+                            required
+                            class="das-input text-xs"
+                            placeholder="799.00"
+                          />
+                        </div>
+                        <div>
+                          <label class="block text-[11px] font-semibold text-on-surface-variant mb-1">Stock Inicial *</label>
+                          <input
+                            type="number"
+                            [(ngModel)]="v.stock"
+                            [name]="'new_var_stock_' + vIdx"
+                            min="0"
+                            required
+                            class="das-input text-xs"
+                            placeholder="5"
+                          />
+                        </div>
+                        <div class="flex items-center pt-5">
+                          <label class="flex items-center gap-1.5 cursor-pointer text-[11px] text-on-surface-variant">
+                            <input
+                              type="checkbox"
+                              [(ngModel)]="v.is_bundle"
+                              [name]="'new_var_bundle_' + vIdx"
+                              class="rounded bg-surface border-outline-variant text-primary"
+                            />
+                            <span>Es Bundle/Combo</span>
+                          </label>
+                        </div>
+                      </div>
+                    </div>
+                  }
+
+                  <button
+                    type="button"
+                    (click)="addNewProdVariantRow()"
+                    class="w-full py-2.5 rounded-xl border border-dashed border-primary/50 bg-primary/5 hover:bg-primary/10 text-primary font-bold text-xs transition cursor-pointer flex items-center justify-center gap-1.5"
+                  >
+                    <span>+ Añadir Otra Edición / Variante</span>
+                  </button>
+                </div>
+              }
             </div>
 
             <div class="flex items-center justify-end gap-3 pt-3 border-t border-outline-variant/40">
@@ -1467,6 +1599,118 @@ export interface SpecGroup {
               }
             </div>
 
+            <!-- 4. Ediciones & Variantes del Producto -->
+            <div class="space-y-3 border-t border-outline-variant/40 pt-3">
+              <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div>
+                  <h4 class="text-xs font-bold uppercase tracking-wider text-primary">4. Ediciones & Existencias (Variantes)</h4>
+                  <p class="text-[11px] text-outline">
+                    Administra las diferentes ediciones del producto. Si tiene más de 1 edición, la tienda mostrará el selector para que el cliente elija.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  (click)="addEditProdVariantRow()"
+                  class="px-2.5 py-1 rounded bg-primary/10 hover:bg-primary/20 text-primary border border-primary/30 text-[11px] font-semibold transition cursor-pointer flex items-center gap-1 self-start sm:self-auto"
+                >
+                  <span>+ Añadir Edición</span>
+                </button>
+              </div>
+
+              <div class="space-y-3">
+                @for (v of editProdVariants(); track $index; let vIdx = $index) {
+                  <div class="p-3.5 rounded-xl bg-surface-container/60 border border-outline-variant/60 space-y-2.5">
+                    <div class="flex items-center justify-between">
+                      <div class="flex items-center gap-2">
+                        <span class="text-xs font-bold text-primary">🏷️ Edición #{{ vIdx + 1 }}</span>
+                        @if (v.isNew) {
+                          <span class="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-bold border border-emerald-500/30">
+                            Nueva
+                          </span>
+                        }
+                        @if (vIdx === 0 && editProdVariants().length > 1) {
+                          <span class="text-[10px] px-1.5 py-0.5 rounded bg-surface-container-highest text-on-surface-variant font-medium">
+                            Predeterminada
+                          </span>
+                        }
+                      </div>
+                      @if (editProdVariants().length > 1) {
+                        <button
+                          type="button"
+                          (click)="removeEditProdVariantRow(vIdx)"
+                          class="text-xs text-rose-400 hover:text-rose-300 font-semibold cursor-pointer"
+                        >
+                          🗑️ Eliminar
+                        </button>
+                      }
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                      <div>
+                        <label class="block text-[11px] font-semibold text-on-surface-variant mb-1">Nombre de la Edición *</label>
+                        <input
+                          type="text"
+                          [(ngModel)]="v.variant_name"
+                          [name]="'edit_var_name_' + vIdx"
+                          placeholder="Ej. Estándar, 512GB Blanco, Edición OC"
+                          required
+                          class="das-input text-xs"
+                        />
+                      </div>
+                      <div>
+                        <label class="block text-[11px] font-semibold text-on-surface-variant mb-1">SKU *</label>
+                        <input
+                          type="text"
+                          [(ngModel)]="v.sku"
+                          [name]="'edit_var_sku_' + vIdx"
+                          placeholder="Ej. GPU-RTX-5080-OC"
+                          required
+                          class="das-input text-xs font-mono uppercase"
+                        />
+                      </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                      <div>
+                        <label class="block text-[11px] font-semibold text-on-surface-variant mb-1">Precio ($ USD) *</label>
+                        <input
+                          type="number"
+                          [(ngModel)]="v.price"
+                          [name]="'edit_var_price_' + vIdx"
+                          min="0"
+                          step="0.01"
+                          required
+                          class="das-input text-xs"
+                        />
+                      </div>
+                      <div>
+                        <label class="block text-[11px] font-semibold text-on-surface-variant mb-1">Stock *</label>
+                        <input
+                          type="number"
+                          [(ngModel)]="v.stock"
+                          [name]="'edit_var_stock_' + vIdx"
+                          min="0"
+                          required
+                          class="das-input text-xs"
+                        />
+                      </div>
+                      <div class="flex items-center pt-5">
+                        <label class="flex items-center gap-1.5 cursor-pointer text-[11px] text-on-surface-variant">
+                          <input
+                            type="checkbox"
+                            [(ngModel)]="v.is_bundle"
+                            [name]="'edit_var_bundle_' + vIdx"
+                            class="rounded bg-surface border-outline-variant text-primary"
+                          />
+                          <span>Es Combo / Bundle</span>
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+                }
+              </div>
+            </div>
+
             <div class="flex items-center justify-between pt-3 border-t border-outline-variant/40">
               <button
                 type="button"
@@ -1548,6 +1792,12 @@ export class InventoryManagementComponent {
   // Ficha Técnica (Specifications)
   newProdSpecGroups = signal<SpecGroup[]>([]);
   editProdSpecGroups = signal<SpecGroup[]>([]);
+
+  // Variants & Editions management
+  isNewProdMultiVariant = signal<boolean>(false);
+  newProdVariants = signal<Array<{ sku: string; variant_name: string; price: number; stock: number; is_bundle: boolean }>>([]);
+  editProdVariants = signal<Array<{ id: string; sku: string; variant_name: string; price: number; stock: number; is_bundle: boolean; isNew?: boolean }>>([]);
+  deletedVariantIds: string[] = [];
 
   newVarForm = {
     sku: '',
@@ -1894,15 +2144,61 @@ export class InventoryManagementComponent {
       is_bundle: false
     };
 
+    this.isNewProdMultiVariant.set(false);
+    this.newProdVariants.set([]);
     this.newProdImages.set([]);
     this.newProdUrlInput = '';
     this.newProdSpecGroups.set([]);
     this.isNewProductModalOpen.set(true);
   }
 
+  setNewProdVariantMode(multiple: boolean): void {
+    this.isNewProdMultiVariant.set(multiple);
+    if (multiple && this.newProdVariants().length === 0) {
+      this.newProdVariants.set([
+        {
+          sku: this.newVarForm.sku || '',
+          variant_name: this.newVarForm.variant_name || 'Edición Estándar',
+          price: this.newVarForm.price || 0,
+          stock: this.newVarForm.stock || 5,
+          is_bundle: this.newVarForm.is_bundle || false
+        },
+        {
+          sku: '',
+          variant_name: '',
+          price: this.newVarForm.price || 0,
+          stock: 5,
+          is_bundle: false
+        }
+      ]);
+    }
+  }
+
+  addNewProdVariantRow(): void {
+    const nextNum = this.newProdVariants().length + 1;
+    this.newProdVariants.update((list) => [
+      ...list,
+      {
+        sku: '',
+        variant_name: `Edición ${nextNum}`,
+        price: list.length > 0 ? list[0].price : 0,
+        stock: 5,
+        is_bundle: false
+      }
+    ]);
+  }
+
+  removeNewProdVariantRow(index: number): void {
+    if (this.newProdVariants().length <= 1) {
+      alert('Debes mantener al menos una variante.');
+      return;
+    }
+    this.newProdVariants.update((list) => list.filter((_, i) => i !== index));
+  }
+
   async saveProduct(): Promise<void> {
-    if (!this.newProdForm.model || !this.newVarForm.sku || !this.newVarForm.variant_name) {
-      alert('Por favor completa todos los campos requeridos (*).');
+    if (!this.newProdForm.model?.trim()) {
+      alert('Por favor ingresa el nombre / modelo del producto.');
       return;
     }
     if (this.newProdImages().length < 1) {
@@ -1914,15 +2210,63 @@ export class InventoryManagementComponent {
       return;
     }
 
+    let variantsToSave: Array<{ sku: string; variant_name: string; price: number; stock: number; is_bundle: boolean }> = [];
+
+    if (this.isNewProdMultiVariant()) {
+      const list = this.newProdVariants();
+      if (list.length === 0) {
+        alert('Debes agregar al menos una edición o variante.');
+        return;
+      }
+      for (let i = 0; i < list.length; i++) {
+        const v = list[i];
+        if (!v.sku.trim() || !v.variant_name.trim()) {
+          alert(`Por favor completa el SKU y el nombre para la Edición #${i + 1}.`);
+          return;
+        }
+      }
+      const skus = new Set<string>();
+      for (const v of list) {
+        const cleanSku = v.sku.trim().toUpperCase();
+        if (skus.has(cleanSku)) {
+          alert(`El SKU "${cleanSku}" está repetido entre las variantes. Cada SKU debe ser único.`);
+          return;
+        }
+        skus.add(cleanSku);
+      }
+      variantsToSave = list.map((v) => ({
+        ...v,
+        sku: v.sku.trim().toUpperCase(),
+        variant_name: v.variant_name.trim(),
+        price: Number(v.price) || 0,
+        stock: Number(v.stock) || 0,
+        is_bundle: !!v.is_bundle
+      }));
+    } else {
+      if (!this.newVarForm.sku?.trim()) {
+        alert('Por favor ingresa el SKU del producto.');
+        return;
+      }
+      variantsToSave = [
+        {
+          sku: this.newVarForm.sku.trim().toUpperCase(),
+          variant_name: this.newVarForm.variant_name.trim() || 'Estándar',
+          price: Number(this.newVarForm.price) || 0,
+          stock: Number(this.newVarForm.stock) || 0,
+          is_bundle: !!this.newVarForm.is_bundle
+        }
+      ];
+    }
+
     const specs = this.serializeSpecGroups(this.newProdSpecGroups());
 
-    await this.adminService.createProductWithVariant(
+    await this.adminService.createProductWithVariants(
       {
         ...this.newProdForm,
         images: this.newProdImages(),
         specifications: specs
       },
-      this.newVarForm
+      variantsToSave
     );
     this.isNewProductModalOpen.set(false);
   }
@@ -1941,7 +2285,71 @@ export class InventoryManagementComponent {
     this.editProdImages.set(Array.isArray(prod.images) ? [...prod.images] : []);
     this.editProdUrlInput = '';
     this.editProdSpecGroups.set(this.deserializeProductSpecs(prod.specifications));
+
+    this.deletedVariantIds = [];
+    const existingVariants = prod.variants && prod.variants.length > 0 ? prod.variants : [];
+    if (existingVariants.length === 0) {
+      this.editProdVariants.set([
+        {
+          id: crypto.randomUUID(),
+          sku: 'SKU-' + prod.model.replace(/\s+/g, '-').toUpperCase().slice(0, 10),
+          variant_name: 'Estándar',
+          price: 0,
+          stock: 1,
+          is_bundle: false,
+          isNew: true
+        }
+      ]);
+    } else {
+      this.editProdVariants.set(
+        existingVariants.map((v) => ({
+          id: v.id,
+          sku: v.sku,
+          variant_name: v.variant_name || 'Estándar',
+          price: v.price,
+          stock: v.stock,
+          is_bundle: !!v.is_bundle,
+          isNew: false
+        }))
+      );
+    }
+
     this.isEditProductModalOpen.set(true);
+  }
+
+  addEditProdVariantRow(): void {
+    const prod = this.editingProduct();
+    const nextNum = this.editProdVariants().length + 1;
+    const defaultSku = prod?.model
+      ? `${prod.model.replace(/[^a-zA-Z0-9]/g, '-').toUpperCase().slice(0, 8)}-V${nextNum}`
+      : `SKU-V${nextNum}`;
+    const firstPrice = this.editProdVariants().length > 0 ? this.editProdVariants()[0].price : 0;
+
+    this.editProdVariants.update((list) => [
+      ...list,
+      {
+        id: crypto.randomUUID(),
+        sku: defaultSku,
+        variant_name: `Edición ${nextNum}`,
+        price: firstPrice,
+        stock: 5,
+        is_bundle: false,
+        isNew: true
+      }
+    ]);
+  }
+
+  removeEditProdVariantRow(index: number): void {
+    const variants = this.editProdVariants();
+    if (variants.length <= 1) {
+      alert('Un producto debe tener al menos una variante o edición.');
+      return;
+    }
+    const toRemove = variants[index];
+    if (!toRemove.isNew && toRemove.id) {
+      this.deletedVariantIds.push(toRemove.id);
+    }
+    this.editProdVariants.update((list) => list.filter((_, i) => i !== index));
   }
 
   onEditProductCategorySelected(catId: string): void {
@@ -2021,8 +2429,32 @@ export class InventoryManagementComponent {
       return;
     }
 
+    const variants = this.editProdVariants();
+    if (variants.length === 0) {
+      alert('El producto debe tener al menos una variante o edición.');
+      return;
+    }
+    for (let i = 0; i < variants.length; i++) {
+      const v = variants[i];
+      if (!v.sku?.trim() || !v.variant_name?.trim()) {
+        alert(`La edición #${i + 1} debe tener SKU y Nombre.`);
+        return;
+      }
+    }
+
+    const skus = new Set<string>();
+    for (const v of variants) {
+      const cleanSku = v.sku.trim().toUpperCase();
+      if (skus.has(cleanSku)) {
+        alert(`El SKU "${cleanSku}" está repetido. Cada SKU debe ser único.`);
+        return;
+      }
+      skus.add(cleanSku);
+    }
+
     const specs = this.serializeSpecGroups(this.editProdSpecGroups());
 
+    // 1. Update product base info
     await this.adminService.updateProduct(this.editingProduct()!.id, {
       model: this.editProdForm.model.trim(),
       category_id: this.editProdForm.category_id,
@@ -2033,6 +2465,32 @@ export class InventoryManagementComponent {
       images: this.editProdImages(),
       specifications: specs
     });
+
+    // 2. Delete removed variants
+    for (const vId of this.deletedVariantIds) {
+      await this.adminService.deleteVariant(vId);
+    }
+
+    // 3. Update existing or insert new variants
+    for (const v of variants) {
+      if (v.isNew) {
+        await this.adminService.addVariantToProduct(this.editingProduct()!.id, {
+          sku: v.sku.trim().toUpperCase(),
+          variant_name: v.variant_name.trim(),
+          price: Number(v.price) || 0,
+          stock: Number(v.stock) || 0,
+          is_bundle: !!v.is_bundle
+        });
+      } else {
+        await this.adminService.updateVariant(v.id, {
+          sku: v.sku.trim().toUpperCase(),
+          variant_name: v.variant_name.trim(),
+          price: Number(v.price) || 0,
+          stock: Number(v.stock) || 0,
+          is_bundle: !!v.is_bundle
+        });
+      }
+    }
 
     this.isEditProductModalOpen.set(false);
   }

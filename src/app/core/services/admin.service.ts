@@ -661,6 +661,74 @@ export class AdminService {
     });
   }
 
+  async createProductWithVariants(
+    productData: {
+      model: string;
+      category_id: string;
+      brand_id: string;
+      short_description?: string;
+      long_description?: string;
+      product_type?: string;
+      images?: string[];
+      specifications?: ProductSpecification[];
+    },
+    variantsData: Array<{
+      sku: string;
+      variant_name: string;
+      price: number;
+      stock: number;
+      attributes?: Record<string, any>;
+      is_bundle?: boolean;
+    }>
+  ): Promise<void> {
+    const prodId = crypto.randomUUID();
+
+    const newProd: DbProduct = {
+      id: prodId,
+      category_id: productData.category_id,
+      brand_id: productData.brand_id,
+      model: productData.model,
+      short_description: productData.short_description || '',
+      long_description: productData.long_description || '',
+      product_type: productData.product_type || 'standalone',
+      is_active: true,
+      images: productData.images && productData.images.length > 0 ? productData.images : [],
+      specifications: productData.specifications && productData.specifications.length > 0 ? productData.specifications : [],
+      created_at: new Date().toISOString()
+    };
+
+    const newVariants: DbProductVariant[] = variantsData.map((v) => ({
+      id: crypto.randomUUID(),
+      product_id: prodId,
+      sku: v.sku.trim(),
+      variant_name: v.variant_name.trim() || 'Estándar',
+      price: Number(v.price) || 0,
+      stock: Number(v.stock) || 0,
+      attributes: v.attributes || {},
+      is_bundle: !!v.is_bundle,
+      created_at: new Date().toISOString()
+    }));
+
+    try {
+      await (this.supabase.from('products') as any).insert(newProd);
+      if (newVariants.length > 0) {
+        await (this.supabase.from('product_variants') as any).insert(newVariants);
+      }
+    } catch {}
+
+    const category = this.categories().find((c) => c.id === newProd.category_id);
+    const brand = this.brands().find((b) => b.id === newProd.brand_id);
+
+    const fullProd: AdminProductWithVariants = {
+      ...newProd,
+      category,
+      brand,
+      variants: newVariants
+    };
+
+    this.products.update((prev) => [fullProd, ...prev]);
+  }
+
   async createProductWithVariant(
     productData: {
       model: string;
@@ -681,51 +749,76 @@ export class AdminService {
       is_bundle?: boolean;
     }
   ): Promise<void> {
-    const prodId = crypto.randomUUID();
-    const varId = crypto.randomUUID();
+    return this.createProductWithVariants(productData, [variantData]);
+  }
 
-    const newProd: DbProduct = {
-      id: prodId,
-      category_id: productData.category_id,
-      brand_id: productData.brand_id,
-      model: productData.model,
-      short_description: productData.short_description || '',
-      long_description: productData.long_description || '',
-      product_type: productData.product_type || 'standalone',
-      is_active: true,
-      images: productData.images && productData.images.length > 0 ? productData.images : [],
-      specifications: productData.specifications && productData.specifications.length > 0 ? productData.specifications : [],
-      created_at: new Date().toISOString()
-    };
-
-    const newVar: DbProductVariant = {
-      id: varId,
-      product_id: prodId,
-      sku: variantData.sku,
-      variant_name: variantData.variant_name,
-      price: Number(variantData.price),
-      stock: Number(variantData.stock),
+  async addVariantToProduct(
+    productId: string,
+    variantData: {
+      sku: string;
+      variant_name: string;
+      price: number;
+      stock: number;
+      attributes?: Record<string, any>;
+      is_bundle?: boolean;
+    }
+  ): Promise<DbProductVariant> {
+    const newVariant: DbProductVariant = {
+      id: crypto.randomUUID(),
+      product_id: productId,
+      sku: variantData.sku.trim(),
+      variant_name: variantData.variant_name.trim() || 'Nueva Edición',
+      price: Number(variantData.price) || 0,
+      stock: Number(variantData.stock) || 0,
       attributes: variantData.attributes || {},
       is_bundle: !!variantData.is_bundle,
       created_at: new Date().toISOString()
     };
 
     try {
-      await (this.supabase.from('products') as any).insert(newProd);
-      await (this.supabase.from('product_variants') as any).insert(newVar);
+      await (this.supabase.from('product_variants') as any).insert(newVariant);
     } catch {}
 
-    const category = this.categories().find((c) => c.id === newProd.category_id);
-    const brand = this.brands().find((b) => b.id === newProd.brand_id);
+    this.products.update((prods) =>
+      prods.map((p) => {
+        if (p.id !== productId) return p;
+        return {
+          ...p,
+          variants: [...(p.variants || []), newVariant]
+        };
+      })
+    );
 
-    const fullProd: AdminProductWithVariants = {
-      ...newProd,
-      category,
-      brand,
-      variants: [newVar]
-    };
+    return newVariant;
+  }
 
-    this.products.update((prev) => [fullProd, ...prev]);
+  async updateVariant(
+    variantId: string,
+    variantData: Partial<DbProductVariant>
+  ): Promise<void> {
+    try {
+      await (this.supabase.from('product_variants') as any).update(variantData).eq('id', variantId);
+    } catch {}
+
+    this.products.update((prods) =>
+      prods.map((p) => ({
+        ...p,
+        variants: (p.variants || []).map((v) => (v.id === variantId ? { ...v, ...variantData } : v))
+      }))
+    );
+  }
+
+  async deleteVariant(variantId: string): Promise<void> {
+    try {
+      await (this.supabase.from('product_variants') as any).delete().eq('id', variantId);
+    } catch {}
+
+    this.products.update((prods) =>
+      prods.map((p) => ({
+        ...p,
+        variants: (p.variants || []).filter((v) => v.id !== variantId)
+      }))
+    );
   }
 
   async updateProduct(productId: string, data: Partial<DbProduct>): Promise<void> {
