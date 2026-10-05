@@ -1,3 +1,5 @@
+import { ProductSpecification } from './product.model';
+
 // ==========================================
 // CUSTOM TYPES / ENUMS (SUPABASE)
 // ==========================================
@@ -65,6 +67,8 @@ export interface DbProduct {
   long_description?: string | null;
   product_type: string;
   is_active: boolean;
+  images?: string[];
+  specifications?: ProductSpecification[];
   created_at: string; // timestamptz
 }
 

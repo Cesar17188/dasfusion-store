@@ -3,6 +3,17 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AdminService, AdminProductWithVariants } from '../../../../core/services/admin.service';
 import { DbProductVariant, DbCategory, DbBrand } from '../../../../core/models/supabase.model';
+import { ProductSpecification } from '../../../../core/models/product.model';
+
+export interface SpecGroupItem {
+  key: string;
+  value: string;
+}
+
+export interface SpecGroup {
+  category: string;
+  items: SpecGroupItem[];
+}
 
 @Component({
   selector: 'app-inventory-management',
@@ -176,19 +187,45 @@ import { DbProductVariant, DbCategory, DbBrand } from '../../../../core/models/s
                     <th class="py-3 px-4">Precio ($)</th>
                     <th class="py-3 px-4">Stock Actual</th>
                     <th class="py-3 px-4">Estado</th>
-                    <th class="py-3 px-4 text-right">Ajuste Rápido</th>
+                    <th class="py-3 px-4 text-right">Acciones & Ajuste</th>
                   </tr>
                 </thead>
                 <tbody class="divide-y divide-outline-variant/30">
                   @for (item of flattenedVariants(); track item.variant.id) {
                     <tr class="hover:bg-surface-container/60 transition">
                       <td class="py-3.5 px-4">
-                        <div class="font-bold text-on-surface">{{ item.product.model }}</div>
-                        @if (item.variant.is_bundle) {
-                          <span class="inline-block mt-0.5 px-2 py-0.5 rounded text-[10px] font-bold bg-primary-container text-primary border border-primary/30">
-                            COMBO / BUNDLE
-                          </span>
-                        }
+                        <div class="flex items-center gap-3">
+                          <div
+                            (click)="openEditProductModal(item.product)"
+                            class="w-11 h-11 rounded-lg bg-surface-container-high border border-outline-variant/50 overflow-hidden shrink-0 flex items-center justify-center cursor-pointer hover:border-primary/60 transition"
+                            title="Editar producto"
+                          >
+                            @if (item.product.images && item.product.images.length > 0) {
+                              <img [src]="item.product.images[0]" [alt]="item.product.model" class="w-full h-full object-cover" />
+                            } @else {
+                              <span class="text-xs text-outline font-bold">📦</span>
+                            }
+                          </div>
+                          <div>
+                            <div
+                              (click)="openEditProductModal(item.product)"
+                              class="font-bold text-on-surface hover:text-primary transition cursor-pointer"
+                              title="Editar producto e imágenes"
+                            >
+                              {{ item.product.model }}
+                            </div>
+                            <div class="flex items-center gap-1.5 mt-0.5">
+                              <span class="text-[10px] text-outline flex items-center gap-0.5">
+                                📷 {{ item.product.images?.length || 0 }}/10
+                              </span>
+                              @if (item.variant.is_bundle) {
+                                <span class="px-1.5 py-0.2 rounded text-[9px] font-bold bg-primary-container text-primary">
+                                  BUNDLE
+                                </span>
+                              }
+                            </div>
+                          </div>
+                        </div>
                       </td>
                       <td class="py-3.5 px-4">
                         <div class="text-on-surface">{{ item.product.category?.name || 'General' }}</div>
@@ -237,18 +274,26 @@ import { DbProductVariant, DbCategory, DbBrand } from '../../../../core/models/s
                         }
                       </td>
                       <td class="py-3.5 px-4 text-right">
-                        <div class="flex items-center justify-end gap-1">
+                        <div class="flex items-center justify-end gap-1.5">
+                          <button
+                            (click)="openEditProductModal(item.product)"
+                            title="Editar producto e imágenes"
+                            class="px-2.5 py-1 rounded bg-surface-container-high hover:bg-surface-container-highest text-[11px] font-semibold text-primary transition cursor-pointer flex items-center gap-1"
+                          >
+                            <span>✏️</span>
+                            <span>Editar</span>
+                          </button>
                           <button
                             (click)="incrementStock(item.variant.id, item.variant.stock, 5)"
                             title="Sumar +5 unidades al stock"
-                            class="px-2 py-1 rounded bg-surface-container-high hover:bg-surface-container-highest text-[11px] font-semibold text-primary transition cursor-pointer"
+                            class="px-2 py-1 rounded bg-surface-container-high hover:bg-surface-container-highest text-[11px] font-semibold text-on-surface-variant transition cursor-pointer"
                           >
-                            +5 Stock
+                            +5
                           </button>
                           <button
                             (click)="incrementStock(item.variant.id, item.variant.stock, 10)"
                             title="Sumar +10 unidades al stock"
-                            class="px-2 py-1 rounded bg-surface-container-high hover:bg-surface-container-highest text-[11px] font-semibold text-primary transition cursor-pointer"
+                            class="px-2 py-1 rounded bg-surface-container-high hover:bg-surface-container-highest text-[11px] font-semibold text-on-surface-variant transition cursor-pointer"
                           >
                             +10
                           </button>
@@ -594,9 +639,251 @@ import { DbProductVariant, DbCategory, DbBrand } from '../../../../core/models/s
               </div>
             </div>
 
-            <!-- Variant Info -->
+            <!-- 2. Product Images Management (Min 1, Max 10) -->
+            <div class="space-y-2.5 border-t border-outline-variant/40 pt-3">
+              <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+                <div class="flex items-center gap-2">
+                  <h4 class="text-xs font-bold uppercase tracking-wider text-primary">2. Fotografías del Producto *</h4>
+                  <span class="text-xs font-bold text-on-surface">({{ newProdImages().length }} / 10)</span>
+                </div>
+                @if (newProdImages().length === 0) {
+                  <span class="text-[10px] font-bold text-rose-400 bg-rose-950/60 border border-rose-500/30 px-2 py-0.5 rounded-full">
+                    ⚠️ Mínimo 1 imagen requerida
+                  </span>
+                } @else if (newProdImages().length === 10) {
+                  <span class="text-[10px] font-bold text-amber-300 bg-amber-950/60 border border-amber-500/30 px-2 py-0.5 rounded-full">
+                    Máximo alcanzado (10)
+                  </span>
+                } @else {
+                  <span class="text-[10px] font-bold text-emerald-400 bg-emerald-950/60 border border-emerald-500/30 px-2 py-0.5 rounded-full">
+                    ✓ Válido ({{ newProdImages().length }} imagen{{ newProdImages().length > 1 ? 'es' : '' }})
+                  </span>
+                }
+              </div>
+
+              <p class="text-[11px] text-outline">
+                Ingresa al menos 1 imagen y hasta 10 fotos. La primera imagen será la portada visible en la tienda.
+              </p>
+
+              <!-- Upload buttons / URL bar -->
+              <div class="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center">
+                <!-- File Input Button -->
+                <input
+                  type="file"
+                  #newProdFileInput
+                  (change)="onUploadNewProductImages($event)"
+                  multiple
+                  accept="image/png, image/jpeg, image/webp, image/avif, image/gif"
+                  class="hidden"
+                />
+                <button
+                  type="button"
+                  (click)="newProdFileInput.click()"
+                  [disabled]="newProdImages().length >= 10 || isUploadingNewImages()"
+                  class="btn-secondary py-2! px-3! text-xs flex items-center justify-center gap-1.5 whitespace-nowrap cursor-pointer disabled:opacity-50"
+                >
+                  @if (isUploadingNewImages()) {
+                    <span class="animate-spin text-sm">⏳</span>
+                    <span>Subiendo...</span>
+                  } @else {
+                    <span>📁 Subir desde PC</span>
+                  }
+                </button>
+
+                <!-- URL Input -->
+                <div class="flex items-center gap-1 flex-1">
+                  <input
+                    type="url"
+                    [(ngModel)]="newProdUrlInput"
+                    name="newProdUrl"
+                    placeholder="O pegar URL directa (https://...)"
+                    class="das-input text-xs py-1.5 flex-1"
+                    (keydown.enter)="$event.preventDefault(); addNewProductImageUrl()"
+                  />
+                  <button
+                    type="button"
+                    (click)="addNewProductImageUrl()"
+                    [disabled]="newProdImages().length >= 10 || !newProdUrlInput.trim()"
+                    class="px-3 py-2 rounded-lg bg-surface-container-high hover:bg-surface-container-highest text-primary font-semibold text-xs transition cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
+                  >
+                    + Añadir
+                  </button>
+                </div>
+              </div>
+
+              <!-- Thumbnails Grid -->
+              @if (newProdImages().length > 0) {
+                <div class="grid grid-cols-2 sm:grid-cols-5 gap-2.5 pt-2">
+                  @for (img of newProdImages(); track $index) {
+                    <div class="relative group aspect-square rounded-xl overflow-hidden border border-outline-variant/60 bg-surface-container-high">
+                      <img [src]="img" alt="Preview" class="w-full h-full object-cover" />
+                      
+                      <!-- Badge Cover -->
+                      @if ($index === 0) {
+                        <span class="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-500 text-black shadow-md">
+                          ⭐ Portada
+                        </span>
+                      }
+
+                      <!-- Hover Overlay with Actions -->
+                      <div class="absolute inset-0 bg-black/70 opacity-0 group-hover:opacity-100 transition flex flex-col items-center justify-center gap-1.5 p-1">
+                        @if ($index !== 0) {
+                          <button
+                            type="button"
+                            (click)="setPrimaryNewProductImage($index)"
+                            class="px-2 py-0.5 rounded bg-primary text-on-primary text-[10px] font-bold hover:brightness-110 cursor-pointer"
+                          >
+                            Hacer Portada
+                          </button>
+                        }
+                        <button
+                          type="button"
+                          (click)="removeNewProductImage($index)"
+                          class="px-2 py-0.5 rounded bg-rose-600 text-white text-[10px] font-bold hover:bg-rose-700 cursor-pointer"
+                        >
+                          ✕ Eliminar
+                        </button>
+                      </div>
+                    </div>
+                  }
+                </div>
+              } @else {
+                <div
+                  (click)="newProdFileInput.click()"
+                  class="border-2 border-dashed border-outline-variant/60 rounded-xl p-4 text-center cursor-pointer hover:border-primary/60 transition bg-surface/40"
+                >
+                  <div class="text-2xl mb-1">🖼️</div>
+                  <p class="text-xs font-semibold text-on-surface">No hay imágenes agregadas aún</p>
+                  <p class="text-[11px] text-outline">Haz clic aquí para seleccionar fotos desde tu PC o pega una URL arriba</p>
+                </div>
+              }
+            </div>
+
+            <!-- 3. Ficha Técnica / Especificaciones Dinámicas -->
             <div class="space-y-3 border-t border-outline-variant/40 pt-3">
-              <h4 class="text-xs font-bold uppercase tracking-wider text-primary">2. Variante Inicial & Inventario</h4>
+              <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div>
+                  <h4 class="text-xs font-bold uppercase tracking-wider text-primary">3. Ficha Técnica & Especificaciones</h4>
+                  <p class="text-[11px] text-outline">
+                    Visible en la pestaña "Ficha Técnica" de la tienda y utilizada para compatibilidad en el PC Builder.
+                  </p>
+                </div>
+                <div class="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    (click)="applyNewProdSpecTemplate()"
+                    class="px-2.5 py-1 rounded bg-primary/10 hover:bg-primary/20 text-primary border border-primary/30 text-[11px] font-semibold transition cursor-pointer flex items-center gap-1"
+                  >
+                    <span>⚡</span>
+                    <span>Plantilla Sugerida</span>
+                  </button>
+                  <button
+                    type="button"
+                    (click)="addNewProdSpecGroup()"
+                    class="px-2.5 py-1 rounded bg-surface-container-high hover:bg-surface-container-highest text-on-surface text-[11px] font-semibold transition cursor-pointer flex items-center gap-1"
+                  >
+                    <span>+</span>
+                    <span>Nueva Sección</span>
+                  </button>
+                </div>
+              </div>
+
+              @if (newProdSpecGroups().length > 0) {
+                <div class="space-y-3">
+                  @for (group of newProdSpecGroups(); track $index; let gIdx = $index) {
+                    <div class="p-3 rounded-xl bg-surface-container/60 border border-outline-variant/50 space-y-2.5">
+                      <!-- Group Header -->
+                      <div class="flex items-center justify-between gap-2">
+                        <div class="flex items-center gap-2 flex-1">
+                          <span class="text-xs font-bold text-primary">📁 Sección:</span>
+                          <input
+                            type="text"
+                            [(ngModel)]="group.category"
+                            [name]="'new_spec_group_' + gIdx"
+                            placeholder="Ej. Rendimiento, Conectividad, Pantalla..."
+                            class="das-input text-xs py-1 flex-1 font-bold text-on-surface"
+                          />
+                        </div>
+                        <button
+                          type="button"
+                          (click)="removeNewProdSpecGroup(gIdx)"
+                          class="text-outline hover:text-error text-xs p-1 cursor-pointer"
+                          title="Eliminar sección completa"
+                        >
+                          🗑️
+                        </button>
+                      </div>
+
+                      <!-- Key-Value Items Rows -->
+                      <div class="space-y-1.5 pl-2 sm:pl-3 border-l-2 border-outline-variant/40">
+                        @for (item of group.items; track $index; let iIdx = $index) {
+                          <div class="flex items-center gap-2">
+                            <input
+                              type="text"
+                              [(ngModel)]="item.key"
+                              [name]="'new_spec_k_' + gIdx + '_' + iIdx"
+                              placeholder="Atributo (ej. Socket, TDP, VRAM)"
+                              class="das-input text-xs py-1 w-1/3 text-on-surface-variant font-medium"
+                            />
+                            <span class="text-outline text-xs">:</span>
+                            <input
+                              type="text"
+                              [(ngModel)]="item.value"
+                              [name]="'new_spec_v_' + gIdx + '_' + iIdx"
+                              placeholder="Valor (ej. AM5, 120W, 16GB)"
+                              class="das-input text-xs py-1 flex-1 font-mono text-on-surface"
+                            />
+                            <button
+                              type="button"
+                              (click)="removeNewProdSpecItem(gIdx, iIdx)"
+                              class="text-outline hover:text-error text-xs p-1 cursor-pointer"
+                              title="Eliminar atributo"
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        }
+
+                        <div class="pt-1">
+                          <button
+                            type="button"
+                            (click)="addNewProdSpecItem(gIdx)"
+                            class="text-[11px] text-primary hover:underline font-semibold flex items-center gap-1 cursor-pointer"
+                          >
+                            <span>+</span>
+                            <span>Añadir fila a esta sección</span>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  }
+                </div>
+              } @else {
+                <div class="border border-dashed border-outline-variant/60 rounded-xl p-3 text-center bg-surface/30">
+                  <p class="text-xs text-outline mb-2">No has agregado ficha técnica a este producto.</p>
+                  <div class="flex items-center justify-center gap-2">
+                    <button
+                      type="button"
+                      (click)="applyNewProdSpecTemplate()"
+                      class="btn-secondary py-1.5! px-3! text-[11px] flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <span>⚡ Cargar Plantilla Sugerida</span>
+                    </button>
+                    <button
+                      type="button"
+                      (click)="addNewProdSpecGroup()"
+                      class="btn-secondary py-1.5! px-3! text-[11px] flex items-center gap-1 cursor-pointer"
+                    >
+                      <span>+ Añadir Sección</span>
+                    </button>
+                  </div>
+                </div>
+              }
+            </div>
+
+            <!-- 4. Variant Info -->
+            <div class="space-y-3 border-t border-outline-variant/40 pt-3">
+              <h4 class="text-xs font-bold uppercase tracking-wider text-primary">4. Variante Inicial & Inventario</h4>
               <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label class="block text-xs font-semibold text-on-surface-variant mb-1">SKU Único *</label>
@@ -672,7 +959,8 @@ import { DbProductVariant, DbCategory, DbBrand } from '../../../../core/models/s
               </button>
               <button
                 type="submit"
-                class="btn-primary py-2! px-5! text-xs"
+                [disabled]="newProdImages().length < 1 || newProdImages().length > 10 || isUploadingNewImages()"
+                class="btn-primary py-2! px-5! text-xs disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Guardar en Inventario
               </button>
@@ -855,6 +1143,360 @@ import { DbProductVariant, DbCategory, DbBrand } from '../../../../core/models/s
         </div>
       </div>
     }
+
+    <!-- ========================================================================= -->
+    <!-- MODAL 4: EDITAR PRODUCTO & GESTIÓN / SUBIDA DE IMÁGENES -->
+    <!-- ========================================================================= -->
+    @if (isEditProductModalOpen() && editingProduct()) {
+      <div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm">
+        <div class="bg-surface-container-low border border-outline-variant rounded-2xl p-6 w-full max-w-2xl space-y-4 shadow-2xl max-h-[92vh] overflow-y-auto">
+          <div class="flex items-center justify-between border-b border-outline-variant/40 pb-3">
+            <div>
+              <span class="text-[10px] uppercase font-bold tracking-wider text-primary">Edición de Catálogo</span>
+              <h3 class="text-base font-bold text-on-surface">Editar Producto: {{ editingProduct()!.model }}</h3>
+            </div>
+            <button (click)="isEditProductModalOpen.set(false)" class="text-outline hover:text-white">✕</button>
+          </div>
+
+          <form (ngSubmit)="saveEditProduct()" class="space-y-4">
+            <!-- Basic Info -->
+            <div class="space-y-3">
+              <h4 class="text-xs font-bold uppercase tracking-wider text-primary">1. Datos del Producto</h4>
+              <div>
+                <label class="block text-xs font-semibold text-on-surface-variant mb-1">Nombre / Modelo del Producto *</label>
+                <input
+                  type="text"
+                  [(ngModel)]="editProdForm.model"
+                  name="edit_model"
+                  required
+                  class="das-input text-xs"
+                />
+              </div>
+
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label class="text-xs font-semibold text-on-surface-variant mb-1 block">Categoría *</label>
+                  <select
+                    [(ngModel)]="editProdForm.category_id"
+                    (ngModelChange)="onEditProductCategorySelected($event)"
+                    name="edit_category_id"
+                    required
+                    class="das-input text-xs"
+                  >
+                    @for (cat of organizedCategories(); track cat.id) {
+                      <option [value]="cat.id">
+                        {{ cat.parent_id ? '↳ ' + cat.name : cat.name }}
+                      </option>
+                    }
+                  </select>
+                </div>
+
+                <div>
+                  <label class="text-xs font-semibold text-on-surface-variant mb-1 block">Marca Vinculada *</label>
+                  <select
+                    [(ngModel)]="editProdForm.brand_id"
+                    name="edit_brand_id"
+                    required
+                    class="das-input text-xs"
+                  >
+                    @for (brand of availableBrandsForEditProd(); track brand.id) {
+                      <option [value]="brand.id">{{ brand.name }}</option>
+                    }
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label class="block text-xs font-semibold text-on-surface-variant mb-1">Descripción Breve</label>
+                <input
+                  type="text"
+                  [(ngModel)]="editProdForm.short_description"
+                  name="edit_short_desc"
+                  class="das-input text-xs"
+                />
+              </div>
+
+              <div class="flex items-center gap-2 pt-1">
+                <input
+                  type="checkbox"
+                  id="edit_is_active"
+                  [(ngModel)]="editProdForm.is_active"
+                  name="edit_is_active"
+                  class="rounded bg-surface border-outline-variant text-primary"
+                />
+                <label for="edit_is_active" class="text-xs text-on-surface-variant">Producto Activo y Visible en la Tienda</label>
+              </div>
+            </div>
+
+            <!-- Image Management in Edit Mode (Min 1, Max 10, Upload more images) -->
+            <div class="space-y-2.5 border-t border-outline-variant/40 pt-3">
+              <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+                <div class="flex items-center gap-2">
+                  <h4 class="text-xs font-bold uppercase tracking-wider text-primary">2. Fotografías Ligadas al Producto *</h4>
+                  <span class="text-xs font-bold text-on-surface">({{ editProdImages().length }} / 10)</span>
+                </div>
+                @if (editProdImages().length === 0) {
+                  <span class="text-[10px] font-bold text-rose-400 bg-rose-950/60 border border-rose-500/30 px-2 py-0.5 rounded-full">
+                    ⚠️ Mínimo 1 imagen requerida
+                  </span>
+                } @else if (editProdImages().length === 10) {
+                  <span class="text-[10px] font-bold text-amber-300 bg-amber-950/60 border border-amber-500/30 px-2 py-0.5 rounded-full">
+                    Máximo alcanzado (10)
+                  </span>
+                } @else {
+                  <span class="text-[10px] font-bold text-emerald-400 bg-emerald-950/60 border border-emerald-500/30 px-2 py-0.5 rounded-full">
+                    ✓ Válido ({{ editProdImages().length }} imagen{{ editProdImages().length > 1 ? 'es' : '' }})
+                  </span>
+                }
+              </div>
+
+              <p class="text-[11px] text-outline">
+                Puedes subir más imágenes desde tu ordenador o agregar enlaces para enriquecer la galería del producto (hasta 10 fotos).
+              </p>
+
+              <!-- Upload buttons / URL bar -->
+              <div class="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center">
+                <input
+                  type="file"
+                  #editProdFileInput
+                  (change)="onUploadEditProductImages($event)"
+                  multiple
+                  accept="image/png, image/jpeg, image/webp, image/avif, image/gif"
+                  class="hidden"
+                />
+                <button
+                  type="button"
+                  (click)="editProdFileInput.click()"
+                  [disabled]="editProdImages().length >= 10 || isUploadingEditImages()"
+                  class="btn-secondary py-2! px-3! text-xs flex items-center justify-center gap-1.5 whitespace-nowrap cursor-pointer disabled:opacity-50"
+                >
+                  @if (isUploadingEditImages()) {
+                    <span class="animate-spin text-sm">⏳</span>
+                    <span>Subiendo...</span>
+                  } @else {
+                    <span>📁 Subir Más Fotos desde PC</span>
+                  }
+                </button>
+
+                <!-- URL Input -->
+                <div class="flex items-center gap-1 flex-1">
+                  <input
+                    type="url"
+                    [(ngModel)]="editProdUrlInput"
+                    name="editProdUrl"
+                    placeholder="O pegar URL directa (https://...)"
+                    class="das-input text-xs py-1.5 flex-1"
+                    (keydown.enter)="$event.preventDefault(); addEditProductImageUrl()"
+                  />
+                  <button
+                    type="button"
+                    (click)="addEditProductImageUrl()"
+                    [disabled]="editProdImages().length >= 10 || !editProdUrlInput.trim()"
+                    class="px-3 py-2 rounded-lg bg-surface-container-high hover:bg-surface-container-highest text-primary font-semibold text-xs transition cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
+                  >
+                    + Añadir
+                  </button>
+                </div>
+              </div>
+
+              <!-- Thumbnails Grid -->
+              @if (editProdImages().length > 0) {
+                <div class="grid grid-cols-2 sm:grid-cols-5 gap-2.5 pt-2">
+                  @for (img of editProdImages(); track $index) {
+                    <div class="relative group aspect-square rounded-xl overflow-hidden border border-outline-variant/60 bg-surface-container-high">
+                      <img [src]="img" alt="Preview" class="w-full h-full object-cover" />
+                      
+                      @if ($index === 0) {
+                        <span class="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-500 text-black shadow-md">
+                          ⭐ Portada
+                        </span>
+                      }
+
+                      <div class="absolute inset-0 bg-black/70 opacity-0 group-hover:opacity-100 transition flex flex-col items-center justify-center gap-1.5 p-1">
+                        @if ($index !== 0) {
+                          <button
+                            type="button"
+                            (click)="setPrimaryEditProductImage($index)"
+                            class="px-2 py-0.5 rounded bg-primary text-on-primary text-[10px] font-bold hover:brightness-110 cursor-pointer"
+                          >
+                            Hacer Portada
+                          </button>
+                        }
+                        <button
+                          type="button"
+                          (click)="removeEditProductImage($index)"
+                          class="px-2 py-0.5 rounded bg-rose-600 text-white text-[10px] font-bold hover:bg-rose-700 cursor-pointer"
+                        >
+                          ✕ Eliminar
+                        </button>
+                      </div>
+                    </div>
+                  }
+                </div>
+              } @else {
+                <div
+                  (click)="editProdFileInput.click()"
+                  class="border-2 border-dashed border-rose-500/40 bg-rose-950/10 rounded-xl p-4 text-center cursor-pointer hover:border-rose-500/70 transition"
+                >
+                  <div class="text-2xl mb-1">⚠️</div>
+                  <p class="text-xs font-semibold text-rose-300">El producto debe tener al menos 1 imagen</p>
+                  <p class="text-[11px] text-outline">Sube una imagen o añade una URL para poder guardar los cambios.</p>
+                </div>
+              }
+            </div>
+
+            <!-- 3. Ficha Técnica / Especificaciones Dinámicas (Edición) -->
+            <div class="space-y-3 border-t border-outline-variant/40 pt-3">
+              <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div>
+                  <h4 class="text-xs font-bold uppercase tracking-wider text-primary">3. Ficha Técnica & Especificaciones</h4>
+                  <p class="text-[11px] text-outline">
+                    Modifica o añade secciones y atributos para la ficha técnica del producto.
+                  </p>
+                </div>
+                <div class="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    (click)="applyEditProdSpecTemplate()"
+                    class="px-2.5 py-1 rounded bg-primary/10 hover:bg-primary/20 text-primary border border-primary/30 text-[11px] font-semibold transition cursor-pointer flex items-center gap-1"
+                  >
+                    <span>⚡</span>
+                    <span>Plantilla Sugerida</span>
+                  </button>
+                  <button
+                    type="button"
+                    (click)="addEditProdSpecGroup()"
+                    class="px-2.5 py-1 rounded bg-surface-container-high hover:bg-surface-container-highest text-on-surface text-[11px] font-semibold transition cursor-pointer flex items-center gap-1"
+                  >
+                    <span>+</span>
+                    <span>Nueva Sección</span>
+                  </button>
+                </div>
+              </div>
+
+              @if (editProdSpecGroups().length > 0) {
+                <div class="space-y-3">
+                  @for (group of editProdSpecGroups(); track $index; let gIdx = $index) {
+                    <div class="p-3 rounded-xl bg-surface-container/60 border border-outline-variant/50 space-y-2.5">
+                      <!-- Group Header -->
+                      <div class="flex items-center justify-between gap-2">
+                        <div class="flex items-center gap-2 flex-1">
+                          <span class="text-xs font-bold text-primary">📁 Sección:</span>
+                          <input
+                            type="text"
+                            [(ngModel)]="group.category"
+                            [name]="'edit_spec_group_' + gIdx"
+                            placeholder="Ej. Rendimiento, Conectividad, Pantalla..."
+                            class="das-input text-xs py-1 flex-1 font-bold text-on-surface"
+                          />
+                        </div>
+                        <button
+                          type="button"
+                          (click)="removeEditProdSpecGroup(gIdx)"
+                          class="text-outline hover:text-error text-xs p-1 cursor-pointer"
+                          title="Eliminar sección completa"
+                        >
+                          🗑️
+                        </button>
+                      </div>
+
+                      <!-- Key-Value Items Rows -->
+                      <div class="space-y-1.5 pl-2 sm:pl-3 border-l-2 border-outline-variant/40">
+                        @for (item of group.items; track $index; let iIdx = $index) {
+                          <div class="flex items-center gap-2">
+                            <input
+                              type="text"
+                              [(ngModel)]="item.key"
+                              [name]="'edit_spec_k_' + gIdx + '_' + iIdx"
+                              placeholder="Atributo (ej. Socket, TDP, VRAM)"
+                              class="das-input text-xs py-1 w-1/3 text-on-surface-variant font-medium"
+                            />
+                            <span class="text-outline text-xs">:</span>
+                            <input
+                              type="text"
+                              [(ngModel)]="item.value"
+                              [name]="'edit_spec_v_' + gIdx + '_' + iIdx"
+                              placeholder="Valor (ej. AM5, 120W, 16GB)"
+                              class="das-input text-xs py-1 flex-1 font-mono text-on-surface"
+                            />
+                            <button
+                              type="button"
+                              (click)="removeEditProdSpecItem(gIdx, iIdx)"
+                              class="text-outline hover:text-error text-xs p-1 cursor-pointer"
+                              title="Eliminar atributo"
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        }
+
+                        <div class="pt-1">
+                          <button
+                            type="button"
+                            (click)="addEditProdSpecItem(gIdx)"
+                            class="text-[11px] text-primary hover:underline font-semibold flex items-center gap-1 cursor-pointer"
+                          >
+                            <span>+</span>
+                            <span>Añadir fila a esta sección</span>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  }
+                </div>
+              } @else {
+                <div class="border border-dashed border-outline-variant/60 rounded-xl p-3 text-center bg-surface/30">
+                  <p class="text-xs text-outline mb-2">Este producto no cuenta con especificaciones técnicas detalladas.</p>
+                  <div class="flex items-center justify-center gap-2">
+                    <button
+                      type="button"
+                      (click)="applyEditProdSpecTemplate()"
+                      class="btn-secondary py-1.5! px-3! text-[11px] flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <span>⚡ Cargar Plantilla Sugerida</span>
+                    </button>
+                    <button
+                      type="button"
+                      (click)="addEditProdSpecGroup()"
+                      class="btn-secondary py-1.5! px-3! text-[11px] flex items-center gap-1 cursor-pointer"
+                    >
+                      <span>+ Añadir Sección</span>
+                    </button>
+                  </div>
+                </div>
+              }
+            </div>
+
+            <div class="flex items-center justify-between pt-3 border-t border-outline-variant/40">
+              <button
+                type="button"
+                (click)="deleteProduct(editingProduct()!.id)"
+                class="px-3 py-2 rounded-lg bg-rose-950/60 hover:bg-rose-900 text-rose-300 text-xs font-semibold transition cursor-pointer"
+              >
+                Eliminar Producto
+              </button>
+
+              <div class="flex items-center gap-2">
+                <button
+                  type="button"
+                  (click)="isEditProductModalOpen.set(false)"
+                  class="btn-secondary py-2! px-4! text-xs"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  [disabled]="editProdImages().length < 1 || editProdImages().length > 10"
+                  class="btn-primary py-2! px-5! text-xs disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Actualizar Producto
+                </button>
+              </div>
+            </div>
+          </form>
+        </div>
+      </div>
+    }
   `
 })
 export class InventoryManagementComponent {
@@ -871,9 +1513,11 @@ export class InventoryManagementComponent {
   isNewProductModalOpen = signal<boolean>(false);
   isCategoryModalOpen = signal<boolean>(false);
   isBrandModalOpen = signal<boolean>(false);
+  isEditProductModalOpen = signal<boolean>(false);
 
   editingCategory = signal<DbCategory | null>(null);
   editingBrand = signal<DbBrand | null>(null);
+  editingProduct = signal<AdminProductWithVariants | null>(null);
 
   // Forms
   newProdForm = {
@@ -883,6 +1527,27 @@ export class InventoryManagementComponent {
     short_description: '',
     product_type: 'standalone'
   };
+
+  newProdImages = signal<string[]>([]);
+  newProdUrlInput = '';
+  isUploadingNewImages = signal<boolean>(false);
+
+  editProdForm = {
+    model: '',
+    category_id: '',
+    brand_id: '',
+    short_description: '',
+    product_type: 'standalone',
+    is_active: true
+  };
+
+  editProdImages = signal<string[]>([]);
+  editProdUrlInput = '';
+  isUploadingEditImages = signal<boolean>(false);
+
+  // Ficha Técnica (Specifications)
+  newProdSpecGroups = signal<SpecGroup[]>([]);
+  editProdSpecGroups = signal<SpecGroup[]>([]);
 
   newVarForm = {
     sku: '',
@@ -938,6 +1603,10 @@ export class InventoryManagementComponent {
 
   readonly availableBrandsForNewProd = computed(() => {
     return this.adminService.getBrandsForCategory(this.newProdForm.category_id);
+  });
+
+  readonly availableBrandsForEditProd = computed(() => {
+    return this.adminService.getBrandsForCategory(this.editProdForm.category_id);
   });
 
   readonly totalInventoryValuation = computed(() => {
@@ -1151,7 +1820,59 @@ export class InventoryManagementComponent {
     }
   }
 
-  // --- Product Modal Actions ---
+  // --- Product Creation & Image Methods ---
+  async onUploadNewProductImages(event: Event): Promise<void> {
+    const input = event.target as HTMLInputElement;
+    if (!input.files || input.files.length === 0) return;
+
+    const files = Array.from(input.files);
+    const availableSlots = 10 - this.newProdImages().length;
+    if (availableSlots <= 0) {
+      alert('Ya alcanzaste el máximo de 10 imágenes permitidas.');
+      input.value = '';
+      return;
+    }
+
+    const filesToUpload = files.slice(0, availableSlots);
+    if (files.length > availableSlots) {
+      alert(`Solo se procesarán ${availableSlots} imagen(es) para no exceder el límite de 10.`);
+    }
+
+    this.isUploadingNewImages.set(true);
+    try {
+      for (const file of filesToUpload) {
+        const url = await this.adminService.uploadProductImage(file);
+        this.newProdImages.update((prev) => [...prev, url]);
+      }
+    } finally {
+      this.isUploadingNewImages.set(false);
+      input.value = '';
+    }
+  }
+
+  addNewProductImageUrl(): void {
+    const url = this.newProdUrlInput.trim();
+    if (!url) return;
+    if (this.newProdImages().length >= 10) {
+      alert('Máximo 10 imágenes permitidas.');
+      return;
+    }
+    this.newProdImages.update((prev) => [...prev, url]);
+    this.newProdUrlInput = '';
+  }
+
+  removeNewProductImage(index: number): void {
+    this.newProdImages.update((prev) => prev.filter((_, i) => i !== index));
+  }
+
+  setPrimaryNewProductImage(index: number): void {
+    this.newProdImages.update((prev) => {
+      const copy = [...prev];
+      const [item] = copy.splice(index, 1);
+      return [item, ...copy];
+    });
+  }
+
   openNewProductModal(): void {
     const firstCat = this.organizedCategories()[0]?.id || '';
     const availableBrands = this.adminService.getBrandsForCategory(firstCat);
@@ -1173,12 +1894,368 @@ export class InventoryManagementComponent {
       is_bundle: false
     };
 
+    this.newProdImages.set([]);
+    this.newProdUrlInput = '';
+    this.newProdSpecGroups.set([]);
     this.isNewProductModalOpen.set(true);
   }
 
   async saveProduct(): Promise<void> {
-    if (!this.newProdForm.model || !this.newVarForm.sku || !this.newVarForm.variant_name) return;
-    await this.adminService.createProductWithVariant(this.newProdForm, this.newVarForm);
+    if (!this.newProdForm.model || !this.newVarForm.sku || !this.newVarForm.variant_name) {
+      alert('Por favor completa todos los campos requeridos (*).');
+      return;
+    }
+    if (this.newProdImages().length < 1) {
+      alert('Debes ingresar al menos 1 imagen para el producto (máximo 10).');
+      return;
+    }
+    if (this.newProdImages().length > 10) {
+      alert('No puedes ingresar más de 10 imágenes.');
+      return;
+    }
+
+    const specs = this.serializeSpecGroups(this.newProdSpecGroups());
+
+    await this.adminService.createProductWithVariant(
+      {
+        ...this.newProdForm,
+        images: this.newProdImages(),
+        specifications: specs
+      },
+      this.newVarForm
+    );
     this.isNewProductModalOpen.set(false);
+  }
+
+  // --- Product Edition & Additional Images Methods ---
+  openEditProductModal(prod: AdminProductWithVariants): void {
+    this.editingProduct.set(prod);
+    this.editProdForm = {
+      model: prod.model,
+      category_id: prod.category_id,
+      brand_id: prod.brand_id,
+      short_description: prod.short_description || '',
+      product_type: prod.product_type || 'standalone',
+      is_active: prod.is_active !== false
+    };
+    this.editProdImages.set(Array.isArray(prod.images) ? [...prod.images] : []);
+    this.editProdUrlInput = '';
+    this.editProdSpecGroups.set(this.deserializeProductSpecs(prod.specifications));
+    this.isEditProductModalOpen.set(true);
+  }
+
+  onEditProductCategorySelected(catId: string): void {
+    const available = this.adminService.getBrandsForCategory(catId);
+    if (available.length > 0) {
+      const stillValid = available.some((b) => b.id === this.editProdForm.brand_id);
+      if (!stillValid) {
+        this.editProdForm.brand_id = available[0].id;
+      }
+    }
+  }
+
+  async onUploadEditProductImages(event: Event): Promise<void> {
+    const input = event.target as HTMLInputElement;
+    if (!input.files || input.files.length === 0) return;
+
+    const files = Array.from(input.files);
+    const availableSlots = 10 - this.editProdImages().length;
+    if (availableSlots <= 0) {
+      alert('Ya alcanzaste el máximo de 10 imágenes permitidas para este producto.');
+      input.value = '';
+      return;
+    }
+
+    const filesToUpload = files.slice(0, availableSlots);
+    if (files.length > availableSlots) {
+      alert(`Solo se procesarán ${availableSlots} imagen(es) para no exceder el límite de 10.`);
+    }
+
+    this.isUploadingEditImages.set(true);
+    try {
+      for (const file of filesToUpload) {
+        const url = await this.adminService.uploadProductImage(file);
+        this.editProdImages.update((prev) => [...prev, url]);
+      }
+    } finally {
+      this.isUploadingEditImages.set(false);
+      input.value = '';
+    }
+  }
+
+  addEditProductImageUrl(): void {
+    const url = this.editProdUrlInput.trim();
+    if (!url) return;
+    if (this.editProdImages().length >= 10) {
+      alert('Máximo 10 imágenes permitidas.');
+      return;
+    }
+    this.editProdImages.update((prev) => [...prev, url]);
+    this.editProdUrlInput = '';
+  }
+
+  removeEditProductImage(index: number): void {
+    this.editProdImages.update((prev) => prev.filter((_, i) => i !== index));
+  }
+
+  setPrimaryEditProductImage(index: number): void {
+    this.editProdImages.update((prev) => {
+      const copy = [...prev];
+      const [item] = copy.splice(index, 1);
+      return [item, ...copy];
+    });
+  }
+
+  async saveEditProduct(): Promise<void> {
+    if (!this.editingProduct()) return;
+    if (!this.editProdForm.model.trim()) {
+      alert('El nombre / modelo del producto es obligatorio.');
+      return;
+    }
+    if (this.editProdImages().length < 1) {
+      alert('Debes incluir al menos 1 imagen para el producto.');
+      return;
+    }
+    if (this.editProdImages().length > 10) {
+      alert('No puedes superar el límite de 10 imágenes.');
+      return;
+    }
+
+    const specs = this.serializeSpecGroups(this.editProdSpecGroups());
+
+    await this.adminService.updateProduct(this.editingProduct()!.id, {
+      model: this.editProdForm.model.trim(),
+      category_id: this.editProdForm.category_id,
+      brand_id: this.editProdForm.brand_id,
+      short_description: this.editProdForm.short_description.trim(),
+      product_type: this.editProdForm.product_type,
+      is_active: this.editProdForm.is_active,
+      images: this.editProdImages(),
+      specifications: specs
+    });
+
+    this.isEditProductModalOpen.set(false);
+  }
+
+  async deleteProduct(productId: string): Promise<void> {
+    if (confirm('¿Estás seguro de eliminar este producto y sus variantes?')) {
+      await this.adminService.deleteProduct(productId);
+      this.isEditProductModalOpen.set(false);
+    }
+  }
+
+  // --- Ficha Técnica (Specifications) Helper & Management Methods ---
+  serializeSpecGroups(groups: SpecGroup[]): ProductSpecification[] {
+    return groups
+      .filter((g) => g.category.trim() !== '')
+      .map((g) => {
+        const specs: Record<string, string> = {};
+        g.items.forEach((it) => {
+          if (it.key.trim() && it.value.trim()) {
+            specs[it.key.trim()] = it.value.trim();
+          }
+        });
+        return { category: g.category.trim(), specs };
+      })
+      .filter((g) => Object.keys(g.specs).length > 0);
+  }
+
+  deserializeProductSpecs(specs?: ProductSpecification[]): SpecGroup[] {
+    if (!specs || specs.length === 0) return [];
+    return specs.map((s) => ({
+      category: s.category,
+      items: Object.entries(s.specs || {}).map(([key, value]) => ({ key, value }))
+    }));
+  }
+
+  getSuggestedSpecsForCategory(categoryId?: string): SpecGroup[] {
+    const cat = this.adminService.categories().find((c) => c.id === categoryId);
+    const catSlug = (cat?.slug || cat?.name || '').toLowerCase();
+
+    if (catSlug.includes('cpu') || catSlug.includes('procesador')) {
+      return [
+        {
+          category: 'Rendimiento',
+          items: [
+            { key: 'Socket', value: 'AM5' },
+            { key: 'Núcleos / Hilos', value: '8 / 16' },
+            { key: 'Frecuencia Base', value: '4.2 GHz' },
+            { key: 'Frecuencia Boost', value: '5.0 GHz' },
+            { key: 'Caché', value: '96MB L3' },
+            { key: 'TDP', value: '120W' }
+          ]
+        },
+        {
+          category: 'Compatibilidad & Memoria',
+          items: [
+            { key: 'Tipo de Memoria', value: 'DDR5 hasta 5200 MT/s' },
+            { key: 'PCIe Versión', value: 'PCIe 5.0' },
+            { key: 'Gráficos Integrados', value: 'AMD Radeon Graphics' }
+          ]
+        }
+      ];
+    }
+
+    if (catSlug.includes('gpu') || catSlug.includes('grafica') || catSlug.includes('gráfica') || catSlug.includes('video')) {
+      return [
+        {
+          category: 'Motor Gráfico & Memoria',
+          items: [
+            { key: 'Capacidad VRAM', value: '16GB' },
+            { key: 'Tipo de Memoria', value: 'GDDR6X' },
+            { key: 'Bus de Memoria', value: '256-bit' },
+            { key: 'Interfaz', value: 'PCIe 4.0 x16' }
+          ]
+        },
+        {
+          category: 'Alimentación & Salidas',
+          items: [
+            { key: 'Puertos de Video', value: '3x DisplayPort 1.4a, 1x HDMI 2.1' },
+            { key: 'Conectores de Poder', value: '1x 16-pin (12VHPWR)' },
+            { key: 'Fuente Recomendada', value: '750W' },
+            { key: 'Consumo (TDP)', value: '285W' }
+          ]
+        }
+      ];
+    }
+
+    if (catSlug.includes('ram') || catSlug.includes('memoria')) {
+      return [
+        {
+          category: 'Especificaciones de Memoria',
+          items: [
+            { key: 'Capacidad Total', value: '32GB (2x16GB)' },
+            { key: 'Tipo', value: 'DDR5' },
+            { key: 'Frecuencia', value: '6000 MHz' },
+            { key: 'Latencia (CAS)', value: 'CL30' },
+            { key: 'Voltaje', value: '1.35V' },
+            { key: 'Perfil de Rendimiento', value: 'Intel XMP 3.0 / AMD EXPO' }
+          ]
+        }
+      ];
+    }
+
+    if (catSlug.includes('placa') || catSlug.includes('motherboard') || catSlug.includes('madre')) {
+      return [
+        {
+          category: 'Placa Base & Chipset',
+          items: [
+            { key: 'Socket', value: 'AM5' },
+            { key: 'Chipset', value: 'AMD B650' },
+            { key: 'Factor de Forma', value: 'ATX' },
+            { key: 'Ranuras RAM', value: '4x DDR5 (Hasta 192GB)' },
+            { key: 'Puertos M.2', value: '3x PCIe 4.0/5.0 NVMe' },
+            { key: 'Conectividad', value: 'Wi-Fi 6E + Bluetooth 5.3 + 2.5Gb LAN' }
+          ]
+        }
+      ];
+    }
+
+    if (catSlug.includes('ssd') || catSlug.includes('disco') || catSlug.includes('almacenamiento')) {
+      return [
+        {
+          category: 'Rendimiento de Almacenamiento',
+          items: [
+            { key: 'Capacidad', value: '2TB' },
+            { key: 'Factor de Forma', value: 'M.2 2280' },
+            { key: 'Interfaz', value: 'PCIe Gen 4.0 x4, NVMe 2.0' },
+            { key: 'Lectura Secuencial', value: '7450 MB/s' },
+            { key: 'Escritura Secuencial', value: '6900 MB/s' },
+            { key: 'TBW (Resistencia)', value: '1200 TBW' }
+          ]
+        }
+      ];
+    }
+
+    // Default template
+    return [
+      {
+        category: 'Especificaciones Generales',
+        items: [
+          { key: 'Garantía Oficial', value: '2 Años de Fábrica' },
+          { key: 'Color / Acabado', value: 'Negro / Dark Titanium' },
+          { key: 'Dimensiones', value: 'Estándar' },
+          { key: 'Contenido del Paquete', value: 'Componente, Manual, Guía rápida' }
+        ]
+      }
+    ];
+  }
+
+  // Creation Spec Handlers
+  addNewProdSpecGroup(name = 'General'): void {
+    this.newProdSpecGroups.update((groups) => [
+      ...groups,
+      { category: name, items: [{ key: '', value: '' }] }
+    ]);
+  }
+
+  removeNewProdSpecGroup(index: number): void {
+    this.newProdSpecGroups.update((groups) => groups.filter((_, i) => i !== index));
+  }
+
+  addNewProdSpecItem(groupIndex: number): void {
+    this.newProdSpecGroups.update((groups) => {
+      const copy = [...groups];
+      copy[groupIndex] = {
+        ...copy[groupIndex],
+        items: [...copy[groupIndex].items, { key: '', value: '' }]
+      };
+      return copy;
+    });
+  }
+
+  removeNewProdSpecItem(groupIndex: number, itemIndex: number): void {
+    this.newProdSpecGroups.update((groups) => {
+      const copy = [...groups];
+      copy[groupIndex] = {
+        ...copy[groupIndex],
+        items: copy[groupIndex].items.filter((_, i) => i !== itemIndex)
+      };
+      return copy;
+    });
+  }
+
+  applyNewProdSpecTemplate(): void {
+    const template = this.getSuggestedSpecsForCategory(this.newProdForm.category_id);
+    this.newProdSpecGroups.set(template);
+  }
+
+  // Edition Spec Handlers
+  addEditProdSpecGroup(name = 'General'): void {
+    this.editProdSpecGroups.update((groups) => [
+      ...groups,
+      { category: name, items: [{ key: '', value: '' }] }
+    ]);
+  }
+
+  removeEditProdSpecGroup(index: number): void {
+    this.editProdSpecGroups.update((groups) => groups.filter((_, i) => i !== index));
+  }
+
+  addEditProdSpecItem(groupIndex: number): void {
+    this.editProdSpecGroups.update((groups) => {
+      const copy = [...groups];
+      copy[groupIndex] = {
+        ...copy[groupIndex],
+        items: [...copy[groupIndex].items, { key: '', value: '' }]
+      };
+      return copy;
+    });
+  }
+
+  removeEditProdSpecItem(groupIndex: number, itemIndex: number): void {
+    this.editProdSpecGroups.update((groups) => {
+      const copy = [...groups];
+      copy[groupIndex] = {
+        ...copy[groupIndex],
+        items: copy[groupIndex].items.filter((_, i) => i !== itemIndex)
+      };
+      return copy;
+    });
+  }
+
+  applyEditProdSpecTemplate(): void {
+    const template = this.getSuggestedSpecsForCategory(this.editProdForm.category_id);
+    this.editProdSpecGroups.set(template);
   }
 }

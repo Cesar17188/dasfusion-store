@@ -27,4 +27,8 @@ export class SupabaseService {
   get from() {
     return this.supabase.from.bind(this.supabase);
   }
+
+  get storage() {
+    return this.supabase.storage;
+  }
 }

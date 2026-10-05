@@ -1,5 +1,6 @@
 import { Injectable, inject, signal, computed } from '@angular/core';
 import { SupabaseService } from './supabase.service';
+import { ProductSpecification } from '../models/product.model';
 import {
   DbProfile,
   DbProduct,
@@ -442,6 +443,8 @@ export class AdminService {
           const brand = this.brands().find((b) => b.id === p.brand_id);
           return {
             ...p,
+            images: Array.isArray(p.images) ? p.images : [],
+            specifications: Array.isArray(p.specifications) ? p.specifications : [],
             category,
             brand,
             variants
@@ -626,6 +629,38 @@ export class AdminService {
     );
   }
 
+  async uploadProductImage(file: File): Promise<string> {
+    try {
+      const fileExt = file.name.split('.').pop() || 'png';
+      const fileName = `${Date.now()}_${Math.random().toString(36).substring(2, 9)}.${fileExt}`;
+      const filePath = `products/${fileName}`;
+
+      const { data, error } = await this.supabase.storage
+        .from('products')
+        .upload(filePath, file, { cacheControl: '3600', upsert: true });
+
+      if (!error && data) {
+        const { data: publicUrlData } = this.supabase.storage
+          .from('products')
+          .getPublicUrl(filePath);
+
+        if (publicUrlData?.publicUrl) {
+          return publicUrlData.publicUrl;
+        }
+      }
+    } catch (e) {
+      console.warn('Supabase storage upload failed, fallback to base64 Data URL', e);
+    }
+
+    // Fallback to FileReader base64 Data URL if storage bucket is not yet configured
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = (err) => reject(err);
+      reader.readAsDataURL(file);
+    });
+  }
+
   async createProductWithVariant(
     productData: {
       model: string;
@@ -634,6 +669,8 @@ export class AdminService {
       short_description?: string;
       long_description?: string;
       product_type?: string;
+      images?: string[];
+      specifications?: ProductSpecification[];
     },
     variantData: {
       sku: string;
@@ -656,6 +693,8 @@ export class AdminService {
       long_description: productData.long_description || '',
       product_type: productData.product_type || 'standalone',
       is_active: true,
+      images: productData.images && productData.images.length > 0 ? productData.images : [],
+      specifications: productData.specifications && productData.specifications.length > 0 ? productData.specifications : [],
       created_at: new Date().toISOString()
     };
 
@@ -687,6 +726,42 @@ export class AdminService {
     };
 
     this.products.update((prev) => [fullProd, ...prev]);
+  }
+
+  async updateProduct(productId: string, data: Partial<DbProduct>): Promise<void> {
+    try {
+      await (this.supabase.from('products') as any).update(data).eq('id', productId);
+    } catch {}
+
+    this.products.update((prev) =>
+      prev.map((p) => {
+        if (p.id !== productId) return p;
+        const updatedCat = data.category_id ? this.categories().find((c) => c.id === data.category_id) : p.category;
+        const updatedBrand = data.brand_id ? this.brands().find((b) => b.id === data.brand_id) : p.brand;
+        return {
+          ...p,
+          ...data,
+          category: updatedCat,
+          brand: updatedBrand
+        };
+      })
+    );
+  }
+
+  async toggleProductStatus(productId: string): Promise<void> {
+    const prod = this.products().find((p) => p.id === productId);
+    if (!prod) return;
+    const newStatus = !prod.is_active;
+    await this.updateProduct(productId, { is_active: newStatus });
+  }
+
+  async deleteProduct(productId: string): Promise<void> {
+    try {
+      await (this.supabase.from('product_variants') as any).delete().eq('product_id', productId);
+      await (this.supabase.from('products') as any).delete().eq('id', productId);
+    } catch {}
+
+    this.products.update((prev) => prev.filter((p) => p.id !== productId));
   }
 
   // ====================================================================
