@@ -29,10 +29,19 @@ export class ProductDetailComponent implements OnInit {
   protected readonly isAddedToCart = signal<boolean>(false);
 
   ngOnInit(): void {
-    this.route.paramMap.subscribe((params) => {
-      const slug = params.get('slug') || 'apple-iphone-16-pro-max';
-      const found = this.productService.getProductBySlug(slug) || this.productService.products()[0];
-      this.product.set(found);
+    this.route.paramMap.subscribe(async (params) => {
+      const slug = params.get('slug');
+      if (!slug) {
+        this.product.set(null);
+        return;
+      }
+
+      if (this.productService.isLoading()) {
+        await this.productService.loadProductsFromDatabase();
+      }
+
+      const found = this.productService.getProductBySlug(slug) || this.productService.getProductById(slug);
+      this.product.set(found || null);
 
       if (found) {
         this.relatedProducts.set(this.productService.getRelatedProducts(found, 3));
@@ -41,6 +50,9 @@ export class ProductDetailComponent implements OnInit {
         } else {
           this.selectedVariant.set(null);
         }
+      } else {
+        this.relatedProducts.set([]);
+        this.selectedVariant.set(null);
       }
       this.selectedBundle.set(null);
       this.quantity.set(1);

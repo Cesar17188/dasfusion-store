@@ -233,4 +233,19 @@
       </button>
     </div>
   </div>
+} @else {
+  <div class="flex flex-col items-center justify-center py-24 px-4 text-center space-y-4">
+    <div class="h-16 w-16 rounded-full bg-surface-container flex items-center justify-center border border-outline-variant">
+      <svg class="h-8 w-8 text-outline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path>
+      </svg>
+    </div>
+    <h2 class="text-xl sm:text-2xl font-bold text-on-surface">Producto no disponible</h2>
+    <p class="text-xs sm:text-sm text-outline max-w-md">
+      El producto solicitado no se encuentra registrado en la base de datos o ha sido deshabilitado.
+    </p>
+    <a routerLink="/catalog" class="btn-primary text-xs font-bold mt-2">
+      Explorar Catálogo
+    </a>
+  </div>
 }

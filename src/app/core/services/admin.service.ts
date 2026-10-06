@@ -125,57 +125,14 @@ export class AdminService {
   async fetchProfiles(): Promise<void> {
     try {
       const { data, error } = await this.supabase.from('profiles').select('*').order('created_at', { ascending: false });
-      if (!error && data && data.length > 0) {
+      if (!error && data) {
         this.customers.set(data as DbProfile[]);
         return;
       }
-    } catch {}
-
-    // Fallback Initial Customers
-    if (this.customers().length === 0) {
-      this.customers.set([
-        {
-          id: 'c1111111-1111-1111-1111-111111111111',
-          role: 'customer',
-          first_name: 'Carlos',
-          last_name: 'Mendoza',
-          phone: '+57 312 456 7890',
-          address: 'Calle 100 #15-20, Bogotá',
-          created_at: new Date(Date.now() - 15 * 86400000).toISOString(),
-          updated_at: new Date().toISOString()
-        },
-        {
-          id: 'c2222222-2222-2222-2222-222222222222',
-          role: 'customer',
-          first_name: 'Valeria',
-          last_name: 'Gómez',
-          phone: '+57 300 987 6543',
-          address: 'Cra 43A #1-50, Medellín',
-          created_at: new Date(Date.now() - 10 * 86400000).toISOString(),
-          updated_at: new Date().toISOString()
-        },
-        {
-          id: 'c3333333-3333-3333-3333-333333333333',
-          role: 'customer',
-          first_name: 'Esteban',
-          last_name: 'Ríos',
-          phone: '+57 315 222 3344',
-          address: 'Av. Santander #55-12, Manizales',
-          created_at: new Date(Date.now() - 5 * 86400000).toISOString(),
-          updated_at: new Date().toISOString()
-        },
-        {
-          id: 'c4444444-4444-4444-4444-444444444444',
-          role: 'customer',
-          first_name: 'Mariana',
-          last_name: 'López',
-          phone: '+57 320 888 9900',
-          address: 'Cl 70 #4-30, Cali',
-          created_at: new Date(Date.now() - 2 * 86400000).toISOString(),
-          updated_at: new Date().toISOString()
-        }
-      ]);
+    } catch (err) {
+      console.error('Error al cargar perfiles desde Supabase:', err);
     }
+    this.customers.set([]);
   }
 
   async createCustomer(customer: Partial<DbProfile>): Promise<DbProfile> {
@@ -208,51 +165,33 @@ export class AdminService {
   async fetchCategoriesAndBrands(): Promise<void> {
     try {
       const [catRes, brandRes] = await Promise.all([
-        this.supabase.from('categories').select('*'),
-        this.supabase.from('brands').select('*')
+        this.supabase.from('categories').select('*').order('name'),
+        this.supabase.from('brands').select('*').order('name')
       ]);
 
-      if (!catRes.error && catRes.data?.length) {
+      if (!catRes.error && catRes.data) {
         this.categories.set((catRes.data as any[]).map((c) => ({
           ...c,
           is_active: c.is_active ?? true
         })));
-      } else if (this.categories().length === 0) {
-        this.categories.set([
-          { id: 'cat-gpu', name: 'Tarjetas Gráficas (GPU)', slug: 'gpus', parent_id: null, is_active: true },
-          { id: 'cat-gpu-nvidia', name: 'NVIDIA GeForce RTX', slug: 'gpus-nvidia', parent_id: 'cat-gpu', is_active: true },
-          { id: 'cat-gpu-amd', name: 'AMD Radeon RX', slug: 'gpus-amd', parent_id: 'cat-gpu', is_active: true },
-          { id: 'cat-cpu', name: 'Procesadores (CPU)', slug: 'cpus', parent_id: null, is_active: true },
-          { id: 'cat-cpu-intel', name: 'Intel Core & Ultra', slug: 'cpus-intel', parent_id: 'cat-cpu', is_active: true },
-          { id: 'cat-cpu-amd', name: 'AMD Ryzen 7000/9000', slug: 'cpus-amd', parent_id: 'cat-cpu', is_active: true },
-          { id: 'cat-ram', name: 'Memorias RAM', slug: 'ram', parent_id: null, is_active: true },
-          { id: 'cat-ssd', name: 'Almacenamiento SSD', slug: 'storage', parent_id: null, is_active: true },
-          { id: 'cat-mb', name: 'Placas Madre (Motherboards)', slug: 'motherboards', parent_id: null, is_active: true },
-          { id: 'cat-psu', name: 'Fuentes de Poder (PSU)', slug: 'power-supplies', parent_id: null, is_active: true },
-          { id: 'cat-cases', name: 'Gabinetes & Chasis', slug: 'cases', parent_id: null, is_active: true },
-          { id: 'cat-bundles', name: 'Combos & Bundles DAS', slug: 'bundles', parent_id: null, is_active: true }
-        ]);
+      } else {
+        this.categories.set([]);
       }
 
-      if (!brandRes.error && brandRes.data?.length) {
+      if (!brandRes.error && brandRes.data) {
         this.brands.set((brandRes.data as any[]).map((b) => ({
           ...b,
           is_active: b.is_active ?? true,
           category_ids: b.category_ids || (b.category_id ? [b.category_id] : [])
         })));
-      } else if (this.brands().length === 0) {
-        this.brands.set([
-          { id: 'b-nvidia', name: 'NVIDIA', slug: 'nvidia', category_ids: ['cat-gpu', 'cat-gpu-nvidia'], is_active: true },
-          { id: 'b-amd', name: 'AMD', slug: 'amd', category_ids: ['cat-gpu', 'cat-gpu-amd', 'cat-cpu', 'cat-cpu-amd'], is_active: true },
-          { id: 'b-intel', name: 'Intel', slug: 'intel', category_ids: ['cat-cpu', 'cat-cpu-intel'], is_active: true },
-          { id: 'b-corsair', name: 'Corsair', slug: 'corsair', category_ids: ['cat-ram', 'cat-psu', 'cat-cases'], is_active: true },
-          { id: 'b-asus', name: 'ASUS ROG / TUF', slug: 'asus', category_ids: ['cat-gpu', 'cat-mb'], is_active: true },
-          { id: 'b-msi', name: 'MSI Gaming', slug: 'msi', category_ids: ['cat-gpu', 'cat-mb'], is_active: true },
-          { id: 'b-kingston', name: 'Kingston Fury', slug: 'kingston', category_ids: ['cat-ram', 'cat-ssd'], is_active: true },
-          { id: 'b-samsung', name: 'Samsung', slug: 'samsung', category_ids: ['cat-ssd'], is_active: true }
-        ]);
+      } else {
+        this.brands.set([]);
       }
-    } catch {}
+    } catch (err) {
+      console.error('Error al cargar categorías y marcas desde Supabase:', err);
+      this.categories.set([]);
+      this.brands.set([]);
+    }
   }
 
   // --- Category CRUD ---
@@ -430,10 +369,10 @@ export class AdminService {
   // ====================================================================
   async fetchProductsAndVariants(): Promise<void> {
     try {
-      const { data: prodData, error: prodErr } = await (this.supabase.from('products') as any).select('*');
+      const { data: prodData, error: prodErr } = await (this.supabase.from('products') as any).select('*').order('created_at', { ascending: false });
       const { data: varData, error: varErr } = await (this.supabase.from('product_variants') as any).select('*');
 
-      if (!prodErr && !varErr && prodData && prodData.length > 0) {
+      if (!prodErr && !varErr && prodData) {
         const productsList = prodData as DbProduct[];
         const variantsList = (varData || []) as DbProductVariant[];
 
@@ -453,154 +392,11 @@ export class AdminService {
         this.products.set(fullProducts);
         return;
       }
-    } catch {}
-
-    // Fallback Mock Products & Variants
-    if (this.products().length === 0) {
-      this.products.set([
-        {
-          id: 'p-rtx4090',
-          category_id: 'cat-gpu',
-          brand_id: 'b-nvidia',
-          model: 'GeForce RTX 4090 Gaming OC 24GB',
-          short_description: 'Máxima potencia para 4K y Renderizado AI',
-          long_description: 'Arquitectura Ada Lovelace con 24GB GDDR6X, DLSS 3.5 y trazado de rayos de 3ra generación.',
-          product_type: 'standalone',
-          is_active: true,
-          created_at: new Date(Date.now() - 30 * 86400000).toISOString(),
-          category: { id: 'cat-gpu', name: 'Tarjetas Gráficas (GPU)', slug: 'gpus' },
-          brand: { id: 'b-nvidia', name: 'NVIDIA RTX', slug: 'nvidia' },
-          variants: [
-            {
-              id: 'v-rtx4090-blk',
-              product_id: 'p-rtx4090',
-              sku: 'GPU-NV-4090-24G-BLK',
-              variant_name: 'Edición Black OC 24GB',
-              price: 1899.99,
-              stock: 8,
-              attributes: { color: 'Negro', vram: '24GB', memoryType: 'GDDR6X' },
-              is_bundle: false,
-              created_at: new Date().toISOString()
-            },
-            {
-              id: 'v-rtx4090-wht',
-              product_id: 'p-rtx4090',
-              sku: 'GPU-NV-4090-24G-WHT',
-              variant_name: 'Edición White OC 24GB',
-              price: 1949.99,
-              stock: 2, // Low stock
-              attributes: { color: 'Blanco', vram: '24GB', memoryType: 'GDDR6X' },
-              is_bundle: false,
-              created_at: new Date().toISOString()
-            }
-          ]
-        },
-        {
-          id: 'p-rtx4070ts',
-          category_id: 'cat-gpu',
-          brand_id: 'b-asus',
-          model: 'ASUS TUF Gaming GeForce RTX 4070 Ti Super 16GB',
-          short_description: 'Rendimiento 1440p ultra y 4K equilibrado',
-          long_description: 'Diseño militar con rodamientos dobles y disipación de calor masiva.',
-          product_type: 'standalone',
-          is_active: true,
-          created_at: new Date(Date.now() - 25 * 86400000).toISOString(),
-          category: { id: 'cat-gpu', name: 'Tarjetas Gráficas (GPU)', slug: 'gpus' },
-          brand: { id: 'b-asus', name: 'ASUS ROG / TUF', slug: 'asus' },
-          variants: [
-            {
-              id: 'v-rtx4070ts-std',
-              product_id: 'p-rtx4070ts',
-              sku: 'GPU-ASUS-4070TIS-16G',
-              variant_name: 'Standard OC 16GB',
-              price: 899.99,
-              stock: 14,
-              attributes: { vram: '16GB', fans: 3 },
-              is_bundle: false,
-              created_at: new Date().toISOString()
-            }
-          ]
-        },
-        {
-          id: 'p-ryzen7800x3d',
-          category_id: 'cat-cpu',
-          brand_id: 'b-amd',
-          model: 'AMD Ryzen 7 7800X3D',
-          short_description: 'El procesador rey indiscutible del Gaming',
-          long_description: '8 núcleos, 16 hilos y 96MB de 3D V-Cache para los FPS más estables del mercado.',
-          product_type: 'standalone',
-          is_active: true,
-          created_at: new Date(Date.now() - 20 * 86400000).toISOString(),
-          category: { id: 'cat-cpu', name: 'Procesadores (CPU)', slug: 'cpus' },
-          brand: { id: 'b-amd', name: 'AMD Ryzen / Radeon', slug: 'amd' },
-          variants: [
-            {
-              id: 'v-7800x3d-box',
-              product_id: 'p-ryzen7800x3d',
-              sku: 'CPU-AMD-7800X3D-BOX',
-              variant_name: 'Boxed AM5 (Sin Cooler)',
-              price: 449.00,
-              stock: 19,
-              attributes: { socket: 'AM5', cores: 8, threads: 16, tdp: '120W' },
-              is_bundle: false,
-              created_at: new Date().toISOString()
-            }
-          ]
-        },
-        {
-          id: 'p-i914900k',
-          category_id: 'cat-cpu',
-          brand_id: 'b-intel',
-          model: 'Intel Core i9-14900K',
-          short_description: '24 núcleos para creadores y multitarea extrema',
-          long_description: 'Frecuencia de hasta 6.0 GHz con Intel Thermal Velocity Boost.',
-          product_type: 'standalone',
-          is_active: true,
-          created_at: new Date(Date.now() - 18 * 86400000).toISOString(),
-          category: { id: 'cat-cpu', name: 'Procesadores (CPU)', slug: 'cpus' },
-          brand: { id: 'b-intel', name: 'Intel Core', slug: 'intel' },
-          variants: [
-            {
-              id: 'v-14900k-std',
-              product_id: 'p-i914900k',
-              sku: 'CPU-INT-14900K-BOX',
-              variant_name: 'Standard LGA1700',
-              price: 549.99,
-              stock: 4, // Low stock
-              attributes: { socket: 'LGA1700', cores: 24, threads: 32 },
-              is_bundle: false,
-              created_at: new Date().toISOString()
-            }
-          ]
-        },
-        {
-          id: 'p-bundle-streamer',
-          category_id: 'cat-bundles',
-          brand_id: 'b-asus',
-          model: 'Combo DAS Master Streamer (Ryzen 7800X3D + RTX 4070TiS)',
-          short_description: 'Kit de alto desempeño armado y probado',
-          long_description: 'Incluye CPU Ryzen 7800X3D, GPU RTX 4070Ti Super, Placa B650 y 32GB RAM DDR5.',
-          product_type: 'bundle',
-          is_active: true,
-          created_at: new Date(Date.now() - 12 * 86400000).toISOString(),
-          category: { id: 'cat-bundles', name: 'Combos & Bundles DAS', slug: 'bundles' },
-          brand: { id: 'b-asus', name: 'ASUS ROG / TUF', slug: 'asus' },
-          variants: [
-            {
-              id: 'v-bundle-streamer-01',
-              product_id: 'p-bundle-streamer',
-              sku: 'BDL-DAS-STREAMER-01',
-              variant_name: 'DAS Master Streamer Pack',
-              price: 1649.00,
-              stock: 6,
-              attributes: { warranty: '3 Años', assemblyIncluded: true },
-              is_bundle: true,
-              created_at: new Date().toISOString()
-            }
-          ]
-        }
-      ]);
+    } catch (err) {
+      console.error('Error al cargar productos en Admin desde Supabase:', err);
     }
+
+    this.products.set([]);
   }
 
   async updateVariantStock(variantId: string, newStock: number): Promise<void> {
@@ -866,7 +662,7 @@ export class AdminService {
       const { data: orders, error: oErr } = await (this.supabase.from('sales_orders') as any).select('*').order('created_at', { ascending: false });
       const { data: items, error: iErr } = await (this.supabase.from('sales_order_items') as any).select('*');
 
-      if (!oErr && !iErr && orders && orders.length > 0) {
+      if (!oErr && !iErr && orders) {
         const ordersList = orders as DbSalesOrder[];
         const itemsList = (items || []) as DbSalesOrderItem[];
 
@@ -898,118 +694,11 @@ export class AdminService {
         this.salesOrders.set(fullOrders);
         return;
       }
-    } catch {}
-
-    // Fallback Initial Sales Orders
-    if (this.salesOrders().length === 0) {
-      this.salesOrders.set([
-        {
-          id: 'ord-1001',
-          customer_id: 'c1111111-1111-1111-1111-111111111111',
-          status: 'delivered',
-          subtotal: 1899.99,
-          tax: 360.99,
-          total: 2260.98,
-          shipping_address: 'Calle 100 #15-20, Bogotá',
-          created_at: new Date(Date.now() - 3 * 86400000).toISOString(),
-          customer: {
-            id: 'c1111111-1111-1111-1111-111111111111',
-            role: 'customer',
-            first_name: 'Carlos',
-            last_name: 'Mendoza',
-            phone: '+57 312 456 7890',
-            address: 'Calle 100 #15-20, Bogotá',
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
-          },
-          items: [
-            {
-              id: 'oi-1',
-              sales_order_id: 'ord-1001',
-              variant_id: 'v-rtx4090-blk',
-              unit_price: 1899.99,
-              quantity: 1,
-              variant: {
-                id: 'v-rtx4090-blk',
-                product_id: 'p-rtx4090',
-                sku: 'GPU-NV-4090-24G-BLK',
-                variant_name: 'Edición Black OC 24GB',
-                price: 1899.99,
-                stock: 8,
-                attributes: {},
-                is_bundle: false,
-                created_at: ''
-              }
-            }
-          ]
-        },
-        {
-          id: 'ord-1002',
-          customer_id: 'c2222222-2222-2222-2222-222222222222',
-          status: 'processing',
-          subtotal: 1348.99,
-          tax: 256.31,
-          total: 1605.30,
-          shipping_address: 'Cra 43A #1-50, Medellín',
-          created_at: new Date(Date.now() - 1 * 86400000).toISOString(),
-          customer: {
-            id: 'c2222222-2222-2222-2222-222222222222',
-            role: 'customer',
-            first_name: 'Valeria',
-            last_name: 'Gómez',
-            phone: '+57 300 987 6543',
-            address: 'Cra 43A #1-50, Medellín',
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
-          },
-          items: [
-            {
-              id: 'oi-2',
-              sales_order_id: 'ord-1002',
-              variant_id: 'v-rtx4070ts-std',
-              unit_price: 899.99,
-              quantity: 1
-            },
-            {
-              id: 'oi-3',
-              sales_order_id: 'ord-1002',
-              variant_id: 'v-7800x3d-box',
-              unit_price: 449.00,
-              quantity: 1
-            }
-          ]
-        },
-        {
-          id: 'ord-1003',
-          customer_id: 'c3333333-3333-3333-3333-333333333333',
-          status: 'pending',
-          subtotal: 1649.00,
-          tax: 313.31,
-          total: 1962.31,
-          shipping_address: 'Av. Santander #55-12, Manizales',
-          created_at: new Date(Date.now() - 5 * 3600000).toISOString(),
-          customer: {
-            id: 'c3333333-3333-3333-3333-333333333333',
-            role: 'customer',
-            first_name: 'Esteban',
-            last_name: 'Ríos',
-            phone: '+57 315 222 3344',
-            address: 'Av. Santander #55-12, Manizales',
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
-          },
-          items: [
-            {
-              id: 'oi-4',
-              sales_order_id: 'ord-1003',
-              variant_id: 'v-bundle-streamer-01',
-              unit_price: 1649.00,
-              quantity: 1
-            }
-          ]
-        }
-      ]);
+    } catch (err) {
+      console.error('Error al cargar órdenes de venta desde Supabase:', err);
     }
+
+    this.salesOrders.set([]);
   }
 
   async updateOrderStatus(orderId: string, status: OrderStatus): Promise<void> {
@@ -1108,16 +797,18 @@ export class AdminService {
   async fetchSuppliersAndPurchases(): Promise<void> {
     try {
       const [supRes, poRes, poiRes] = await Promise.all([
-        this.supabase.from('suppliers').select('*'),
+        this.supabase.from('suppliers').select('*').order('created_at', { ascending: false }),
         this.supabase.from('purchase_orders').select('*').order('purchased_at', { ascending: false }),
         this.supabase.from('purchase_order_items').select('*')
       ]);
 
-      if (!supRes.error && supRes.data?.length) {
+      if (!supRes.error && supRes.data) {
         this.suppliers.set(supRes.data as DbSupplier[]);
+      } else {
+        this.suppliers.set([]);
       }
 
-      if (!poRes.error && poRes.data?.length) {
+      if (!poRes.error && poRes.data) {
         const fullPOs: AdminPurchaseOrderWithDetails[] = (poRes.data as DbPurchaseOrder[]).map((po) => {
           const supplier = this.suppliers().find((s) => s.id === po.supplier_id);
           const items = (poiRes.data || []).filter((i: any) => i.purchase_order_id === po.id);
@@ -1130,70 +821,12 @@ export class AdminService {
         this.purchaseOrders.set(fullPOs);
         return;
       }
-    } catch {}
-
-    // Fallback Mock Suppliers & Purchases
-    if (this.suppliers().length === 0) {
-      this.suppliers.set([
-        {
-          id: 'sup-1',
-          business_name: 'TechDistribuciones Global S.A.',
-          contact_name: 'Andrés Morales',
-          email: 'contacto@techdistribuciones.com',
-          phone: '+57 311 000 1122',
-          tax_id: '900.123.456-7',
-          created_at: new Date(Date.now() - 60 * 86400000).toISOString()
-        },
-        {
-          id: 'sup-2',
-          business_name: 'Hardware América Importaciones',
-          contact_name: 'Camila Salazar',
-          email: 'ventas@hwamerica.com',
-          phone: '+57 318 777 6655',
-          tax_id: '901.888.999-1',
-          created_at: new Date(Date.now() - 45 * 86400000).toISOString()
-        }
-      ]);
+    } catch (err) {
+      console.error('Error al cargar proveedores y compras desde Supabase:', err);
     }
 
-    if (this.purchaseOrders().length === 0) {
-      this.purchaseOrders.set([
-        {
-          id: 'po-501',
-          supplier_id: 'sup-1',
-          total_amount: 14200.00,
-          status: 'received',
-          purchased_at: new Date(Date.now() - 14 * 86400000).toISOString(),
-          supplier: this.suppliers()[0],
-          items: [
-            {
-              id: 'poi-1',
-              purchase_order_id: 'po-501',
-              variant_id: 'v-rtx4090-blk',
-              quantity: 10,
-              unit_cost: 1420.00
-            }
-          ]
-        },
-        {
-          id: 'po-502',
-          supplier_id: 'sup-2',
-          total_amount: 6800.00,
-          status: 'received',
-          purchased_at: new Date(Date.now() - 6 * 86400000).toISOString(),
-          supplier: this.suppliers()[1],
-          items: [
-            {
-              id: 'poi-2',
-              purchase_order_id: 'po-502',
-              variant_id: 'v-7800x3d-box',
-              quantity: 20,
-              unit_cost: 340.00
-            }
-          ]
-        }
-      ]);
-    }
+    this.suppliers.set([]);
+    this.purchaseOrders.set([]);
   }
 
   // ====================================================================
@@ -1207,119 +840,14 @@ export class AdminService {
         this.supabase.from('crm_support_tickets').select('*').order('created_at', { ascending: false })
       ]);
 
-      if (!leadsRes.error && leadsRes.data?.length) {
-        this.leads.set(leadsRes.data as DbCrmLead[]);
-      }
-      if (!interRes.error && interRes.data?.length) {
-        this.interactions.set(interRes.data as DbCrmInteraction[]);
-      }
-      if (!tickRes.error && tickRes.data?.length) {
-        this.tickets.set(tickRes.data as DbCrmSupportTicket[]);
-      }
-    } catch {}
-
-    // Fallback Initial Leads
-    if (this.leads().length === 0) {
-      this.leads.set([
-        {
-          id: 'lead-1',
-          profile_id: 'c1111111-1111-1111-1111-111111111111',
-          full_name: 'Carlos Mendoza (Estudio Animación 3D)',
-          email: 'carlos.mendoza@anim3d.co',
-          phone: '+57 312 456 7890',
-          stage: 'quote_sent',
-          estimated_budget: 5500.00,
-          notes: 'Requiere cotización para 2 estaciones de trabajo con RTX 4090 y 64GB RAM.',
-          assigned_to: 'adm_001',
-          created_at: new Date(Date.now() - 4 * 86400000).toISOString()
-        },
-        {
-          id: 'lead-2',
-          profile_id: null,
-          full_name: 'Santiago Echeverri',
-          email: 'santi.echeverri@gamerz.io',
-          phone: '+57 317 444 8899',
-          stage: 'qualified',
-          estimated_budget: 2200.00,
-          notes: 'Interesado en ensamble con Ryzen 7800X3D para streaming en Twitch.',
-          assigned_to: null,
-          created_at: new Date(Date.now() - 2 * 86400000).toISOString()
-        },
-        {
-          id: 'lead-3',
-          profile_id: 'c2222222-2222-2222-2222-222222222222',
-          full_name: 'Valeria Gómez',
-          email: 'valeria.gomez@empresa.com',
-          phone: '+57 300 987 6543',
-          stage: 'closed_won',
-          estimated_budget: 1600.00,
-          notes: 'Compra confirmada y procesada vía web.',
-          assigned_to: 'adm_001',
-          created_at: new Date(Date.now() - 1 * 86400000).toISOString()
-        },
-        {
-          id: 'lead-4',
-          profile_id: null,
-          full_name: 'TechLab Solutions SAS',
-          email: 'compras@techlab.com',
-          phone: '+57 310 555 1212',
-          stage: 'prospect',
-          estimated_budget: 8000.00,
-          notes: 'Renovación de 5 equipos de desarrollo de software con procesadores i9.',
-          assigned_to: null,
-          created_at: new Date(Date.now() - 12 * 3600000).toISOString()
-        }
-      ]);
-    }
-
-    // Fallback Initial Interactions
-    if (this.interactions().length === 0) {
-      this.interactions.set([
-        {
-          id: 'int-1',
-          lead_id: 'lead-1',
-          profile_id: 'c1111111-1111-1111-1111-111111111111',
-          agent_id: 'adm_001',
-          channel: 'WhatsApp',
-          summary: 'Se envió cotización formal PDF #DAS-COT-092 por $5,500 USD con tiempos de entrega garantizados.',
-          interaction_date: new Date(Date.now() - 2 * 3600000).toISOString()
-        },
-        {
-          id: 'int-2',
-          lead_id: 'lead-2',
-          profile_id: null,
-          agent_id: 'adm_001',
-          channel: 'Llamada telefónica',
-          summary: 'Asesoría técnica sobre compatibilidad de memorias DDR5 con la placa ASUS TUF.',
-          interaction_date: new Date(Date.now() - 24 * 3600000).toISOString()
-        }
-      ]);
-    }
-
-    // Fallback Initial Support Tickets
-    if (this.tickets().length === 0) {
-      this.tickets.set([
-        {
-          id: 't-101',
-          customer_id: 'c1111111-1111-1111-1111-111111111111',
-          sales_order_id: 'ord-1001',
-          assigned_agent_id: 'adm_001',
-          subject: 'Solicitud de guía de rastreo y factura electrónica DIAN',
-          status: 'open',
-          priority: 'medium',
-          created_at: new Date(Date.now() - 6 * 3600000).toISOString()
-        },
-        {
-          id: 't-102',
-          customer_id: 'c2222222-2222-2222-2222-222222222222',
-          sales_order_id: 'ord-1002',
-          assigned_agent_id: 'adm_001',
-          subject: 'Consulta de actualización de BIOS para compatibilidad Ryzen 7000',
-          status: 'in_progress',
-          priority: 'low',
-          created_at: new Date(Date.now() - 18 * 3600000).toISOString()
-        }
-      ]);
+      this.leads.set((!leadsRes.error && leadsRes.data) ? (leadsRes.data as DbCrmLead[]) : []);
+      this.interactions.set((!interRes.error && interRes.data) ? (interRes.data as DbCrmInteraction[]) : []);
+      this.tickets.set((!tickRes.error && tickRes.data) ? (tickRes.data as DbCrmSupportTicket[]) : []);
+    } catch (err) {
+      console.error('Error al cargar datos CRM desde Supabase:', err);
+      this.leads.set([]);
+      this.interactions.set([]);
+      this.tickets.set([]);
     }
   }
 
