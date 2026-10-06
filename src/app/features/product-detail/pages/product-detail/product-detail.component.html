@@ -62,16 +62,27 @@
                 <button
                   type="button"
                   (click)="setVariant(variant)"
-                  class="flex items-center justify-between p-3 rounded-xl text-xs font-semibold border transition cursor-pointer"
+                  class="flex items-center justify-between p-3 rounded-xl text-xs font-bold border transition-all cursor-pointer"
                   [class.border-primary]="selectedVariant()?.id === variant.id"
                   [class.bg-primary-container]="selectedVariant()?.id === variant.id"
-                  [class.text-primary]="selectedVariant()?.id === variant.id"
-                  [class.border-outline-variant/40]="selectedVariant()?.id !== variant.id"
+                  [class.text-white]="selectedVariant()?.id === variant.id"
+                  [class.ring-2]="selectedVariant()?.id === variant.id"
+                  [class.ring-primary/40]="selectedVariant()?.id === variant.id"
+                  [class.border-outline-variant]="selectedVariant()?.id !== variant.id"
                   [class.bg-surface-container]="selectedVariant()?.id !== variant.id"
-                  [class.text-on-surface-variant]="selectedVariant()?.id !== variant.id"
+                  [class.text-on-surface]="selectedVariant()?.id !== variant.id"
+                  [class.hover:border-primary/60]="selectedVariant()?.id !== variant.id"
+                  [class.hover:bg-surface-container-high]="selectedVariant()?.id !== variant.id"
+                  [class.hover:text-white]="selectedVariant()?.id !== variant.id"
                 >
-                  <span>{{ variant.name }}</span>
-                  <span class="font-bold font-mono">{{ variant.price | currencyFormat }}</span>
+                  <span class="font-bold">{{ variant.name }}</span>
+                  <span
+                    class="font-black font-mono text-xs"
+                    [class.text-primary]="selectedVariant()?.id === variant.id"
+                    [class.text-on-surface]="selectedVariant()?.id !== variant.id"
+                  >
+                    {{ variant.price | currencyFormat }}
+                  </span>
                 </button>
               }
             </div>
@@ -97,15 +108,17 @@
               <button
                 type="button"
                 (click)="decreaseQuantity()"
-                class="h-9 w-9 rounded-lg flex items-center justify-center text-on-surface-variant hover:bg-surface-container-high hover:text-white"
+                class="h-9 w-9 rounded-lg flex items-center justify-center font-bold text-base text-white bg-surface-container-high hover:bg-surface-bright active:scale-95 transition"
+                aria-label="Disminuir cantidad"
               >
                 -
               </button>
-              <span class="w-10 text-center font-bold text-sm text-on-surface">{{ quantity() }}</span>
+              <span class="w-10 text-center font-bold text-sm text-white font-mono">{{ quantity() }}</span>
               <button
                 type="button"
                 (click)="increaseQuantity()"
-                class="h-9 w-9 rounded-lg flex items-center justify-center text-on-surface-variant hover:bg-surface-container-high hover:text-white"
+                class="h-9 w-9 rounded-lg flex items-center justify-center font-bold text-base text-white bg-surface-container-high hover:bg-surface-bright active:scale-95 transition"
+                aria-label="Aumentar cantidad"
               >
                 +
               </button>
@@ -136,10 +149,11 @@
           type="button"
           (click)="activeTab.set('specs')"
           class="text-xs sm:text-sm font-bold pb-2 transition cursor-pointer"
-          [class.text-primary]="activeTab() === 'specs'"
+          [class.text-white]="activeTab() === 'specs'"
           [class.border-b-2]="activeTab() === 'specs'"
           [class.border-primary]="activeTab() === 'specs'"
-          [class.text-outline]="activeTab() !== 'specs'"
+          [class.text-on-surface-variant]="activeTab() !== 'specs'"
+          [class.hover:text-white]="activeTab() !== 'specs'"
         >
           Ficha Técnica
         </button>
@@ -147,10 +161,11 @@
           type="button"
           (click)="activeTab.set('description')"
           class="text-xs sm:text-sm font-bold pb-2 transition cursor-pointer"
-          [class.text-primary]="activeTab() === 'description'"
+          [class.text-white]="activeTab() === 'description'"
           [class.border-b-2]="activeTab() === 'description'"
           [class.border-primary]="activeTab() === 'description'"
-          [class.text-outline]="activeTab() !== 'description'"
+          [class.text-on-surface-variant]="activeTab() !== 'description'"
+          [class.hover:text-white]="activeTab() !== 'description'"
         >
           Descripción Detallada
         </button>

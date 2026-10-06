@@ -26,6 +26,7 @@ export interface DbProfile {
   role: UserRole;
   first_name: string;
   last_name: string;
+  email?: string | null;
   phone?: string | null;
   address?: string | null;
   created_at: string; // timestamptz

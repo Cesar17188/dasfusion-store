@@ -19,11 +19,13 @@
         <button
           type="button"
           (click)="onCategorySelect(cat)"
-          class="flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-medium text-left transition"
-          [class.bg-blue-600]="selectedCategory === cat"
-          [class.text-white]="selectedCategory === cat"
-          [class.text-zinc-300]="selectedCategory !== cat"
+          class="flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold text-left transition cursor-pointer"
+          [class.bg-[#aec7f7]]="selectedCategory === cat"
+          [class.text-[#0a1b33]]="selectedCategory === cat"
+          [class.shadow-sm]="selectedCategory === cat"
+          [class.text-[#e3e2e6]]="selectedCategory !== cat"
           [class.hover:bg-zinc-800]="selectedCategory !== cat"
+          [class.hover:text-white]="selectedCategory !== cat"
         >
           <span>{{ cat }}</span>
         </button>

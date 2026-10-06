@@ -2,6 +2,7 @@ import { Component, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AdminService, AdminProductWithVariants } from '../../../../core/services/admin.service';
+import { ProductService } from '../../../../core/services/product.service';
 import { DbProductVariant, DbCategory, DbBrand } from '../../../../core/models/supabase.model';
 import { ProductSpecification } from '../../../../core/models/product.model';
 
@@ -162,6 +163,13 @@ export interface SpecGroup {
                 }
               </select>
 
+              <!-- Visibility Filter -->
+              <select [(ngModel)]="selectedVisibility" class="das-input text-xs w-auto!">
+                <option value="ALL">Visibilidad: Todos</option>
+                <option value="VISIBLE">Solo Visibles en Tienda</option>
+                <option value="HIDDEN">Solo Ocultos (Borrador)</option>
+              </select>
+
               <!-- Low Stock Toggle -->
               <button
                 (click)="onlyLowStock.update((v) => !v)"
@@ -186,13 +194,14 @@ export interface SpecGroup {
                     <th class="py-3 px-4">SKU / Variante</th>
                     <th class="py-3 px-4">Precio ($)</th>
                     <th class="py-3 px-4">Stock Actual</th>
-                    <th class="py-3 px-4">Estado</th>
+                    <th class="py-3 px-4">Estado Stock</th>
+                    <th class="py-3 px-4 text-center">Visibilidad Tienda</th>
                     <th class="py-3 px-4 text-right">Acciones & Ajuste</th>
                   </tr>
                 </thead>
                 <tbody class="divide-y divide-outline-variant/30">
                   @for (item of flattenedVariants(); track item.variant.id) {
-                    <tr class="hover:bg-surface-container/60 transition">
+                    <tr class="hover:bg-surface-container/60 transition" [class.opacity-60]="item.product.is_active === false">
                       <td class="py-3.5 px-4">
                         <div class="flex items-center gap-3">
                           <div
@@ -272,6 +281,23 @@ export interface SpecGroup {
                             En Stock
                           </span>
                         }
+                      </td>
+                      <td class="py-3.5 px-4 text-center">
+                        <button
+                          type="button"
+                          (click)="toggleProductVisibility(item.product.id)"
+                          [class.bg-emerald-950]="item.product.is_active !== false"
+                          [class.text-emerald-300]="item.product.is_active !== false"
+                          [class.border-emerald-500/40]="item.product.is_active !== false"
+                          [class.bg-surface-container-high]="item.product.is_active === false"
+                          [class.text-outline]="item.product.is_active === false"
+                          [class.border-outline-variant]="item.product.is_active === false"
+                          class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold border transition cursor-pointer hover:brightness-125"
+                          [title]="item.product.is_active !== false ? 'Producto visible en tienda. Clic para ocultar' : 'Producto oculto. Clic para mostrar en tienda'"
+                        >
+                          <span class="h-2 w-2 rounded-full" [class.bg-emerald-400]="item.product.is_active !== false" [class.bg-outline]="item.product.is_active === false"></span>
+                          <span>{{ item.product.is_active !== false ? '👁️ Visible' : '🚫 Oculto' }}</span>
+                        </button>
                       </td>
                       <td class="py-3.5 px-4 text-right">
                         <div class="flex items-center justify-end gap-1.5">
@@ -636,6 +662,17 @@ export interface SpecGroup {
                   class="das-input text-xs"
                   placeholder="Resumen de especificaciones clave..."
                 />
+              </div>
+
+              <div class="flex items-center gap-2 pt-1">
+                <input
+                  type="checkbox"
+                  id="new_is_active"
+                  [(ngModel)]="newProdForm.is_active"
+                  name="new_is_active"
+                  class="rounded bg-surface border-outline-variant text-primary"
+                />
+                <label for="new_is_active" class="text-xs text-on-surface-variant cursor-pointer">Producto Activo y Visible en la Tienda</label>
               </div>
             </div>
 
@@ -1745,12 +1782,14 @@ export interface SpecGroup {
 })
 export class InventoryManagementComponent {
   readonly adminService = inject(AdminService);
+  readonly productService = inject(ProductService);
 
   activeTab = signal<'inventory' | 'categories' | 'brands'>('inventory');
 
   searchQuery = signal<string>('');
   selectedCategory = signal<string>('ALL');
   selectedBrand = signal<string>('ALL');
+  selectedVisibility = signal<'ALL' | 'VISIBLE' | 'HIDDEN'>('ALL');
   onlyLowStock = signal<boolean>(false);
 
   // Modals state
@@ -1769,7 +1808,8 @@ export class InventoryManagementComponent {
     category_id: '',
     brand_id: '',
     short_description: '',
-    product_type: 'standalone'
+    product_type: 'standalone',
+    is_active: true
   };
 
   newProdImages = signal<string[]>([]);
@@ -1871,9 +1911,12 @@ export class InventoryManagementComponent {
     const query = this.searchQuery().toLowerCase().trim();
     const cat = this.selectedCategory();
     const brand = this.selectedBrand();
+    const vis = this.selectedVisibility();
     const lowStock = this.onlyLowStock();
 
     for (const p of this.adminService.products()) {
+      if (vis === 'VISIBLE' && p.is_active === false) continue;
+      if (vis === 'HIDDEN' && p.is_active !== false) continue;
       if (cat !== 'ALL' && p.category_id !== cat) continue;
       if (brand !== 'ALL' && p.brand_id !== brand) continue;
 
@@ -2123,6 +2166,14 @@ export class InventoryManagementComponent {
     });
   }
 
+  async toggleProductVisibility(productId: string): Promise<void> {
+    const prod = this.adminService.products().find((p) => p.id === productId);
+    if (!prod) return;
+    const newStatus = prod.is_active === false;
+    await this.adminService.toggleProductStatus(productId);
+    this.productService.setProductActive(productId, newStatus);
+  }
+
   openNewProductModal(): void {
     const firstCat = this.organizedCategories()[0]?.id || '';
     const availableBrands = this.adminService.getBrandsForCategory(firstCat);
@@ -2133,7 +2184,8 @@ export class InventoryManagementComponent {
       category_id: firstCat,
       brand_id: firstBrand,
       short_description: '',
-      product_type: 'standalone'
+      product_type: 'standalone',
+      is_active: true
     };
 
     this.newVarForm = {
@@ -2268,6 +2320,7 @@ export class InventoryManagementComponent {
       },
       variantsToSave
     );
+    await this.productService.loadProductsFromDatabase();
     this.isNewProductModalOpen.set(false);
   }
 
@@ -2492,12 +2545,14 @@ export class InventoryManagementComponent {
       }
     }
 
+    this.productService.setProductActive(this.editingProduct()!.id, this.editProdForm.is_active);
     this.isEditProductModalOpen.set(false);
   }
 
   async deleteProduct(productId: string): Promise<void> {
     if (confirm('¿Estás seguro de eliminar este producto y sus variantes?')) {
       await this.adminService.deleteProduct(productId);
+      this.productService.setProductActive(productId, false);
       this.isEditProductModalOpen.set(false);
     }
   }

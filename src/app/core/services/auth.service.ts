@@ -19,7 +19,10 @@ export class AuthService {
 
   readonly currentUser = this.currentUserSignal.asReadonly();
   readonly isAuthenticated = computed(() => !!this.currentUserSignal());
-  readonly isAdmin = computed(() => this.currentUserSignal()?.role === 'admin');
+  readonly isAdmin = computed(() => {
+    const role = this.currentUserSignal()?.role?.toString().toLowerCase().trim();
+    return role === 'admin';
+  });
   readonly isInitialized = this.isInitializedSignal.asReadonly();
 
   private readonly supabaseService = inject(SupabaseService);
@@ -37,11 +40,26 @@ export class AuthService {
     await Promise.race([this.initPromise, timeout]);
   }
 
+  /**
+   * Manually re-checks the latest profile and role directly from Supabase DB
+   */
+  async refreshProfile(): Promise<User | null> {
+    const current = this.currentUserSignal();
+    if (!current) return null;
+    return this.loadUserProfile(current.id, current.email);
+  }
+
   private async initSupabaseAuthListener(): Promise<void> {
     try {
       const { data: { session } } = await this.supabaseService.auth.getSession();
       if (session?.user) {
         await this.loadUserProfile(session.user.id, session.user.email || '');
+      } else {
+        // If Supabase session is null or cached in localStorage, verify against DB profiles
+        const current = this.currentUserSignal();
+        if (current?.id || current?.email) {
+          await this.loadUserProfile(current.id || '', current.email || '');
+        }
       }
     } catch (e) {
       console.warn('Error al verificar sesión de Supabase:', e);
@@ -68,28 +86,48 @@ export class AuthService {
 
   async loadUserProfile(userId: string, email: string): Promise<User> {
     try {
-      // 1. Fetch profile row from public.profiles
-      const { data, error } = await (this.supabaseService.from('profiles') as any)
-        .select('*')
-        .eq('id', userId)
-        .maybeSingle();
+      let data: any = null;
 
-      // Check auth user metadata for role override
-      const { data: userData } = await this.supabaseService.auth.getUser();
-      const metaRole = (userData?.user?.app_metadata?.['role'] || userData?.user?.user_metadata?.['role']) as UserRole | undefined;
+      // 1. Fetch profile row by UUID / id from public.profiles
+      if (userId) {
+        const { data: byId } = await (this.supabaseService.from('profiles') as any)
+          .select('*')
+          .eq('id', userId)
+          .maybeSingle();
+        if (byId) {
+          data = byId;
+        }
+      }
 
-      let determinedRole: UserRole = 'customer';
+      // 2. If not found by id or if id was different, try searching by email
+      if (!data && email) {
+        const { data: byEmail } = await (this.supabaseService.from('profiles') as any)
+          .select('*')
+          .ilike('email', email.trim())
+          .maybeSingle();
+        if (byEmail) {
+          data = byEmail;
+        }
+      }
 
-      if (data?.role) {
-        determinedRole = data.role;
-      } else if (metaRole) {
-        determinedRole = metaRole;
-      } else if (email.toLowerCase().includes('admin')) {
+      // 3. Check auth user metadata for role override
+      let metaRole: string | undefined;
+      try {
+        const { data: userData } = await this.supabaseService.auth.getUser();
+        metaRole = (userData?.user?.app_metadata?.['role'] || userData?.user?.user_metadata?.['role']) as string | undefined;
+      } catch {}
+
+      const rawRole = (data?.role || metaRole || '').toString().trim().toLowerCase();
+      let determinedRole: UserRole = (rawRole === 'admin' || rawRole === 'sales_agent' || rawRole === 'support_agent')
+        ? (rawRole as UserRole)
+        : 'customer';
+
+      if (determinedRole === 'customer' && !data?.role && email.toLowerCase().includes('admin')) {
         determinedRole = 'admin';
       }
 
       // If no profile exists in public.profiles, create one
-      if (!data && !error) {
+      if (!data && userId) {
         const parts = email.split('@')[0].split('.');
         const firstName = parts[0] ? parts[0].charAt(0).toUpperCase() + parts[0].slice(1) : 'Admin';
         const lastName = parts[1] ? parts[1].charAt(0).toUpperCase() + parts[1].slice(1) : 'User';
@@ -97,6 +135,7 @@ export class AuthService {
         try {
           await (this.supabaseService.from('profiles') as any).insert({
             id: userId,
+            email: email,
             first_name: firstName,
             last_name: lastName,
             role: determinedRole
@@ -107,8 +146,8 @@ export class AuthService {
       }
 
       const user: User = {
-        id: userId,
-        email: email,
+        id: data?.id || userId,
+        email: data?.email || email,
         name: data && (data.first_name || data.last_name)
           ? `${data.first_name || ''} ${data.last_name || ''}`.trim()
           : email.split('@')[0],

@@ -36,13 +36,15 @@
         <span>PC Builder</span>
         <span class="rounded-full bg-primary-container px-2 py-0.5 text-[10px] font-bold text-primary border border-primary/30">PRO</span>
       </a>
-      <a
-        routerLink="/admin/crm"
-        class="flex items-center gap-1.5 text-primary hover:text-primary-fixed transition-colors"
-      >
-        <span class="h-2 w-2 rounded-full bg-emerald-400 animate-pulse"></span>
-        <span>Panel Admin</span>
-      </a>
+      @if (authService.isAdmin()) {
+        <a
+          routerLink="/admin/crm"
+          class="flex items-center gap-1.5 text-primary hover:text-primary-fixed transition-colors"
+        >
+          <span class="h-2 w-2 rounded-full bg-emerald-400 animate-pulse"></span>
+          <span>Panel Admin</span>
+        </a>
+      }
     </nav>
 
     <!-- Right: Search, Cart, Profile/Auth -->

@@ -188,8 +188,8 @@
     align-items: center;
     justify-content: center;
     background-color: #f2f3f5;
-    color: #1b365d;
-    font-weight: 600;
+    color: #0a1b33;
+    font-weight: 700;
     font-size: 14px;
     padding: 0.625rem 1.25rem;
     border-radius: 0.5rem;
@@ -198,8 +198,9 @@
 
     &:hover {
       background-color: #ffffff;
+      color: #000000;
       transform: translateY(-1px);
-      box-shadow: 0 4px 14px rgba(242, 243, 245, 0.25);
+      box-shadow: 0 4px 16px rgba(242, 243, 245, 0.35);
     }
 
     &:active {
@@ -213,9 +214,9 @@
     align-items: center;
     justify-content: center;
     background-color: transparent;
-    color: #f2f3f5;
-    border: 1px solid rgba(242, 243, 245, 0.6);
-    font-weight: 600;
+    color: #ffffff;
+    border: 2px solid rgba(174, 199, 247, 0.8);
+    font-weight: 700;
     font-size: 14px;
     padding: 0.625rem 1.25rem;
     border-radius: 0.5rem;
@@ -223,8 +224,9 @@
     cursor: pointer;
 
     &:hover {
-      border-color: #ffffff;
-      background-color: rgba(242, 243, 245, 0.08);
+      border-color: #aec7f7;
+      background-color: rgba(174, 199, 247, 0.15);
+      color: #ffffff;
     }
   }
 

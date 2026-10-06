@@ -49,6 +49,7 @@ export interface Product {
   variants?: ProductVariant[];
   bundles?: ProductBundle[];
   tags: string[];
+  isActive?: boolean;
 }
 
 export interface ProductFilter {

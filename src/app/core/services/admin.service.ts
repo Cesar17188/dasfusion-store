@@ -669,6 +669,7 @@ export class AdminService {
       short_description?: string;
       long_description?: string;
       product_type?: string;
+      is_active?: boolean;
       images?: string[];
       specifications?: ProductSpecification[];
     },
@@ -691,7 +692,7 @@ export class AdminService {
       short_description: productData.short_description || '',
       long_description: productData.long_description || '',
       product_type: productData.product_type || 'standalone',
-      is_active: true,
+      is_active: productData.is_active !== false,
       images: productData.images && productData.images.length > 0 ? productData.images : [],
       specifications: productData.specifications && productData.specifications.length > 0 ? productData.specifications : [],
       created_at: new Date().toISOString()

@@ -1,23 +1,23 @@
 <div
   [routerLink]="['/catalog', product().slug]"
-  class="group relative flex flex-col overflow-hidden rounded-2xl border border-[#44474e]/40 bg-[#1e2022]/80 p-4 transition-all duration-300 hover:-translate-y-1 hover:border-[#aec7f7]/40 hover:bg-[#292a2d] hover:shadow-[0_10px_30px_-10px_rgba(0,0,0,0.6)] cursor-pointer"
+  class="group relative flex flex-col overflow-hidden rounded-2xl border border-outline-variant/40 bg-surface-container/80 p-4 transition-all duration-300 hover:-translate-y-1 hover:border-[#aec7f7]/40 hover:bg-surface-container-high hover:shadow-[0_10px_30px_-10px_rgba(0,0,0,0.6)] cursor-pointer"
 >
   <!-- Badges -->
   <div class="absolute left-3 top-3 z-10 flex flex-col gap-1.5">
     @if (product().isNew) {
-      <span class="das-chip !bg-[#1b365d] !text-[#aec7f7] !border-[#aec7f7]/30 !text-[10px] font-bold">
+      <span class="das-chip bg-primary-container! text-[#aec7f7]! border-[#aec7f7]/30! text-[10px]! font-bold">
         NUEVO
       </span>
     }
     @if (product().compareAtPrice && product().compareAtPrice! > product().price) {
-      <span class="das-chip !bg-[#4f2f00] !text-[#f1bd81] !border-[#f1bd81]/30 !text-[10px] font-bold">
+      <span class="das-chip bg-tertiary-container! text-[#f1bd81]! border-[#f1bd81]/30! text-[10px]! font-bold">
         OFERTA
       </span>
     }
   </div>
 
   <!-- Image Container -->
-  <div class="relative aspect-square w-full overflow-hidden rounded-xl bg-[#0d0e11] flex items-center justify-center p-4 border border-[#44474e]/20">
+  <div class="relative aspect-square w-full overflow-hidden rounded-xl bg-surface-container-lowest flex items-center justify-center p-4 border border-outline-variant/20">
     <img
       [src]="product().images[0] || 'https://images.unsplash.com/photo-1587202372775-e229f172b9d7?auto=format&fit=crop&w=400&q=80'"
       [alt]="product().name"
@@ -29,8 +29,8 @@
   <!-- Content -->
   <div class="mt-4 flex flex-1 flex-col justify-between">
     <div>
-      <div class="flex items-center justify-between text-xs text-[#8e9099] mb-1.5">
-        <span class="uppercase tracking-wider font-semibold text-[#8e9099]">{{ product().brand }}</span>
+      <div class="flex items-center justify-between text-xs text-outline mb-1.5">
+        <span class="uppercase tracking-wider font-semibold text-outline">{{ product().brand }}</span>
         <!-- Rating -->
         <div class="flex items-center gap-1 text-[#f1bd81]">
           <svg class="h-3.5 w-3.5 fill-current" viewBox="0 0 20 20">
@@ -46,10 +46,10 @@
     </div>
 
     <!-- Price & Actions -->
-    <div class="mt-4 flex items-center justify-between pt-3 border-t border-[#44474e]/40">
+    <div class="mt-4 flex items-center justify-between pt-3 border-t border-outline-variant/40">
       <div class="flex flex-col">
         @if (product().compareAtPrice) {
-          <span class="text-[11px] text-[#8e9099] line-through">
+          <span class="text-[11px] text-outline line-through">
             {{ product().compareAtPrice | currencyFormat }}
           </span>
         }
@@ -60,12 +60,21 @@
 
       <app-button
         size="sm"
-        variant="primary"
+        [variant]="isAdded() ? 'secondary' : 'primary'"
         (clicked)="addToCart($event)"
+        class="shrink-0"
       >
-        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
-        </svg>
+        @if (isAdded()) {
+          <svg class="h-3.5 w-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"></path>
+          </svg>
+          <span>¡Listo!</span>
+        } @else {
+          <svg class="h-3.5 w-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"></path>
+          </svg>
+          <span>Agregar</span>
+        }
       </app-button>
     </div>
   </div>

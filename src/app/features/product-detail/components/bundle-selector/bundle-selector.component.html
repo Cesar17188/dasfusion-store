@@ -9,11 +9,13 @@
       <div
         (click)="selectBundle(bundle)"
         class="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 rounded-xl border transition-all cursor-pointer"
-        [class.border-blue-500]="selectedBundle()?.id === bundle.id"
-        [class.bg-blue-950/20]="selectedBundle()?.id === bundle.id"
-        [class.border-zinc-800]="selectedBundle()?.id !== bundle.id"
-        [class.bg-zinc-900/60]="selectedBundle()?.id !== bundle.id"
-        [class.hover:border-zinc-700]="selectedBundle()?.id !== bundle.id"
+        [class.border-blue-400]="selectedBundle()?.id === bundle.id"
+        [class.bg-blue-950/40]="selectedBundle()?.id === bundle.id"
+        [class.ring-2]="selectedBundle()?.id === bundle.id"
+        [class.ring-blue-400/30]="selectedBundle()?.id === bundle.id"
+        [class.border-zinc-700]="selectedBundle()?.id !== bundle.id"
+        [class.bg-zinc-900/80]="selectedBundle()?.id !== bundle.id"
+        [class.hover:border-zinc-500]="selectedBundle()?.id !== bundle.id"
       >
         <div class="space-y-1">
           <div class="flex items-center gap-2">
@@ -22,12 +24,12 @@
               COMBO
             </span>
           </div>
-          <p class="text-xs text-zinc-400">{{ bundle.description }}</p>
+          <p class="text-xs text-zinc-300">{{ bundle.description }}</p>
         </div>
 
         <div class="mt-3 sm:mt-0 flex items-center gap-3 self-end sm:self-auto">
           <div class="text-right">
-            <span class="text-xs text-zinc-500 line-through block">{{ bundle.originalPrice | currencyFormat }}</span>
+            <span class="text-xs text-zinc-400 line-through block">{{ bundle.originalPrice | currencyFormat }}</span>
             <span class="text-sm font-bold text-emerald-400">{{ bundle.price | currencyFormat }}</span>
           </div>
           <div

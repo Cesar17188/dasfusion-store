@@ -1,5 +1,7 @@
-import { Injectable, signal, computed } from '@angular/core';
+import { Injectable, signal, computed, inject } from '@angular/core';
 import { Product, ProductFilter } from '../models/product.model';
+import { SupabaseService } from './supabase.service';
+import { DbProduct, DbProductVariant } from '../models/supabase.model';
 
 export const ALL_PRODUCTS: Product[] = [
   // ==========================================
@@ -656,38 +658,126 @@ export const ALL_PRODUCTS: Product[] = [
   providedIn: 'root'
 })
 export class ProductService {
+  private readonly supabaseService = inject(SupabaseService);
   private readonly productsSignal = signal<Product[]>(ALL_PRODUCTS);
 
-  readonly products = this.productsSignal.asReadonly();
+  // Store only displays products where isActive !== false
+  readonly products = computed(() => {
+    return this.productsSignal().filter((p) => p.isActive !== false);
+  });
 
   readonly categories = computed(() => {
-    return Array.from(new Set(this.productsSignal().map((p) => p.category)));
+    return Array.from(new Set(this.products().map((p) => p.category)));
   });
 
   readonly brands = computed(() => {
-    return Array.from(new Set(this.productsSignal().map((p) => p.brand))).sort();
+    return Array.from(new Set(this.products().map((p) => p.brand))).sort();
   });
+
+  constructor() {
+    this.loadProductsFromDatabase();
+  }
+
+  async loadProductsFromDatabase(): Promise<void> {
+    try {
+      const { data: prodData, error: prodErr } = await (this.supabaseService.from('products') as any).select('*');
+      const { data: varData } = await (this.supabaseService.from('product_variants') as any).select('*');
+      const { data: catData } = await (this.supabaseService.from('categories') as any).select('*');
+      const { data: brandData } = await (this.supabaseService.from('brands') as any).select('*');
+
+      if (!prodErr && prodData && prodData.length > 0) {
+        const mapped: Product[] = (prodData as DbProduct[]).map((dbP) => {
+          const cat = catData?.find((c: any) => c.id === dbP.category_id);
+          const brand = brandData?.find((b: any) => b.id === dbP.brand_id);
+          const vars = (varData || [])
+            .filter((v: any) => v.product_id === dbP.id)
+            .map((v: any) => ({
+              id: v.id,
+              name: v.variant_name,
+              sku: v.sku,
+              price: Number(v.price) || 0,
+              stock: Number(v.stock) || 0,
+              attributes: v.attributes || {}
+            }));
+
+          const minPrice = vars.length > 0 ? Math.min(...vars.map((v: any) => v.price)) : 0;
+          const totalStock = vars.reduce((acc: number, v: any) => acc + v.stock, 0);
+
+          return {
+            id: dbP.id,
+            name: dbP.model,
+            slug: dbP.model.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || dbP.id,
+            brand: brand?.name || 'Genérico',
+            category: cat?.name || 'General',
+            subCategory: cat?.parent_id ? cat.name : undefined,
+            description: dbP.long_description || dbP.short_description || '',
+            shortDescription: dbP.short_description || '',
+            price: minPrice,
+            images: Array.isArray(dbP.images) && dbP.images.length > 0 ? dbP.images : ['https://images.unsplash.com/photo-1591799264318-7e6ef8ddb7ea?auto=format&fit=crop&w=600&q=80'],
+            stock: totalStock,
+            rating: 5.0,
+            reviewCount: 1,
+            isFeatured: true,
+            isNew: true,
+            specifications: Array.isArray(dbP.specifications) ? dbP.specifications : [],
+            variants: vars,
+            tags: [cat?.name, brand?.name, dbP.model].filter(Boolean) as string[],
+            isActive: dbP.is_active !== false
+          };
+        });
+
+        // Add mock products that don't collide with Supabase products
+        const existingIds = new Set(mapped.map((p) => p.id));
+        const existingSlugs = new Set(mapped.map((p) => p.slug));
+        const combined = [...mapped];
+
+        for (const sp of ALL_PRODUCTS) {
+          if (!existingIds.has(sp.id) && !existingSlugs.has(sp.slug)) {
+            combined.push(sp);
+          }
+        }
+
+        this.productsSignal.set(combined);
+      }
+    } catch (err) {
+      console.warn('Could not load products from Supabase, using mock products:', err);
+    }
+  }
+
+  /**
+   * Instantly toggles the product visibility in the storefront signal
+   */
+  setProductActive(productId: string, isActive: boolean): void {
+    this.productsSignal.update((list) =>
+      list.map((p) => {
+        if (p.id === productId) {
+          return { ...p, isActive };
+        }
+        return p;
+      })
+    );
+  }
 
   getBrandsByCategory(category?: string): string[] {
     if (!category) {
       return this.brands();
     }
-    const matchingProducts = this.productsSignal().filter(
+    const matchingProducts = this.products().filter(
       (p) => p.category.toLowerCase() === category.toLowerCase()
     );
     return Array.from(new Set(matchingProducts.map((p) => p.brand))).sort();
   }
 
   getProductBySlug(slug: string): Product | undefined {
-    return this.productsSignal().find((p) => p.slug === slug);
+    return this.products().find((p) => p.slug === slug);
   }
 
   getProductById(id: string): Product | undefined {
-    return this.productsSignal().find((p) => p.id === id);
+    return this.products().find((p) => p.id === id);
   }
 
   getRelatedProducts(product: Product, limit = 3): Product[] {
-    return this.productsSignal()
+    return this.products()
       .filter((p) => p.id !== product.id && (p.category === product.category || p.brand === product.brand))
       .slice(0, limit);
   }
@@ -695,7 +785,7 @@ export class ProductService {
   filterProducts(filter: ProductFilter, searchQuery = ''): Product[] {
     const query = searchQuery.toLowerCase().trim();
 
-    return this.productsSignal()
+    return this.products()
       .filter((product) => {
         if (filter.category && product.category !== filter.category) return false;
         if (filter.brand && filter.brand.length > 0 && !filter.brand.includes(product.brand)) return false;
