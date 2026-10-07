@@ -35,18 +35,27 @@
 
   <!-- Brands -->
   <div class="space-y-3 pt-4 border-t border-zinc-800">
-    <h4 class="text-xs font-semibold uppercase text-zinc-400">Marcas</h4>
+    <div class="flex items-center justify-between">
+      <h4 class="text-xs font-semibold uppercase text-zinc-400">Marcas</h4>
+      @if (selectedCategory) {
+        <span class="text-[10px] text-zinc-500 font-mono">({{ brands().length }})</span>
+      }
+    </div>
     <div class="space-y-2 max-h-48 overflow-y-auto pr-2">
-      @for (brand of brands(); track brand) {
-        <label class="flex items-center gap-2 text-xs text-zinc-300 hover:text-white cursor-pointer select-none">
-          <input
-            type="checkbox"
-            [checked]="selectedBrands.includes(brand)"
-            (change)="onBrandToggle(brand)"
-            class="h-4 w-4 rounded border-zinc-700 bg-zinc-800 text-blue-600 focus:ring-blue-500 focus:ring-offset-zinc-900"
-          />
-          <span>{{ brand }}</span>
-        </label>
+      @if (brands().length === 0) {
+        <p class="text-[11px] text-zinc-500 italic py-1">Sin marcas para esta categoría</p>
+      } @else {
+        @for (brand of brands(); track brand) {
+          <label class="flex items-center gap-2 text-xs text-zinc-300 hover:text-white cursor-pointer select-none">
+            <input
+              type="checkbox"
+              [checked]="selectedBrands.includes(brand)"
+              (change)="onBrandToggle(brand)"
+              class="h-4 w-4 rounded border-zinc-700 bg-zinc-800 text-blue-600 focus:ring-blue-500 focus:ring-offset-zinc-900"
+            />
+            <span>{{ brand }}</span>
+          </label>
+        }
       }
     </div>
   </div>

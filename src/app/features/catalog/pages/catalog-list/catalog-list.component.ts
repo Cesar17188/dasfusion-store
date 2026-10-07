@@ -55,7 +55,7 @@ export class CatalogListComponent {
 
   onCategoryChipClick(category: string): void {
     const current = this.currentFilter().category;
-    const nextCategory = current === category ? undefined : category;
+    const nextCategory = (!category || current === category) ? undefined : category;
 
     // Reset or filter out brands that don't belong to the new category
     const validBrands = this.productService.getBrandsByCategory(nextCategory);
@@ -77,7 +77,14 @@ export class CatalogListComponent {
   }
 
   onFilterChanged(newFilter: ProductFilter): void {
-    this.currentFilter.update((current) => ({ ...current, ...newFilter }));
+    const validBrands = this.productService.getBrandsByCategory(newFilter.category);
+    const updatedBrands = newFilter.brand?.filter((b) => validBrands.includes(b));
+
+    this.currentFilter.update((current) => ({
+      ...current,
+      ...newFilter,
+      brand: updatedBrands && updatedBrands.length > 0 ? updatedBrands : undefined
+    }));
   }
 
   onSortChange(event: Event): void {

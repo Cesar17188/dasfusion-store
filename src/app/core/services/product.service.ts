@@ -1,7 +1,7 @@
 import { Injectable, signal, computed, inject } from '@angular/core';
 import { Product, ProductFilter } from '../models/product.model';
 import { SupabaseService } from './supabase.service';
-import { DbProduct } from '../models/supabase.model';
+import { DbProduct, DbCategory, DbBrand } from '../models/supabase.model';
 
 @Injectable({
   providedIn: 'root'
@@ -11,6 +11,8 @@ export class ProductService {
   private readonly productsSignal = signal<Product[]>([]);
   private readonly categoriesSignal = signal<string[]>([]);
   private readonly brandsSignal = signal<string[]>([]);
+  private readonly rawCategoriesSignal = signal<DbCategory[]>([]);
+  private readonly rawBrandsSignal = signal<DbBrand[]>([]);
   readonly isLoading = signal<boolean>(true);
 
   // Store only displays products where isActive !== false
@@ -48,6 +50,15 @@ export class ProductService {
       const brandData = (brandRes.data || []) as any[];
       const prodData = (prodRes.data || []) as DbProduct[];
       const varData = (varRes.data || []) as any[];
+
+      // Keep full relational category and brand data
+      this.rawCategoriesSignal.set(catData.filter((c) => c.is_active !== false));
+      this.rawBrandsSignal.set(
+        brandData.filter((b) => b.is_active !== false).map((b) => ({
+          ...b,
+          category_ids: b.category_ids || (b.category_id ? [b.category_id] : [])
+        }))
+      );
 
       // Populate DB categories and brands
       this.categoriesSignal.set(
@@ -141,18 +152,73 @@ export class ProductService {
     );
   }
 
+  /**
+   * Returns only brands that belong to the selected category.
+   * If no category is chosen, returns all available brands in the store.
+   * If a category is chosen, returns ONLY brands assigned to that category (or its taxonomy branch)
+   * in the database, plus brands of products currently in that category.
+   * Never falls back to returning all store brands when a category is specified.
+   */
   getBrandsByCategory(category?: string): string[] {
     if (!category) {
       return this.brands();
     }
-    const matchingProducts = this.products().filter(
-      (p) => p.category.toLowerCase() === category.toLowerCase()
+
+    const catNormalized = category.toLowerCase().trim();
+    const categories = this.rawCategoriesSignal();
+    const brands = this.rawBrandsSignal();
+
+    // 1. Locate category in taxonomy
+    const targetCat = categories.find(
+      (c) => c.name.toLowerCase() === catNormalized || c.slug?.toLowerCase() === catNormalized || c.id === category
     );
-    const productBrands = matchingProducts.map((p) => p.brand);
-    if (productBrands.length > 0) {
-      return Array.from(new Set(productBrands)).sort();
+
+    // Collect related category IDs (target, parent, and child subcategories)
+    const relatedCatIds = new Set<string>();
+    if (targetCat) {
+      relatedCatIds.add(targetCat.id);
+      if (targetCat.parent_id) {
+        relatedCatIds.add(targetCat.parent_id);
+        for (const c of categories) {
+          if (c.parent_id === targetCat.parent_id) {
+            relatedCatIds.add(c.id);
+          }
+        }
+      } else {
+        for (const c of categories) {
+          if (c.parent_id === targetCat.id) {
+            relatedCatIds.add(c.id);
+          }
+        }
+      }
     }
-    return this.brands();
+
+    // 2. Brands registered in DB taxonomy for this category
+    const dbBrands = brands
+      .filter((b) => b.is_active !== false)
+      .filter((b) => {
+        const catIds = Array.isArray(b.category_ids) && b.category_ids.length > 0
+          ? b.category_ids
+          : (b.category_id ? [b.category_id] : []);
+        return catIds.some((id) => relatedCatIds.has(id));
+      })
+      .map((b) => b.name);
+
+    // 3. Brands of products currently in this category
+    const productBrands = this.products()
+      .filter((p) => {
+        if (p.category.toLowerCase() === catNormalized) return true;
+        if (p.subCategory && p.subCategory.toLowerCase() === catNormalized) return true;
+        if (targetCat) {
+          const pCat = categories.find((c) => c.name.toLowerCase() === p.category.toLowerCase());
+          if (pCat && relatedCatIds.has(pCat.id)) return true;
+        }
+        return false;
+      })
+      .map((p) => p.brand);
+
+    // Strictly union matching brands for this category
+    return Array.from(new Set([...dbBrands, ...productBrands])).filter(Boolean).sort();
   }
 
   getProductBySlug(slug: string): Product | undefined {
@@ -171,10 +237,40 @@ export class ProductService {
 
   filterProducts(filter: ProductFilter, searchQuery = ''): Product[] {
     const query = searchQuery.toLowerCase().trim();
+    const categories = this.rawCategoriesSignal();
+
+    let relatedCatNames: Set<string> | null = null;
+    if (filter.category) {
+      const catNormalized = filter.category.toLowerCase().trim();
+      const targetCat = categories.find(
+        (c) => c.name.toLowerCase() === catNormalized || c.slug?.toLowerCase() === catNormalized || c.id === filter.category
+      );
+      if (targetCat) {
+        relatedCatNames = new Set<string>();
+        relatedCatNames.add(targetCat.name.toLowerCase());
+        if (targetCat.parent_id) {
+          const parent = categories.find((c) => c.id === targetCat.parent_id);
+          if (parent) relatedCatNames.add(parent.name.toLowerCase());
+        } else {
+          for (const c of categories) {
+            if (c.parent_id === targetCat.id) {
+              relatedCatNames.add(c.name.toLowerCase());
+            }
+          }
+        }
+      }
+    }
 
     return this.products()
       .filter((product) => {
-        if (filter.category && product.category.toLowerCase() !== filter.category.toLowerCase()) return false;
+        if (filter.category) {
+          const pCat = product.category.toLowerCase();
+          const pSubCat = product.subCategory?.toLowerCase();
+          const target = filter.category.toLowerCase();
+          const matchesDirect = pCat === target || pSubCat === target;
+          const matchesHierarchy = relatedCatNames ? (relatedCatNames.has(pCat) || (!!pSubCat && relatedCatNames.has(pSubCat))) : false;
+          if (!matchesDirect && !matchesHierarchy) return false;
+        }
         if (filter.brand && filter.brand.length > 0 && !filter.brand.includes(product.brand)) return false;
         if (filter.minPrice !== undefined && product.price < filter.minPrice) return false;
         if (filter.maxPrice !== undefined && product.price > filter.maxPrice) return false;
