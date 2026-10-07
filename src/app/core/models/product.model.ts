@@ -4,7 +4,9 @@ export interface ProductVariant {
   sku: string;
   price: number;
   stock: number;
-  attributes: Record<string, string>; // e.g. { color: 'Black', storage: '1TB' }
+  stock_physical?: number;
+  stock_virtual?: number;
+  attributes: Record<string, any>; // e.g. { color: 'Black', storage: '1TB' }
 }
 
 export interface ProductBundleItem {
@@ -41,6 +43,8 @@ export interface Product {
   compareAtPrice?: number;
   images: string[];
   stock: number;
+  stock_physical?: number;
+  stock_virtual?: number;
   rating: number;
   reviewCount: number;
   isFeatured?: boolean;

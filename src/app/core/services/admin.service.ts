@@ -345,7 +345,8 @@ export class AdminService {
   }
 
   /**
-   * Returns only active brands linked to a given category ID (or all active brands if no category selected)
+   * Returns only active brands linked to a given category ID (or all active brands if no category selected).
+   * Checks bidirectional taxonomy: direct assignment, parent category, and child/sibling subcategories.
    */
   getBrandsForCategory(categoryId?: string | null): DbBrand[] {
     const activeBrands = this.brands().filter((b) => b.is_active !== false);
@@ -353,14 +354,39 @@ export class AdminService {
       return activeBrands;
     }
 
-    // Also find parent category ID if categoryId is a subcategory
-    const catObj = this.categories().find((c) => c.id === categoryId);
-    const parentId = catObj?.parent_id;
+    const categories = this.categories();
+    const catObj = categories.find((c) => c.id === categoryId);
+
+    // Build complete set of related category IDs in the taxonomy tree
+    const relatedCatIds = new Set<string>();
+    relatedCatIds.add(categoryId);
+
+    if (catObj?.parent_id) {
+      // It's a subcategory: include its parent and all sibling subcategories
+      relatedCatIds.add(catObj.parent_id);
+      for (const c of categories) {
+        if (c.parent_id === catObj.parent_id) {
+          relatedCatIds.add(c.id);
+        }
+      }
+    } else {
+      // It's a parent category: include all child subcategories
+      for (const c of categories) {
+        if (c.parent_id === categoryId) {
+          relatedCatIds.add(c.id);
+        }
+      }
+    }
 
     return activeBrands.filter((b) => {
+      const brandCatIds = Array.isArray(b.category_ids) && b.category_ids.length > 0
+        ? b.category_ids
+        : (b.category_id ? [b.category_id] : []);
+
       // If brand has no specific categories assigned, it is considered generic/available everywhere
-      if (!b.category_ids || b.category_ids.length === 0) return true;
-      return b.category_ids.includes(categoryId) || (parentId ? b.category_ids.includes(parentId) : false);
+      if (brandCatIds.length === 0) return true;
+
+      return brandCatIds.some((id) => relatedCatIds.has(id));
     });
   }
 
@@ -374,7 +400,18 @@ export class AdminService {
 
       if (!prodErr && !varErr && prodData) {
         const productsList = prodData as DbProduct[];
-        const variantsList = (varData || []) as DbProductVariant[];
+        const rawVariants = (varData || []) as DbProductVariant[];
+
+        const variantsList: DbProductVariant[] = rawVariants.map((v) => {
+          const phys = v.attributes?.['stock_physical'] !== undefined ? Number(v.attributes['stock_physical']) : (Number(v.stock) || 0);
+          const virt = v.attributes?.['stock_virtual'] !== undefined ? Number(v.attributes['stock_virtual']) : 0;
+          return {
+            ...v,
+            stock_physical: phys,
+            stock_virtual: virt,
+            stock: phys + virt
+          };
+        });
 
         const fullProducts: AdminProductWithVariants[] = productsList.map((p) => {
           const variants = variantsList.filter((v) => v.product_id === p.id);
@@ -399,15 +436,39 @@ export class AdminService {
     this.products.set([]);
   }
 
-  async updateVariantStock(variantId: string, newStock: number): Promise<void> {
+  async updateVariantStock(variantId: string, physicalStock: number, virtualStock?: number): Promise<void> {
+    const existing = this.products().flatMap((p) => p.variants).find((v) => v.id === variantId);
+    const phys = Math.max(0, Number(physicalStock) || 0);
+    const virt = Math.max(0, virtualStock !== undefined ? Number(virtualStock) || 0 : (existing?.stock_virtual ?? 0));
+    const total = phys + virt;
+    const updatedAttributes = {
+      ...(existing?.attributes || {}),
+      stock_physical: phys,
+      stock_virtual: virt
+    };
+
     try {
-      await (this.supabase.from('product_variants') as any).update({ stock: newStock }).eq('id', variantId);
-    } catch {}
+      await (this.supabase.from('product_variants') as any)
+        .update({ stock: total, attributes: updatedAttributes })
+        .eq('id', variantId);
+    } catch (err) {
+      console.error('Error al actualizar stock de variante en Supabase:', err);
+    }
 
     this.products.update((prods) =>
       prods.map((p) => ({
         ...p,
-        variants: p.variants.map((v) => (v.id === variantId ? { ...v, stock: newStock } : v))
+        variants: p.variants.map((v) =>
+          v.id === variantId
+            ? {
+                ...v,
+                stock: total,
+                stock_physical: phys,
+                stock_virtual: virt,
+                attributes: updatedAttributes
+              }
+            : v
+        )
       }))
     );
   }
@@ -474,6 +535,8 @@ export class AdminService {
       variant_name: string;
       price: number;
       stock: number;
+      stock_physical?: number;
+      stock_virtual?: number;
       attributes?: Record<string, any>;
       is_bundle?: boolean;
     }>
@@ -494,22 +557,40 @@ export class AdminService {
       created_at: new Date().toISOString()
     };
 
-    const newVariants: DbProductVariant[] = variantsData.map((v) => ({
-      id: crypto.randomUUID(),
-      product_id: prodId,
-      sku: v.sku.trim(),
-      variant_name: v.variant_name.trim() || 'Estándar',
-      price: Number(v.price) || 0,
-      stock: Number(v.stock) || 0,
-      attributes: v.attributes || {},
-      is_bundle: !!v.is_bundle,
-      created_at: new Date().toISOString()
-    }));
+    const newVariants: DbProductVariant[] = variantsData.map((v) => {
+      const phys = v.stock_physical !== undefined ? Number(v.stock_physical) || 0 : (Number(v.stock) || 0);
+      const virt = v.stock_virtual !== undefined ? Number(v.stock_virtual) || 0 : 0;
+      const total = phys + virt;
+      const attrs = {
+        ...(v.attributes || {}),
+        stock_physical: phys,
+        stock_virtual: virt
+      };
+
+      return {
+        id: crypto.randomUUID(),
+        product_id: prodId,
+        sku: v.sku.trim(),
+        variant_name: v.variant_name.trim() || 'Estándar',
+        price: Number(v.price) || 0,
+        stock: total,
+        stock_physical: phys,
+        stock_virtual: virt,
+        attributes: attrs,
+        is_bundle: !!v.is_bundle,
+        created_at: new Date().toISOString()
+      };
+    });
 
     try {
       await (this.supabase.from('products') as any).insert(newProd);
       if (newVariants.length > 0) {
-        await (this.supabase.from('product_variants') as any).insert(newVariants);
+        // Prepare DB insert payload without ephemeral fields
+        const insertPayload = newVariants.map((nv) => {
+          const { stock_physical, stock_virtual, ...dbFields } = nv;
+          return dbFields;
+        });
+        await (this.supabase.from('product_variants') as any).insert(insertPayload);
       }
     } catch {}
 
@@ -542,6 +623,8 @@ export class AdminService {
       variant_name: string;
       price: number;
       stock: number;
+      stock_physical?: number;
+      stock_virtual?: number;
       attributes?: Record<string, any>;
       is_bundle?: boolean;
     }
@@ -556,24 +639,38 @@ export class AdminService {
       variant_name: string;
       price: number;
       stock: number;
+      stock_physical?: number;
+      stock_virtual?: number;
       attributes?: Record<string, any>;
       is_bundle?: boolean;
     }
   ): Promise<DbProductVariant> {
+    const phys = variantData.stock_physical !== undefined ? Number(variantData.stock_physical) || 0 : (Number(variantData.stock) || 0);
+    const virt = variantData.stock_virtual !== undefined ? Number(variantData.stock_virtual) || 0 : 0;
+    const total = phys + virt;
+    const attrs = {
+      ...(variantData.attributes || {}),
+      stock_physical: phys,
+      stock_virtual: virt
+    };
+
     const newVariant: DbProductVariant = {
       id: crypto.randomUUID(),
       product_id: productId,
       sku: variantData.sku.trim(),
       variant_name: variantData.variant_name.trim() || 'Nueva Edición',
       price: Number(variantData.price) || 0,
-      stock: Number(variantData.stock) || 0,
-      attributes: variantData.attributes || {},
+      stock: total,
+      stock_physical: phys,
+      stock_virtual: virt,
+      attributes: attrs,
       is_bundle: !!variantData.is_bundle,
       created_at: new Date().toISOString()
     };
 
     try {
-      await (this.supabase.from('product_variants') as any).insert(newVariant);
+      const { stock_physical, stock_virtual, ...dbFields } = newVariant;
+      await (this.supabase.from('product_variants') as any).insert(dbFields);
     } catch {}
 
     this.products.update((prods) =>
@@ -593,14 +690,51 @@ export class AdminService {
     variantId: string,
     variantData: Partial<DbProductVariant>
   ): Promise<void> {
+    const existing = this.products().flatMap((p) => p.variants).find((v) => v.id === variantId);
+    const phys = variantData.stock_physical !== undefined
+      ? Number(variantData.stock_physical) || 0
+      : (existing?.stock_physical ?? (Number(existing?.stock) || 0));
+    const virt = variantData.stock_virtual !== undefined
+      ? Number(variantData.stock_virtual) || 0
+      : (existing?.stock_virtual ?? 0);
+    const total = (variantData.stock_physical !== undefined || variantData.stock_virtual !== undefined)
+      ? (phys + virt)
+      : (variantData.stock !== undefined ? Number(variantData.stock) || 0 : (existing?.stock ?? (phys + virt)));
+
+    const mergedAttrs = {
+      ...(existing?.attributes || {}),
+      ...(variantData.attributes || {}),
+      stock_physical: phys,
+      stock_virtual: virt
+    };
+
+    const dbPayload: any = {
+      ...variantData,
+      stock: total,
+      attributes: mergedAttrs
+    };
+    delete dbPayload.stock_physical;
+    delete dbPayload.stock_virtual;
+
     try {
-      await (this.supabase.from('product_variants') as any).update(variantData).eq('id', variantId);
+      await (this.supabase.from('product_variants') as any).update(dbPayload).eq('id', variantId);
     } catch {}
 
     this.products.update((prods) =>
       prods.map((p) => ({
         ...p,
-        variants: (p.variants || []).map((v) => (v.id === variantId ? { ...v, ...variantData } : v))
+        variants: (p.variants || []).map((v) =>
+          v.id === variantId
+            ? {
+                ...v,
+                ...variantData,
+                stock: total,
+                stock_physical: phys,
+                stock_virtual: virt,
+                attributes: mergedAttrs
+              }
+            : v
+        )
       }))
     );
   }

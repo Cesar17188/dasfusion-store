@@ -121,6 +121,19 @@ export class CartService {
     this.persistCart();
   }
 
+  getItemQuantity(productId: string, variantId?: string, bundleId?: string): number {
+    const itemId = `${productId}_${variantId || 'default'}_${bundleId || 'none'}`;
+    const found = this.itemsSignal().find((i) => i.id === itemId);
+    return found ? found.quantity : 0;
+  }
+
+  getItemMaxStock(item: CartItem): number {
+    if (item.variant) {
+      return Number(item.variant.stock) || 0;
+    }
+    return Number(item.product.stock) || 0;
+  }
+
   removeItem(itemId: string): void {
     this.itemsSignal.update((items) => items.filter((item) => item.id !== itemId));
     this.persistCart();

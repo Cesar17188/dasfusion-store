@@ -65,7 +65,7 @@
               <div class="flex items-center rounded-lg bg-surface-container-low border border-outline-variant p-0.5">
                 <button
                   type="button"
-                  (click)="cartService.updateQuantity(item.id, item.quantity - 1)"
+                  (click)="decreaseQuantity(item)"
                   class="h-7 w-7 rounded flex items-center justify-center text-xs font-bold text-white bg-surface-container-high hover:bg-surface-bright active:scale-95 transition"
                   aria-label="Disminuir cantidad"
                 >
@@ -74,7 +74,7 @@
                 <span class="w-8 text-center text-xs font-bold text-white font-mono">{{ item.quantity }}</span>
                 <button
                   type="button"
-                  (click)="cartService.updateQuantity(item.id, item.quantity + 1)"
+                  (click)="increaseQuantity(item)"
                   class="h-7 w-7 rounded flex items-center justify-center text-xs font-bold text-white bg-surface-container-high hover:bg-surface-bright active:scale-95 transition"
                   aria-label="Aumentar cantidad"
                 >
@@ -167,4 +167,14 @@
       </div>
     </div>
   }
+
+  <!-- Stock Limit / WhatsApp Dialog -->
+  <app-stock-limit-dialog
+    [isOpen]="showStockLimitDialog()"
+    [productName]="selectedStockItem()?.product?.name || ''"
+    [variantName]="selectedStockItem()?.variant?.name || ''"
+    [maxStock]="selectedStockItem() ? cartService.getItemMaxStock(selectedStockItem()!) : 0"
+    [requestedQuantity]="selectedStockItem() ? (selectedStockItem()!.quantity + 1) : 1"
+    (closed)="closeStockLimitDialog()"
+  ></app-stock-limit-dialog>
 </div>

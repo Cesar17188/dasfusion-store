@@ -82,7 +82,9 @@ export interface DbProductVariant {
   sku: string; // Unique
   variant_name: string;
   price: number; // numeric
-  stock: number; // int4
+  stock: number; // int4 (Total stock = physical + virtual)
+  stock_physical?: number;
+  stock_virtual?: number;
   attributes: Record<string, any>; // jsonb
   is_bundle: boolean;
   created_at: string; // timestamptz

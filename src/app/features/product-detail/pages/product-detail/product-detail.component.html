@@ -13,15 +13,100 @@
 
     <!-- Main Grid: Gallery + Purchasing info -->
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-10">
-      <!-- Gallery Column -->
-      <div class="space-y-4">
-        <div class="aspect-square w-full rounded-2xl sm:rounded-3xl bg-surface-container border border-outline-variant/40 flex items-center justify-center p-6 sm:p-10 overflow-hidden shadow-xl">
+      <!-- Gallery Column: Interactive Carousel + Thumbnails -->
+      <div class="space-y-3 sm:space-y-4">
+        <!-- Main Image Frame (Strictly fitted to container, responsive max height) -->
+        <div
+          class="relative aspect-square max-h-115 sm:max-h-130 w-full rounded-2xl sm:rounded-3xl bg-surface-container/70 border border-outline-variant/40 flex items-center justify-center p-4 sm:p-8 overflow-hidden shadow-xl group select-none"
+          (touchstart)="onTouchStart($event)"
+          (touchend)="onTouchEnd($event)"
+        >
+          <!-- Main Product Image (Perfect fit: object-contain with max dimensions) -->
           <img
-            [src]="prod.images[0]"
-            [alt]="prod.name"
-            class="h-full w-full object-contain object-center transition duration-300 hover:scale-105"
+            [src]="prod.images[selectedImageIndex()] || prod.images[0]"
+            [alt]="prod.name + ' - Foto ' + (selectedImageIndex() + 1)"
+            class="max-h-full max-w-full w-auto h-auto object-contain object-center transition-all duration-300 hover:scale-105 drop-shadow-lg"
           />
+
+          <!-- Counter Badge (When multiple images) -->
+          @if (prod.images.length > 1) {
+            <span class="absolute top-3 right-3 z-10 px-2.5 py-1 rounded-full text-[10px] sm:text-[11px] font-bold bg-black/60 text-white/90 backdrop-blur-md border border-white/10 shadow-md font-mono">
+              {{ selectedImageIndex() + 1 }} / {{ prod.images.length }}
+            </span>
+          }
+
+          <!-- Carousel Controls: Prev / Next Buttons (Only when multiple images) -->
+          @if (prod.images.length > 1) {
+            <!-- Previous Button -->
+            <button
+              type="button"
+              (click)="prevImage($event)"
+              aria-label="Imagen anterior"
+              class="absolute left-2.5 sm:left-4 top-1/2 -translate-y-1/2 z-10 p-2 sm:p-2.5 rounded-full bg-surface/80 hover:bg-surface text-on-surface hover:text-primary backdrop-blur-md border border-outline-variant/50 shadow-xl transition-all duration-200 hover:scale-110 active:scale-95 cursor-pointer opacity-85 sm:opacity-0 sm:group-hover:opacity-100 focus:opacity-100 flex items-center justify-center"
+            >
+              <svg class="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
+
+            <!-- Next Button -->
+            <button
+              type="button"
+              (click)="nextImage($event)"
+              aria-label="Siguiente imagen"
+              class="absolute right-2.5 sm:right-4 top-1/2 -translate-y-1/2 z-10 p-2 sm:p-2.5 rounded-full bg-surface/80 hover:bg-surface text-on-surface hover:text-primary backdrop-blur-md border border-outline-variant/50 shadow-xl transition-all duration-200 hover:scale-110 active:scale-95 cursor-pointer opacity-85 sm:opacity-0 sm:group-hover:opacity-100 focus:opacity-100 flex items-center justify-center"
+            >
+              <svg class="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
+
+            <!-- Indicator Dots -->
+            <div class="absolute bottom-3 left-1/2 -translate-x-1/2 z-10 flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black/40 backdrop-blur-md border border-white/10">
+              @for (img of prod.images; track $index; let idx = $index) {
+                <button
+                  type="button"
+                  (click)="setImageIndex(idx)"
+                  [attr.aria-label]="'Ir a foto ' + (idx + 1)"
+                  [class.w-5]="selectedImageIndex() === idx"
+                  [class.bg-primary]="selectedImageIndex() === idx"
+                  [class.w-1.5]="selectedImageIndex() !== idx"
+                  [class.bg-white/40]="selectedImageIndex() !== idx"
+                  class="h-1.5 rounded-full transition-all duration-300 cursor-pointer"
+                ></button>
+              }
+            </div>
+          }
         </div>
+
+        <!-- Thumbnails Strip (When multiple images) -->
+        @if (prod.images.length > 1) {
+          <div class="flex items-center gap-2 sm:gap-3 overflow-x-auto pb-1 pt-0.5 scrollbar-thin">
+            @for (img of prod.images; track $index; let idx = $index) {
+              <button
+                type="button"
+                (click)="setImageIndex(idx)"
+                [attr.aria-label]="'Seleccionar imagen ' + (idx + 1)"
+                class="relative h-16 w-16 sm:h-20 sm:w-20 shrink-0 rounded-xl overflow-hidden border-2 transition-all duration-200 cursor-pointer p-1.5 bg-surface-container flex items-center justify-center"
+                [class.border-primary]="selectedImageIndex() === idx"
+                [class.ring-2]="selectedImageIndex() === idx"
+                [class.ring-primary/40]="selectedImageIndex() === idx"
+                [class.opacity-100]="selectedImageIndex() === idx"
+                [class.border-outline-variant/40]="selectedImageIndex() !== idx"
+                [class.opacity-60]="selectedImageIndex() !== idx"
+                [class.hover:opacity-100]="selectedImageIndex() !== idx"
+                [class.hover:border-primary/60]="selectedImageIndex() !== idx"
+              >
+                <img
+                  [src]="img"
+                  [alt]="prod.name + ' miniatura ' + (idx + 1)"
+                  class="max-h-full max-w-full w-auto h-auto object-contain object-center"
+                  loading="lazy"
+                />
+              </button>
+            }
+          </div>
+        }
       </div>
 
       <!-- Details & Actions Column -->
@@ -232,6 +317,16 @@
         }
       </button>
     </div>
+
+    <!-- Stock Limit / WhatsApp Dialog -->
+    <app-stock-limit-dialog
+      [isOpen]="showStockLimitDialog()"
+      [productName]="prod.name"
+      [variantName]="selectedVariant() ? selectedVariant()!.name : ''"
+      [maxStock]="availableStock()"
+      [requestedQuantity]="quantity()"
+      (closed)="closeStockLimitDialog()"
+    ></app-stock-limit-dialog>
   </div>
 } @else {
   <div class="flex flex-col items-center justify-center py-24 px-4 text-center space-y-4">

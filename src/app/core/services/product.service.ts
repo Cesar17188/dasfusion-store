@@ -63,17 +63,31 @@ export class ProductService {
           const brand = brandData.find((b) => b.id === dbP.brand_id);
           const vars = varData
             .filter((v) => v.product_id === dbP.id)
-            .map((v) => ({
-              id: v.id,
-              name: v.variant_name,
-              sku: v.sku,
-              price: Number(v.price) || 0,
-              stock: Number(v.stock) || 0,
-              attributes: v.attributes || {}
-            }));
+            .map((v) => {
+              const stockPhys = v.attributes?.['stock_physical'] !== undefined
+                ? Number(v.attributes['stock_physical'])
+                : (Number(v.stock) || 0);
+              const stockVirt = v.attributes?.['stock_virtual'] !== undefined
+                ? Number(v.attributes['stock_virtual'])
+                : 0;
+              const totalStock = stockPhys + stockVirt;
+
+              return {
+                id: v.id,
+                name: v.variant_name,
+                sku: v.sku,
+                price: Number(v.price) || 0,
+                stock: totalStock,
+                stock_physical: stockPhys,
+                stock_virtual: stockVirt,
+                attributes: v.attributes || {}
+              };
+            });
 
           const minPrice = vars.length > 0 ? Math.min(...vars.map((v) => v.price)) : 0;
           const totalStock = vars.reduce((acc: number, v) => acc + v.stock, 0);
+          const totalPhys = vars.reduce((acc: number, v) => acc + (v.stock_physical || 0), 0);
+          const totalVirt = vars.reduce((acc: number, v) => acc + (v.stock_virtual || 0), 0);
 
           return {
             id: dbP.id,
@@ -87,6 +101,8 @@ export class ProductService {
             price: minPrice,
             images: Array.isArray(dbP.images) && dbP.images.length > 0 ? dbP.images : ['https://images.unsplash.com/photo-1591799264318-7e6ef8ddb7ea?auto=format&fit=crop&w=600&q=80'],
             stock: totalStock,
+            stock_physical: totalPhys,
+            stock_virtual: totalVirt,
             rating: 5.0,
             reviewCount: 0,
             isFeatured: true,

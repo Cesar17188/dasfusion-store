@@ -193,7 +193,9 @@ export interface SpecGroup {
                     <th class="py-3 px-4">Categoría & Marca</th>
                     <th class="py-3 px-4">SKU / Variante</th>
                     <th class="py-3 px-4">Precio ($)</th>
-                    <th class="py-3 px-4">Stock Actual</th>
+                    <th class="py-3 px-4 text-center">Stock Actual</th>
+                    <th class="py-3 px-4 text-center">Stock Virtual</th>
+                    <th class="py-3 px-4 text-center">Total Tienda</th>
                     <th class="py-3 px-4">Estado Stock</th>
                     <th class="py-3 px-4 text-center">Visibilidad Tienda</th>
                     <th class="py-3 px-4 text-right">Acciones & Ajuste</th>
@@ -255,17 +257,36 @@ export interface SpecGroup {
                           />
                         </div>
                       </td>
-                      <td class="py-3.5 px-4">
-                        <div class="flex items-center gap-1">
+                      <td class="py-3.5 px-4 text-center">
+                        <div class="inline-flex items-center gap-1">
                           <input
                             type="number"
-                            [ngModel]="item.variant.stock"
-                            (blur)="onStockChange(item.variant.id, $event)"
+                            [ngModel]="item.variant.stock_physical ?? item.variant.stock"
+                            (blur)="onPhysicalStockChange(item.variant, $event)"
                             min="0"
                             class="w-16 bg-surface border border-outline-variant rounded px-1.5 py-0.5 text-xs font-bold text-center text-on-surface focus:outline-none focus:border-primary"
+                            title="Stock Físico / Actual disponible"
                           />
                           <span class="text-[11px] text-outline">uds.</span>
                         </div>
+                      </td>
+                      <td class="py-3.5 px-4 text-center">
+                        <div class="inline-flex items-center gap-1">
+                          <input
+                            type="number"
+                            [ngModel]="item.variant.stock_virtual ?? 0"
+                            (blur)="onVirtualStockChange(item.variant, $event)"
+                            min="0"
+                            class="w-16 bg-surface border border-purple-500/40 rounded px-1.5 py-0.5 text-xs font-bold text-center text-purple-300 focus:outline-none focus:border-purple-400"
+                            title="Stock Virtual / Proveedor"
+                          />
+                          <span class="text-[11px] text-purple-400/80">uds.</span>
+                        </div>
+                      </td>
+                      <td class="py-3.5 px-4 text-center">
+                        <span class="font-mono font-bold text-xs text-primary bg-primary/10 border border-primary/25 px-2 py-0.5 rounded" title="Total disponible para compras en tienda (Actual + Virtual)">
+                          {{ item.variant.stock }} uds.
+                        </span>
                       </td>
                       <td class="py-3.5 px-4">
                         @if (item.variant.stock <= 0) {
@@ -575,7 +596,7 @@ export interface SpecGroup {
     <!-- ========================================================================= -->
     @if (isNewProductModalOpen()) {
       <div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm">
-        <div class="bg-surface-container-low border border-outline-variant rounded-2xl p-6 w-full max-w-xl space-y-4 shadow-2xl max-h-[90vh] overflow-y-auto">
+        <div class="bg-surface-container-low border border-outline-variant rounded-2xl p-6 w-full max-w-3xl space-y-4 shadow-2xl max-h-[90vh] overflow-y-auto">
           <div class="flex items-center justify-between border-b border-outline-variant/40 pb-3">
             <h3 class="text-base font-bold text-on-surface">Registrar Nuevo Producto & Variante</h3>
             <button (click)="isNewProductModalOpen.set(false)" class="text-outline hover:text-white">✕</button>
@@ -643,12 +664,19 @@ export interface SpecGroup {
                     required
                     class="das-input text-xs"
                   >
+                    @if (availableBrandsForNewProd().length === 0) {
+                      <option value="" disabled selected>No hay marcas vinculadas a esta categoría</option>
+                    }
                     @for (brand of availableBrandsForNewProd(); track brand.id) {
                       <option [value]="brand.id">{{ brand.name }}</option>
                     }
                   </select>
                   <p class="text-[10px] text-outline mt-1">
-                    {{ availableBrandsForNewProd().length }} marcas disponibles para esta categoría
+                    @if (availableBrandsForNewProd().length > 0) {
+                      {{ availableBrandsForNewProd().length }} marcas disponibles para esta categoría
+                    } @else {
+                      <span class="text-amber-400">Sin marcas vinculadas. Pulsa '+ Gestionar' para vincular una.</span>
+                    }
                   </p>
                 </div>
               </div>
@@ -831,20 +859,20 @@ export interface SpecGroup {
                     <div class="p-3 rounded-xl bg-surface-container/60 border border-outline-variant/50 space-y-2.5">
                       <!-- Group Header -->
                       <div class="flex items-center justify-between gap-2">
-                        <div class="flex items-center gap-2 flex-1">
-                          <span class="text-xs font-bold text-primary">📁 Sección:</span>
+                        <div class="flex items-center gap-2 flex-1 min-w-0">
+                          <span class="text-xs font-bold text-primary whitespace-nowrap">📁 Sección:</span>
                           <input
                             type="text"
                             [(ngModel)]="group.category"
                             [name]="'new_spec_group_' + gIdx"
                             placeholder="Ej. Rendimiento, Conectividad, Pantalla..."
-                            class="das-input text-xs py-1 flex-1 font-bold text-on-surface"
+                            class="w-full min-w-0 px-3 py-1.5 rounded-lg bg-surface-container-high border border-outline-variant/60 focus:border-primary focus:ring-1 focus:ring-primary/40 focus:outline-none text-xs font-bold text-on-surface placeholder:text-outline/50 transition"
                           />
                         </div>
                         <button
                           type="button"
                           (click)="removeNewProdSpecGroup(gIdx)"
-                          class="text-outline hover:text-error text-xs p-1 cursor-pointer"
+                          class="p-1.5 rounded-lg hover:bg-rose-950/40 text-outline hover:text-rose-400 text-xs transition cursor-pointer"
                           title="Eliminar sección completa"
                         >
                           🗑️
@@ -852,28 +880,28 @@ export interface SpecGroup {
                       </div>
 
                       <!-- Key-Value Items Rows -->
-                      <div class="space-y-1.5 pl-2 sm:pl-3 border-l-2 border-outline-variant/40">
+                      <div class="space-y-2 pl-2 sm:pl-3 border-l-2 border-outline-variant/40">
                         @for (item of group.items; track $index; let iIdx = $index) {
-                          <div class="flex items-center gap-2">
+                          <div class="grid grid-cols-[minmax(120px,2fr)_auto_minmax(160px,3fr)_auto] items-center gap-2">
                             <input
                               type="text"
                               [(ngModel)]="item.key"
                               [name]="'new_spec_k_' + gIdx + '_' + iIdx"
-                              placeholder="Atributo (ej. Socket, TDP, VRAM)"
-                              class="das-input text-xs py-1 w-1/3 text-on-surface-variant font-medium"
+                              placeholder="Atributo (ej. Capacidad, Socket)"
+                              class="w-full min-w-0 px-3 py-1.5 rounded-lg bg-surface-container-high border border-outline-variant/60 focus:border-primary focus:ring-1 focus:ring-primary/40 focus:outline-none text-xs text-on-surface-variant font-medium placeholder:text-outline/50 transition"
                             />
-                            <span class="text-outline text-xs">:</span>
+                            <span class="text-outline text-xs font-bold select-none">:</span>
                             <input
                               type="text"
                               [(ngModel)]="item.value"
                               [name]="'new_spec_v_' + gIdx + '_' + iIdx"
-                              placeholder="Valor (ej. AM5, 120W, 16GB)"
-                              class="das-input text-xs py-1 flex-1 font-mono text-on-surface"
+                              placeholder="Valor (ej. 2TB, 7450 MB/s, 16GB)"
+                              class="w-full min-w-0 px-3 py-1.5 rounded-lg bg-surface-container-high border border-outline-variant/60 focus:border-primary focus:ring-1 focus:ring-primary/40 focus:outline-none text-xs font-mono text-on-surface placeholder:text-outline/50 transition"
                             />
                             <button
                               type="button"
                               (click)="removeNewProdSpecItem(gIdx, iIdx)"
-                              class="text-outline hover:text-error text-xs p-1 cursor-pointer"
+                              class="p-1.5 rounded-lg hover:bg-rose-950/40 text-outline hover:text-rose-400 text-xs transition cursor-pointer flex items-center justify-center"
                               title="Eliminar atributo"
                             >
                               ✕
@@ -979,7 +1007,7 @@ export interface SpecGroup {
                     </div>
                   </div>
 
-                  <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     <div>
                       <label class="block text-xs font-semibold text-on-surface-variant mb-1">Precio de Venta ($ USD) *</label>
                       <input
@@ -994,17 +1022,35 @@ export interface SpecGroup {
                       />
                     </div>
                     <div>
-                      <label class="block text-xs font-semibold text-on-surface-variant mb-1">Stock Inicial *</label>
+                      <label class="block text-xs font-semibold text-on-surface-variant mb-1">Stock Físico *</label>
                       <input
                         type="number"
-                        [(ngModel)]="newVarForm.stock"
-                        name="stock"
+                        [(ngModel)]="newVarForm.stock_physical"
+                        name="stock_physical"
                         required
                         min="0"
-                        class="das-input text-xs"
-                        placeholder="10"
+                        class="das-input text-xs font-bold"
+                        placeholder="5"
                       />
                     </div>
+                    <div>
+                      <label class="block text-xs font-semibold text-on-surface-variant mb-1">Stock Virtual</label>
+                      <input
+                        type="number"
+                        [(ngModel)]="newVarForm.stock_virtual"
+                        name="stock_virtual"
+                        min="0"
+                        class="das-input text-xs font-bold"
+                        placeholder="0"
+                      />
+                    </div>
+                  </div>
+
+                  <div class="flex items-center justify-between p-2.5 rounded-lg bg-surface-container-high/60 border border-outline-variant/40 text-xs">
+                    <span class="text-on-surface-variant font-medium">Stock Total Disponible en Tienda:</span>
+                    <span class="font-bold text-primary font-mono text-sm bg-primary/10 px-2 py-0.5 rounded">
+                      {{ (newVarForm.stock_physical || 0) + (newVarForm.stock_virtual || 0) }} unidades
+                    </span>
                   </div>
 
                   <div class="flex items-center gap-2 pt-1">
@@ -1066,7 +1112,7 @@ export interface SpecGroup {
                         </div>
                       </div>
 
-                      <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                      <div class="grid grid-cols-1 sm:grid-cols-4 gap-2.5">
                         <div>
                           <label class="block text-[11px] font-semibold text-on-surface-variant mb-1">Precio ($ USD) *</label>
                           <input
@@ -1081,15 +1127,26 @@ export interface SpecGroup {
                           />
                         </div>
                         <div>
-                          <label class="block text-[11px] font-semibold text-on-surface-variant mb-1">Stock Inicial *</label>
+                          <label class="block text-[11px] font-semibold text-on-surface-variant mb-1">Stock Físico *</label>
                           <input
                             type="number"
-                            [(ngModel)]="v.stock"
-                            [name]="'new_var_stock_' + vIdx"
+                            [(ngModel)]="v.stock_physical"
+                            [name]="'new_var_phys_stock_' + vIdx"
                             min="0"
                             required
-                            class="das-input text-xs"
+                            class="das-input text-xs font-bold"
                             placeholder="5"
+                          />
+                        </div>
+                        <div>
+                          <label class="block text-[11px] font-semibold text-on-surface-variant mb-1">Stock Virtual</label>
+                          <input
+                            type="number"
+                            [(ngModel)]="v.stock_virtual"
+                            [name]="'new_var_virt_stock_' + vIdx"
+                            min="0"
+                            class="das-input text-xs font-bold"
+                            placeholder="0"
                           />
                         </div>
                         <div class="flex items-center pt-5">
@@ -1100,9 +1157,15 @@ export interface SpecGroup {
                               [name]="'new_var_bundle_' + vIdx"
                               class="rounded bg-surface border-outline-variant text-primary"
                             />
-                            <span>Es Bundle/Combo</span>
+                            <span>Es Combo</span>
                           </label>
                         </div>
+                      </div>
+                      <div class="text-[11px] text-outline flex items-center justify-end gap-1.5 pt-1">
+                        <span>Total disponible:</span>
+                        <span class="font-bold text-primary font-mono bg-primary/10 px-1.5 py-0.5 rounded text-[11px]">
+                          {{ (v.stock_physical || 0) + (v.stock_virtual || 0) }} uds.
+                        </span>
                       </div>
                     </div>
                   }
@@ -1318,7 +1381,7 @@ export interface SpecGroup {
     <!-- ========================================================================= -->
     @if (isEditProductModalOpen() && editingProduct()) {
       <div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm">
-        <div class="bg-surface-container-low border border-outline-variant rounded-2xl p-6 w-full max-w-2xl space-y-4 shadow-2xl max-h-[92vh] overflow-y-auto">
+        <div class="bg-surface-container-low border border-outline-variant rounded-2xl p-6 w-full max-w-3xl space-y-4 shadow-2xl max-h-[92vh] overflow-y-auto">
           <div class="flex items-center justify-between border-b border-outline-variant/40 pb-3">
             <div>
               <span class="text-[10px] uppercase font-bold tracking-wider text-primary">Edición de Catálogo</span>
@@ -1368,10 +1431,20 @@ export interface SpecGroup {
                     required
                     class="das-input text-xs"
                   >
+                    @if (availableBrandsForEditProd().length === 0) {
+                      <option value="" disabled selected>No hay marcas vinculadas a esta categoría</option>
+                    }
                     @for (brand of availableBrandsForEditProd(); track brand.id) {
                       <option [value]="brand.id">{{ brand.name }}</option>
                     }
                   </select>
+                  <p class="text-[10px] text-outline mt-1">
+                    @if (availableBrandsForEditProd().length > 0) {
+                      {{ availableBrandsForEditProd().length }} marcas disponibles para esta categoría
+                    } @else {
+                      <span class="text-amber-400">Sin marcas vinculadas. Pulsa en Marcas para vincular una.</span>
+                    }
+                  </p>
                 </div>
               </div>
 
@@ -1549,20 +1622,20 @@ export interface SpecGroup {
                     <div class="p-3 rounded-xl bg-surface-container/60 border border-outline-variant/50 space-y-2.5">
                       <!-- Group Header -->
                       <div class="flex items-center justify-between gap-2">
-                        <div class="flex items-center gap-2 flex-1">
-                          <span class="text-xs font-bold text-primary">📁 Sección:</span>
+                        <div class="flex items-center gap-2 flex-1 min-w-0">
+                          <span class="text-xs font-bold text-primary whitespace-nowrap">📁 Sección:</span>
                           <input
                             type="text"
                             [(ngModel)]="group.category"
                             [name]="'edit_spec_group_' + gIdx"
                             placeholder="Ej. Rendimiento, Conectividad, Pantalla..."
-                            class="das-input text-xs py-1 flex-1 font-bold text-on-surface"
+                            class="w-full min-w-0 px-3 py-1.5 rounded-lg bg-surface-container-high border border-outline-variant/60 focus:border-primary focus:ring-1 focus:ring-primary/40 focus:outline-none text-xs font-bold text-on-surface placeholder:text-outline/50 transition"
                           />
                         </div>
                         <button
                           type="button"
                           (click)="removeEditProdSpecGroup(gIdx)"
-                          class="text-outline hover:text-error text-xs p-1 cursor-pointer"
+                          class="p-1.5 rounded-lg hover:bg-rose-950/40 text-outline hover:text-rose-400 text-xs transition cursor-pointer"
                           title="Eliminar sección completa"
                         >
                           🗑️
@@ -1570,28 +1643,28 @@ export interface SpecGroup {
                       </div>
 
                       <!-- Key-Value Items Rows -->
-                      <div class="space-y-1.5 pl-2 sm:pl-3 border-l-2 border-outline-variant/40">
+                      <div class="space-y-2 pl-2 sm:pl-3 border-l-2 border-outline-variant/40">
                         @for (item of group.items; track $index; let iIdx = $index) {
-                          <div class="flex items-center gap-2">
+                          <div class="grid grid-cols-[minmax(120px,2fr)_auto_minmax(160px,3fr)_auto] items-center gap-2">
                             <input
                               type="text"
                               [(ngModel)]="item.key"
                               [name]="'edit_spec_k_' + gIdx + '_' + iIdx"
-                              placeholder="Atributo (ej. Socket, TDP, VRAM)"
-                              class="das-input text-xs py-1 w-1/3 text-on-surface-variant font-medium"
+                              placeholder="Atributo (ej. Capacidad, Socket)"
+                              class="w-full min-w-0 px-3 py-1.5 rounded-lg bg-surface-container-high border border-outline-variant/60 focus:border-primary focus:ring-1 focus:ring-primary/40 focus:outline-none text-xs text-on-surface-variant font-medium placeholder:text-outline/50 transition"
                             />
-                            <span class="text-outline text-xs">:</span>
+                            <span class="text-outline text-xs font-bold select-none">:</span>
                             <input
                               type="text"
                               [(ngModel)]="item.value"
                               [name]="'edit_spec_v_' + gIdx + '_' + iIdx"
-                              placeholder="Valor (ej. AM5, 120W, 16GB)"
-                              class="das-input text-xs py-1 flex-1 font-mono text-on-surface"
+                              placeholder="Valor (ej. 2TB, 7450 MB/s, 16GB)"
+                              class="w-full min-w-0 px-3 py-1.5 rounded-lg bg-surface-container-high border border-outline-variant/60 focus:border-primary focus:ring-1 focus:ring-primary/40 focus:outline-none text-xs font-mono text-on-surface placeholder:text-outline/50 transition"
                             />
                             <button
                               type="button"
                               (click)="removeEditProdSpecItem(gIdx, iIdx)"
-                              class="text-outline hover:text-error text-xs p-1 cursor-pointer"
+                              class="p-1.5 rounded-lg hover:bg-rose-950/40 text-outline hover:text-rose-400 text-xs transition cursor-pointer flex items-center justify-center"
                               title="Eliminar atributo"
                             >
                               ✕
@@ -1707,7 +1780,7 @@ export interface SpecGroup {
                       </div>
                     </div>
 
-                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                    <div class="grid grid-cols-1 sm:grid-cols-4 gap-2.5">
                       <div>
                         <label class="block text-[11px] font-semibold text-on-surface-variant mb-1">Precio ($ USD) *</label>
                         <input
@@ -1721,14 +1794,24 @@ export interface SpecGroup {
                         />
                       </div>
                       <div>
-                        <label class="block text-[11px] font-semibold text-on-surface-variant mb-1">Stock *</label>
+                        <label class="block text-[11px] font-semibold text-on-surface-variant mb-1">Stock Físico *</label>
                         <input
                           type="number"
-                          [(ngModel)]="v.stock"
-                          [name]="'edit_var_stock_' + vIdx"
+                          [(ngModel)]="v.stock_physical"
+                          [name]="'edit_var_phys_stock_' + vIdx"
                           min="0"
                           required
-                          class="das-input text-xs"
+                          class="das-input text-xs font-bold"
+                        />
+                      </div>
+                      <div>
+                        <label class="block text-[11px] font-semibold text-on-surface-variant mb-1">Stock Virtual</label>
+                        <input
+                          type="number"
+                          [(ngModel)]="v.stock_virtual"
+                          [name]="'edit_var_virt_stock_' + vIdx"
+                          min="0"
+                          class="das-input text-xs font-bold"
                         />
                       </div>
                       <div class="flex items-center pt-5">
@@ -1739,9 +1822,15 @@ export interface SpecGroup {
                             [name]="'edit_var_bundle_' + vIdx"
                             class="rounded bg-surface border-outline-variant text-primary"
                           />
-                          <span>Es Combo / Bundle</span>
+                          <span>Es Combo</span>
                         </label>
                       </div>
+                    </div>
+                    <div class="text-[11px] text-outline flex items-center justify-end gap-1.5 pt-1">
+                      <span>Total disponible:</span>
+                      <span class="font-bold text-primary font-mono bg-primary/10 px-1.5 py-0.2 rounded">
+                        {{ (v.stock_physical || 0) + (v.stock_virtual || 0) }} uds.
+                      </span>
                     </div>
                   </div>
                 }
@@ -1803,6 +1892,7 @@ export class InventoryManagementComponent {
   editingProduct = signal<AdminProductWithVariants | null>(null);
 
   // Forms
+  newProdCategoryId = signal<string>('');
   newProdForm = {
     model: '',
     category_id: '',
@@ -1816,6 +1906,7 @@ export class InventoryManagementComponent {
   newProdUrlInput = '';
   isUploadingNewImages = signal<boolean>(false);
 
+  editProdCategoryId = signal<string>('');
   editProdForm = {
     model: '',
     category_id: '',
@@ -1835,8 +1926,8 @@ export class InventoryManagementComponent {
 
   // Variants & Editions management
   isNewProdMultiVariant = signal<boolean>(false);
-  newProdVariants = signal<Array<{ sku: string; variant_name: string; price: number; stock: number; is_bundle: boolean }>>([]);
-  editProdVariants = signal<Array<{ id: string; sku: string; variant_name: string; price: number; stock: number; is_bundle: boolean; isNew?: boolean }>>([]);
+  newProdVariants = signal<Array<{ sku: string; variant_name: string; price: number; stock: number; stock_physical: number; stock_virtual: number; is_bundle: boolean }>>([]);
+  editProdVariants = signal<Array<{ id: string; sku: string; variant_name: string; price: number; stock: number; stock_physical: number; stock_virtual: number; is_bundle: boolean; isNew?: boolean }>>([]);
   deletedVariantIds: string[] = [];
 
   newVarForm = {
@@ -1844,6 +1935,8 @@ export class InventoryManagementComponent {
     variant_name: '',
     price: 0,
     stock: 5,
+    stock_physical: 5,
+    stock_virtual: 0,
     is_bundle: false
   };
 
@@ -1892,11 +1985,11 @@ export class InventoryManagementComponent {
   });
 
   readonly availableBrandsForNewProd = computed(() => {
-    return this.adminService.getBrandsForCategory(this.newProdForm.category_id);
+    return this.adminService.getBrandsForCategory(this.newProdCategoryId());
   });
 
   readonly availableBrandsForEditProd = computed(() => {
-    return this.adminService.getBrandsForCategory(this.editProdForm.category_id);
+    return this.adminService.getBrandsForCategory(this.editProdCategoryId());
   });
 
   readonly totalInventoryValuation = computed(() => {
@@ -1952,16 +2045,40 @@ export class InventoryManagementComponent {
   }
 
   onProductCategorySelected(catId: string): void {
+    this.newProdForm.category_id = catId;
+    this.newProdCategoryId.set(catId);
     const available = this.adminService.getBrandsForCategory(catId);
     if (available.length > 0) {
       const stillValid = available.some((b) => b.id === this.newProdForm.brand_id);
       if (!stillValid) {
         this.newProdForm.brand_id = available[0].id;
       }
+    } else {
+      this.newProdForm.brand_id = '';
     }
   }
 
   // Stock / Price Inline
+  async onPhysicalStockChange(variant: DbProductVariant, event: Event): Promise<void> {
+    const input = event.target as HTMLInputElement;
+    const newPhys = parseInt(input.value, 10);
+    if (!isNaN(newPhys) && newPhys >= 0) {
+      const virt = variant.stock_virtual ?? 0;
+      await this.adminService.updateVariantStock(variant.id, newPhys, virt);
+      await this.productService.loadProductsFromDatabase();
+    }
+  }
+
+  async onVirtualStockChange(variant: DbProductVariant, event: Event): Promise<void> {
+    const input = event.target as HTMLInputElement;
+    const newVirt = parseInt(input.value, 10);
+    if (!isNaN(newVirt) && newVirt >= 0) {
+      const phys = variant.stock_physical ?? variant.stock;
+      await this.adminService.updateVariantStock(variant.id, phys, newVirt);
+      await this.productService.loadProductsFromDatabase();
+    }
+  }
+
   async onStockChange(variantId: string, event: Event): Promise<void> {
     const input = event.target as HTMLInputElement;
     const newStock = parseInt(input.value, 10);
@@ -2092,12 +2209,17 @@ export class InventoryManagementComponent {
         is_active: this.brandForm.is_active
       });
     } else {
-      await this.adminService.createBrand({
+      const created = await this.adminService.createBrand({
         name: this.brandForm.name.trim(),
         slug: this.brandForm.slug.trim(),
         category_ids: this.brandForm.category_ids,
         is_active: this.brandForm.is_active
       });
+      if (this.isNewProductModalOpen()) {
+        this.newProdForm.brand_id = created.id;
+      } else if (this.editingProduct()) {
+        this.editProdForm.brand_id = created.id;
+      }
     }
 
     this.isBrandModalOpen.set(false);
@@ -2176,8 +2298,9 @@ export class InventoryManagementComponent {
 
   openNewProductModal(): void {
     const firstCat = this.organizedCategories()[0]?.id || '';
+    this.newProdCategoryId.set(firstCat);
     const availableBrands = this.adminService.getBrandsForCategory(firstCat);
-    const firstBrand = availableBrands[0]?.id || this.adminService.brands()[0]?.id || '';
+    const firstBrand = availableBrands[0]?.id || '';
 
     this.newProdForm = {
       model: '',
@@ -2193,6 +2316,8 @@ export class InventoryManagementComponent {
       variant_name: '',
       price: 0,
       stock: 5,
+      stock_physical: 5,
+      stock_virtual: 0,
       is_bundle: false
     };
 
@@ -2207,12 +2332,16 @@ export class InventoryManagementComponent {
   setNewProdVariantMode(multiple: boolean): void {
     this.isNewProdMultiVariant.set(multiple);
     if (multiple && this.newProdVariants().length === 0) {
+      const initPhys = this.newVarForm.stock_physical ?? 5;
+      const initVirt = this.newVarForm.stock_virtual ?? 0;
       this.newProdVariants.set([
         {
           sku: this.newVarForm.sku || '',
           variant_name: this.newVarForm.variant_name || 'Edición Estándar',
           price: this.newVarForm.price || 0,
-          stock: this.newVarForm.stock || 5,
+          stock: initPhys + initVirt,
+          stock_physical: initPhys,
+          stock_virtual: initVirt,
           is_bundle: this.newVarForm.is_bundle || false
         },
         {
@@ -2220,6 +2349,8 @@ export class InventoryManagementComponent {
           variant_name: '',
           price: this.newVarForm.price || 0,
           stock: 5,
+          stock_physical: 5,
+          stock_virtual: 0,
           is_bundle: false
         }
       ]);
@@ -2235,6 +2366,8 @@ export class InventoryManagementComponent {
         variant_name: `Edición ${nextNum}`,
         price: list.length > 0 ? list[0].price : 0,
         stock: 5,
+        stock_physical: 5,
+        stock_virtual: 0,
         is_bundle: false
       }
     ]);
@@ -2262,7 +2395,7 @@ export class InventoryManagementComponent {
       return;
     }
 
-    let variantsToSave: Array<{ sku: string; variant_name: string; price: number; stock: number; is_bundle: boolean }> = [];
+    let variantsToSave: Array<{ sku: string; variant_name: string; price: number; stock: number; stock_physical?: number; stock_virtual?: number; is_bundle: boolean }> = [];
 
     if (this.isNewProdMultiVariant()) {
       const list = this.newProdVariants();
@@ -2286,25 +2419,34 @@ export class InventoryManagementComponent {
         }
         skus.add(cleanSku);
       }
-      variantsToSave = list.map((v) => ({
-        ...v,
-        sku: v.sku.trim().toUpperCase(),
-        variant_name: v.variant_name.trim(),
-        price: Number(v.price) || 0,
-        stock: Number(v.stock) || 0,
-        is_bundle: !!v.is_bundle
-      }));
+      variantsToSave = list.map((v) => {
+        const phys = Number(v.stock_physical) || 0;
+        const virt = Number(v.stock_virtual) || 0;
+        return {
+          sku: v.sku.trim().toUpperCase(),
+          variant_name: v.variant_name.trim(),
+          price: Number(v.price) || 0,
+          stock: phys + virt,
+          stock_physical: phys,
+          stock_virtual: virt,
+          is_bundle: !!v.is_bundle
+        };
+      });
     } else {
       if (!this.newVarForm.sku?.trim()) {
         alert('Por favor ingresa el SKU del producto.');
         return;
       }
+      const phys = Number(this.newVarForm.stock_physical) || 0;
+      const virt = Number(this.newVarForm.stock_virtual) || 0;
       variantsToSave = [
         {
           sku: this.newVarForm.sku.trim().toUpperCase(),
           variant_name: this.newVarForm.variant_name.trim() || 'Estándar',
           price: Number(this.newVarForm.price) || 0,
-          stock: Number(this.newVarForm.stock) || 0,
+          stock: phys + virt,
+          stock_physical: phys,
+          stock_virtual: virt,
           is_bundle: !!this.newVarForm.is_bundle
         }
       ];
@@ -2327,6 +2469,7 @@ export class InventoryManagementComponent {
   // --- Product Edition & Additional Images Methods ---
   openEditProductModal(prod: AdminProductWithVariants): void {
     this.editingProduct.set(prod);
+    this.editProdCategoryId.set(prod.category_id);
     this.editProdForm = {
       model: prod.model,
       category_id: prod.category_id,
@@ -2349,21 +2492,29 @@ export class InventoryManagementComponent {
           variant_name: 'Estándar',
           price: 0,
           stock: 1,
+          stock_physical: 1,
+          stock_virtual: 0,
           is_bundle: false,
           isNew: true
         }
       ]);
     } else {
       this.editProdVariants.set(
-        existingVariants.map((v) => ({
-          id: v.id,
-          sku: v.sku,
-          variant_name: v.variant_name || 'Estándar',
-          price: v.price,
-          stock: v.stock,
-          is_bundle: !!v.is_bundle,
-          isNew: false
-        }))
+        existingVariants.map((v) => {
+          const phys = v.stock_physical !== undefined ? Number(v.stock_physical) || 0 : (Number(v.stock) || 0);
+          const virt = v.stock_virtual !== undefined ? Number(v.stock_virtual) || 0 : 0;
+          return {
+            id: v.id,
+            sku: v.sku,
+            variant_name: v.variant_name || 'Estándar',
+            price: v.price,
+            stock: phys + virt,
+            stock_physical: phys,
+            stock_virtual: virt,
+            is_bundle: !!v.is_bundle,
+            isNew: false
+          };
+        })
       );
     }
 
@@ -2386,6 +2537,8 @@ export class InventoryManagementComponent {
         variant_name: `Edición ${nextNum}`,
         price: firstPrice,
         stock: 5,
+        stock_physical: 5,
+        stock_virtual: 0,
         is_bundle: false,
         isNew: true
       }
@@ -2406,12 +2559,16 @@ export class InventoryManagementComponent {
   }
 
   onEditProductCategorySelected(catId: string): void {
+    this.editProdForm.category_id = catId;
+    this.editProdCategoryId.set(catId);
     const available = this.adminService.getBrandsForCategory(catId);
     if (available.length > 0) {
       const stillValid = available.some((b) => b.id === this.editProdForm.brand_id);
       if (!stillValid) {
         this.editProdForm.brand_id = available[0].id;
       }
+    } else {
+      this.editProdForm.brand_id = '';
     }
   }
 
@@ -2526,12 +2683,17 @@ export class InventoryManagementComponent {
 
     // 3. Update existing or insert new variants
     for (const v of variants) {
+      const phys = Number(v.stock_physical) || 0;
+      const virt = Number(v.stock_virtual) || 0;
+      const total = phys + virt;
       if (v.isNew) {
         await this.adminService.addVariantToProduct(this.editingProduct()!.id, {
           sku: v.sku.trim().toUpperCase(),
           variant_name: v.variant_name.trim(),
           price: Number(v.price) || 0,
-          stock: Number(v.stock) || 0,
+          stock: total,
+          stock_physical: phys,
+          stock_virtual: virt,
           is_bundle: !!v.is_bundle
         });
       } else {
@@ -2539,7 +2701,9 @@ export class InventoryManagementComponent {
           sku: v.sku.trim().toUpperCase(),
           variant_name: v.variant_name.trim(),
           price: Number(v.price) || 0,
-          stock: Number(v.stock) || 0,
+          stock: total,
+          stock_physical: phys,
+          stock_virtual: virt,
           is_bundle: !!v.is_bundle
         });
       }
@@ -2583,7 +2747,8 @@ export class InventoryManagementComponent {
 
   getSuggestedSpecsForCategory(categoryId?: string): SpecGroup[] {
     const cat = this.adminService.categories().find((c) => c.id === categoryId);
-    const catSlug = (cat?.slug || cat?.name || '').toLowerCase();
+    const parentCat = cat?.parent_id ? this.adminService.categories().find((c) => c.id === cat.parent_id) : null;
+    const catSlug = `${cat?.slug || ''} ${cat?.name || ''} ${parentCat?.slug || ''} ${parentCat?.name || ''}`.toLowerCase();
 
     if (catSlug.includes('cpu') || catSlug.includes('procesador')) {
       return [
@@ -2729,8 +2894,9 @@ export class InventoryManagementComponent {
   }
 
   applyNewProdSpecTemplate(): void {
-    const template = this.getSuggestedSpecsForCategory(this.newProdForm.category_id);
-    this.newProdSpecGroups.set(template);
+    const catId = this.newProdCategoryId() || this.newProdForm.category_id;
+    const template = this.getSuggestedSpecsForCategory(catId);
+    this.newProdSpecGroups.set(JSON.parse(JSON.stringify(template)));
   }
 
   // Edition Spec Handlers
@@ -2768,7 +2934,8 @@ export class InventoryManagementComponent {
   }
 
   applyEditProdSpecTemplate(): void {
-    const template = this.getSuggestedSpecsForCategory(this.editProdForm.category_id);
-    this.editProdSpecGroups.set(template);
+    const catId = this.editProdCategoryId() || this.editProdForm.category_id;
+    const template = this.getSuggestedSpecsForCategory(catId);
+    this.editProdSpecGroups.set(JSON.parse(JSON.stringify(template)));
   }
 }
