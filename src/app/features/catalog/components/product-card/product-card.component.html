@@ -11,7 +11,7 @@
     }
     @if (product().compareAtPrice && product().compareAtPrice! > product().price) {
       <span class="das-chip bg-tertiary-container! text-[#f1bd81]! border-[#f1bd81]/30! text-[10px]! font-bold">
-        OFERTA
+        OFERTA @if (product().discountPercentage) { -{{ product().discountPercentage }}% }
       </span>
     }
   </div>

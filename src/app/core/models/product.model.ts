@@ -3,6 +3,8 @@ export interface ProductVariant {
   name: string;
   sku: string;
   price: number;
+  compareAtPrice?: number;
+  discountPercentage?: number;
   stock: number;
   stock_physical?: number;
   stock_virtual?: number;
@@ -41,6 +43,7 @@ export interface Product {
   shortDescription?: string;
   price: number;
   compareAtPrice?: number;
+  discountPercentage?: number;
   images: string[];
   stock: number;
   stock_physical?: number;

@@ -405,8 +405,17 @@ export class AdminService {
         const variantsList: DbProductVariant[] = rawVariants.map((v) => {
           const phys = v.attributes?.['stock_physical'] !== undefined ? Number(v.attributes['stock_physical']) : (Number(v.stock) || 0);
           const virt = v.attributes?.['stock_virtual'] !== undefined ? Number(v.attributes['stock_virtual']) : 0;
+          const compareAt = v.attributes?.['compare_at_price'] !== undefined
+            ? (v.attributes['compare_at_price'] !== null ? Number(v.attributes['compare_at_price']) : undefined)
+            : (v.compare_at_price !== undefined && v.compare_at_price !== null ? Number(v.compare_at_price) : undefined);
+          const discPct = v.attributes?.['discount_percent'] !== undefined
+            ? (v.attributes['discount_percent'] !== null ? Number(v.attributes['discount_percent']) : undefined)
+            : (compareAt && compareAt > Number(v.price) ? Math.round(((compareAt - Number(v.price)) / compareAt) * 100) : undefined);
+
           return {
             ...v,
+            compare_at_price: compareAt,
+            discount_percent: discPct,
             stock_physical: phys,
             stock_virtual: virt,
             stock: phys + virt
@@ -444,7 +453,9 @@ export class AdminService {
     const updatedAttributes = {
       ...(existing?.attributes || {}),
       stock_physical: phys,
-      stock_virtual: virt
+      stock_virtual: virt,
+      compare_at_price: existing?.compare_at_price ?? existing?.attributes?.['compare_at_price'] ?? null,
+      discount_percent: existing?.discount_percent ?? existing?.attributes?.['discount_percent'] ?? null
     };
 
     try {
@@ -474,14 +485,119 @@ export class AdminService {
   }
 
   async updateVariantPrice(variantId: string, newPrice: number): Promise<void> {
+    const existing = this.products().flatMap((p) => p.variants).find((v) => v.id === variantId);
+    let compareAt = existing?.compare_at_price ?? existing?.attributes?.['compare_at_price'];
+    let discPct: number | undefined = undefined;
+
+    if (compareAt && compareAt > newPrice) {
+      discPct = Math.round(((compareAt - newPrice) / compareAt) * 100);
+    } else {
+      compareAt = undefined;
+    }
+
+    const updatedAttrs = {
+      ...(existing?.attributes || {}),
+      compare_at_price: compareAt ?? null,
+      discount_percent: discPct ?? null
+    };
+
     try {
-      await (this.supabase.from('product_variants') as any).update({ price: newPrice }).eq('id', variantId);
+      await (this.supabase.from('product_variants') as any).update({ price: newPrice, attributes: updatedAttrs }).eq('id', variantId);
     } catch {}
 
     this.products.update((prods) =>
       prods.map((p) => ({
         ...p,
-        variants: p.variants.map((v) => (v.id === variantId ? { ...v, price: newPrice } : v))
+        variants: p.variants.map((v) => (v.id === variantId ? {
+          ...v,
+          price: newPrice,
+          compare_at_price: compareAt,
+          discount_percent: discPct,
+          attributes: updatedAttrs
+        } : v))
+      }))
+    );
+  }
+
+  async updateVariantDiscount(
+    variantId: string,
+    options: {
+      discountPercent?: number | null;
+      compareAtPrice?: number | null;
+      newPrice?: number;
+    }
+  ): Promise<void> {
+    const existing = this.products().flatMap((p) => p.variants).find((v) => v.id === variantId);
+    if (!existing) return;
+
+    let compareAt: number | null | undefined = options.compareAtPrice !== undefined
+      ? options.compareAtPrice
+      : (existing.compare_at_price ?? existing.attributes?.['compare_at_price']);
+    let discPct: number | null | undefined = options.discountPercent !== undefined
+      ? options.discountPercent
+      : (existing.discount_percent ?? existing.attributes?.['discount_percent']);
+    let finalPrice = options.newPrice !== undefined
+      ? Math.max(0, Number(options.newPrice) || 0)
+      : Number(existing.price) || 0;
+
+    if (options.discountPercent !== undefined) {
+      if (options.discountPercent !== null && options.discountPercent > 0) {
+        // Base regular price is previous compare_at_price (if item was already discounted) or current price
+        const basePrice = (existing.compare_at_price && existing.compare_at_price > existing.price)
+          ? existing.compare_at_price
+          : existing.price;
+        compareAt = basePrice;
+        discPct = Math.min(99, Math.max(1, Math.round(options.discountPercent)));
+        finalPrice = Math.max(0, Math.round((basePrice * (1 - discPct / 100)) * 100) / 100);
+      } else {
+        // Remove discount: revert to base price if compare_at_price was set
+        if (existing.compare_at_price && existing.compare_at_price > existing.price) {
+          finalPrice = existing.compare_at_price;
+        }
+        compareAt = null;
+        discPct = null;
+      }
+    } else if (options.compareAtPrice !== undefined) {
+      if (options.compareAtPrice !== null && options.compareAtPrice > finalPrice) {
+        compareAt = options.compareAtPrice;
+        discPct = Math.round(((compareAt - finalPrice) / compareAt) * 100);
+      } else {
+        compareAt = null;
+        discPct = null;
+      }
+    }
+
+    const updatedAttrs = {
+      ...(existing.attributes || {}),
+      compare_at_price: compareAt ?? null,
+      discount_percent: discPct ?? null
+    };
+
+    try {
+      await (this.supabase.from('product_variants') as any)
+        .update({
+          price: finalPrice,
+          attributes: updatedAttrs
+        })
+        .eq('id', variantId);
+    } catch (err) {
+      console.warn('Error al actualizar descuento de variante en Supabase:', err);
+    }
+
+    this.products.update((prods) =>
+      prods.map((p) => ({
+        ...p,
+        variants: p.variants.map((v) =>
+          v.id === variantId
+            ? {
+                ...v,
+                price: finalPrice,
+                compare_at_price: compareAt ? Number(compareAt) : undefined,
+                discount_percent: discPct ? Number(discPct) : undefined,
+                attributes: updatedAttrs
+              }
+            : v
+        )
       }))
     );
   }
@@ -534,6 +650,8 @@ export class AdminService {
       sku: string;
       variant_name: string;
       price: number;
+      compare_at_price?: number;
+      discount_percent?: number;
       stock: number;
       stock_physical?: number;
       stock_virtual?: number;
@@ -561,10 +679,14 @@ export class AdminService {
       const phys = v.stock_physical !== undefined ? Number(v.stock_physical) || 0 : (Number(v.stock) || 0);
       const virt = v.stock_virtual !== undefined ? Number(v.stock_virtual) || 0 : 0;
       const total = phys + virt;
+      const compareAt = v.compare_at_price !== undefined ? Number(v.compare_at_price) : undefined;
+      const discPct = v.discount_percent !== undefined ? Number(v.discount_percent) : undefined;
       const attrs = {
         ...(v.attributes || {}),
         stock_physical: phys,
-        stock_virtual: virt
+        stock_virtual: virt,
+        compare_at_price: compareAt ?? null,
+        discount_percent: discPct ?? null
       };
 
       return {
@@ -573,6 +695,8 @@ export class AdminService {
         sku: v.sku.trim(),
         variant_name: v.variant_name.trim() || 'Estándar',
         price: Number(v.price) || 0,
+        compare_at_price: compareAt,
+        discount_percent: discPct,
         stock: total,
         stock_physical: phys,
         stock_virtual: virt,
@@ -585,9 +709,9 @@ export class AdminService {
     try {
       await (this.supabase.from('products') as any).insert(newProd);
       if (newVariants.length > 0) {
-        // Prepare DB insert payload without ephemeral fields
+        // Prepare DB insert payload without ephemeral/non-column fields
         const insertPayload = newVariants.map((nv) => {
-          const { stock_physical, stock_virtual, ...dbFields } = nv;
+          const { stock_physical, stock_virtual, compare_at_price, discount_percent, ...dbFields } = nv;
           return dbFields;
         });
         await (this.supabase.from('product_variants') as any).insert(insertPayload);
@@ -622,6 +746,8 @@ export class AdminService {
       sku: string;
       variant_name: string;
       price: number;
+      compare_at_price?: number;
+      discount_percent?: number;
       stock: number;
       stock_physical?: number;
       stock_virtual?: number;
@@ -638,6 +764,8 @@ export class AdminService {
       sku: string;
       variant_name: string;
       price: number;
+      compare_at_price?: number;
+      discount_percent?: number;
       stock: number;
       stock_physical?: number;
       stock_virtual?: number;
@@ -648,10 +776,15 @@ export class AdminService {
     const phys = variantData.stock_physical !== undefined ? Number(variantData.stock_physical) || 0 : (Number(variantData.stock) || 0);
     const virt = variantData.stock_virtual !== undefined ? Number(variantData.stock_virtual) || 0 : 0;
     const total = phys + virt;
+    const compareAt = variantData.compare_at_price !== undefined ? Number(variantData.compare_at_price) : undefined;
+    const discPct = variantData.discount_percent !== undefined ? Number(variantData.discount_percent) : undefined;
+
     const attrs = {
       ...(variantData.attributes || {}),
       stock_physical: phys,
-      stock_virtual: virt
+      stock_virtual: virt,
+      compare_at_price: compareAt ?? null,
+      discount_percent: discPct ?? null
     };
 
     const newVariant: DbProductVariant = {
@@ -660,6 +793,8 @@ export class AdminService {
       sku: variantData.sku.trim(),
       variant_name: variantData.variant_name.trim() || 'Nueva Edición',
       price: Number(variantData.price) || 0,
+      compare_at_price: compareAt,
+      discount_percent: discPct,
       stock: total,
       stock_physical: phys,
       stock_virtual: virt,
@@ -669,7 +804,7 @@ export class AdminService {
     };
 
     try {
-      const { stock_physical, stock_virtual, ...dbFields } = newVariant;
+      const { stock_physical, stock_virtual, compare_at_price, discount_percent, ...dbFields } = newVariant;
       await (this.supabase.from('product_variants') as any).insert(dbFields);
     } catch {}
 
@@ -701,11 +836,21 @@ export class AdminService {
       ? (phys + virt)
       : (variantData.stock !== undefined ? Number(variantData.stock) || 0 : (existing?.stock ?? (phys + virt)));
 
+    const compareAt = variantData.compare_at_price !== undefined
+      ? variantData.compare_at_price
+      : (existing?.compare_at_price ?? existing?.attributes?.['compare_at_price'] ?? null);
+
+    const discPct = variantData.discount_percent !== undefined
+      ? variantData.discount_percent
+      : (existing?.discount_percent ?? existing?.attributes?.['discount_percent'] ?? null);
+
     const mergedAttrs = {
       ...(existing?.attributes || {}),
       ...(variantData.attributes || {}),
       stock_physical: phys,
-      stock_virtual: virt
+      stock_virtual: virt,
+      compare_at_price: compareAt,
+      discount_percent: discPct
     };
 
     const dbPayload: any = {
@@ -715,6 +860,8 @@ export class AdminService {
     };
     delete dbPayload.stock_physical;
     delete dbPayload.stock_virtual;
+    delete dbPayload.compare_at_price;
+    delete dbPayload.discount_percent;
 
     try {
       await (this.supabase.from('product_variants') as any).update(dbPayload).eq('id', variantId);
@@ -728,6 +875,8 @@ export class AdminService {
             ? {
                 ...v,
                 ...variantData,
+                compare_at_price: compareAt ?? undefined,
+                discount_percent: discPct ?? undefined,
                 stock: total,
                 stock_physical: phys,
                 stock_virtual: virt,

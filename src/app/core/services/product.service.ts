@@ -83,11 +83,21 @@ export class ProductService {
                 : 0;
               const totalStock = stockPhys + stockVirt;
 
+              const compareAt = v.attributes?.['compare_at_price'] !== undefined
+                ? (v.attributes['compare_at_price'] !== null ? Number(v.attributes['compare_at_price']) : undefined)
+                : (v.compare_at_price !== undefined && v.compare_at_price !== null ? Number(v.compare_at_price) : undefined);
+
+              const discountPct = v.attributes?.['discount_percent'] !== undefined
+                ? (v.attributes['discount_percent'] !== null ? Number(v.attributes['discount_percent']) : undefined)
+                : (compareAt && compareAt > Number(v.price) ? Math.round(((compareAt - Number(v.price)) / compareAt) * 100) : undefined);
+
               return {
                 id: v.id,
                 name: v.variant_name,
                 sku: v.sku,
                 price: Number(v.price) || 0,
+                compareAtPrice: compareAt,
+                discountPercentage: discountPct,
                 stock: totalStock,
                 stock_physical: stockPhys,
                 stock_virtual: stockVirt,
@@ -96,6 +106,9 @@ export class ProductService {
             });
 
           const minPrice = vars.length > 0 ? Math.min(...vars.map((v) => v.price)) : 0;
+          const minVar = vars.find((v) => v.price === minPrice);
+          const prodCompareAt = minVar?.compareAtPrice || (vars.find((v) => v.compareAtPrice)?.compareAtPrice);
+          const prodDiscount = minVar?.discountPercentage || (prodCompareAt && prodCompareAt > minPrice ? Math.round(((prodCompareAt - minPrice) / prodCompareAt) * 100) : undefined);
           const totalStock = vars.reduce((acc: number, v) => acc + v.stock, 0);
           const totalPhys = vars.reduce((acc: number, v) => acc + (v.stock_physical || 0), 0);
           const totalVirt = vars.reduce((acc: number, v) => acc + (v.stock_virtual || 0), 0);
@@ -110,6 +123,8 @@ export class ProductService {
             description: dbP.long_description || dbP.short_description || '',
             shortDescription: dbP.short_description || '',
             price: minPrice,
+            compareAtPrice: prodCompareAt,
+            discountPercentage: prodDiscount,
             images: Array.isArray(dbP.images) && dbP.images.length > 0 ? dbP.images : ['https://images.unsplash.com/photo-1591799264318-7e6ef8ddb7ea?auto=format&fit=crop&w=600&q=80'],
             stock: totalStock,
             stock_physical: totalPhys,

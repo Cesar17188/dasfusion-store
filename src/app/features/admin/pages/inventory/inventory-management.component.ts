@@ -1,6 +1,7 @@
 import { Component, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import * as XLSX from 'xlsx';
 import { AdminService, AdminProductWithVariants } from '../../../../core/services/admin.service';
 import { ProductService } from '../../../../core/services/product.service';
 import { DbProductVariant, DbCategory, DbBrand } from '../../../../core/models/supabase.model';
@@ -16,6 +17,26 @@ export interface SpecGroup {
   items: SpecGroupItem[];
 }
 
+export interface ParsedImportItem {
+  sku: string;
+  model: string;
+  category: string;
+  brand: string;
+  price: number;
+  compare_at_price?: number;
+  discount_percent?: number;
+  stock: number;
+  stock_physical: number;
+  stock_virtual: number;
+  variant_name: string;
+  image_url?: string;
+  short_description?: string;
+  isExisting: boolean;
+  isValid: boolean;
+  errorMessage?: string;
+  action: 'create' | 'update' | 'error';
+}
+
 @Component({
   selector: 'app-inventory-management',
   standalone: true,
@@ -29,6 +50,13 @@ export interface SpecGroup {
           <p class="text-xs sm:text-sm text-outline">Control integral de hardware, existencias, taxonomía de categorías, subcategorías y marcas asociadas</p>
         </div>
         <div class="flex flex-wrap items-center gap-2">
+          <button
+            (click)="openImportModal()"
+            class="btn-secondary py-2! px-3.5! text-xs flex items-center gap-1.5 border-primary/40 hover:border-primary text-primary hover:bg-primary/10 transition-all shadow-sm"
+          >
+            <span>📥</span>
+            <span>Importar CSV / XLSX</span>
+          </button>
           <button
             (click)="openCategoryModal()"
             class="btn-secondary py-2! px-3! text-xs flex items-center gap-1.5"
@@ -192,8 +220,9 @@ export interface SpecGroup {
                     <th class="py-3 px-4">Producto / Modelo</th>
                     <th class="py-3 px-4">Categoría & Marca</th>
                     <th class="py-3 px-4">SKU / Variante</th>
-                    <th class="py-3 px-4">Precio ($)</th>
-                    <th class="py-3 px-4 text-center">Stock Actual</th>
+                    <th class="py-3 px-4">Precio Venta ($)</th>
+                    <th class="py-3 px-4">Descuento / Oferta</th>
+                    <th class="py-3 px-4 text-center">Stock Físico</th>
                     <th class="py-3 px-4 text-center">Stock Virtual</th>
                     <th class="py-3 px-4 text-center">Total Tienda</th>
                     <th class="py-3 px-4">Estado Stock</th>
@@ -248,26 +277,120 @@ export interface SpecGroup {
                       </td>
                       <td class="py-3.5 px-4">
                         <div class="flex items-center gap-1">
-                          <span class="text-outline">$</span>
+                          <span class="text-outline font-bold">$</span>
                           <input
                             type="number"
                             [ngModel]="item.variant.price"
                             (blur)="onPriceChange(item.variant.id, $event)"
-                            class="w-20 bg-surface border border-outline-variant rounded px-1.5 py-0.5 text-xs text-on-surface focus:outline-none focus:border-primary"
+                            min="0"
+                            step="0.01"
+                            class="w-20 bg-surface border border-outline-variant rounded px-2 py-1 text-xs text-on-surface font-mono font-bold focus:outline-none focus:border-primary"
+                            title="Precio final de venta en tienda"
                           />
+                        </div>
+                      </td>
+                      <td class="py-3.5 px-4 min-w-45">
+                        <div class="flex flex-col gap-1.5">
+                          <div class="flex items-center gap-1.5">
+                            <div class="relative flex items-center">
+                              <input
+                                type="number"
+                                [ngModel]="item.variant.discount_percent || 0"
+                                (blur)="onDiscountPercentChange(item.variant, $event)"
+                                min="0"
+                                max="99"
+                                class="w-14 bg-surface border rounded px-1.5 py-0.5 text-xs font-bold text-center focus:outline-none transition"
+                                [class.border-amber-400]="(item.variant.discount_percent || 0) > 0"
+                                [class.text-amber-300]="(item.variant.discount_percent || 0) > 0"
+                                [class.border-outline-variant]="!(item.variant.discount_percent || 0)"
+                                [class.text-on-surface]="!(item.variant.discount_percent || 0)"
+                                title="Porcentaje de descuento para este producto"
+                              />
+                              <span class="ml-1 text-[11px] font-bold text-outline">%</span>
+                            </div>
+
+                            @if ((item.variant.discount_percent || 0) > 0 || (item.variant.compare_at_price && item.variant.compare_at_price > item.variant.price)) {
+                              <button
+                                type="button"
+                                (click)="quickSetDiscount(item.variant, 0)"
+                                class="text-[10px] text-outline hover:text-rose-400 px-1 py-0.5 rounded bg-surface-container hover:bg-surface-container-high transition cursor-pointer"
+                                title="Quitar descuento y volver a precio regular"
+                              >
+                                ✕ Quitar
+                              </button>
+                            }
+                          </div>
+
+                          @if (item.variant.compare_at_price && item.variant.compare_at_price > item.variant.price) {
+                            <div class="flex items-center gap-1.5 flex-wrap">
+                              <span class="text-[10px] text-outline line-through">
+                                &dollar;{{ item.variant.compare_at_price | number:'1.2-2' }}
+                              </span>
+                              <span class="px-1.5 py-0.2 rounded text-[9px] font-black bg-tertiary-container! text-[#f1bd81]! border border-[#f1bd81]/30">
+                                OFERTA -{{ item.variant.discount_percent }}%
+                              </span>
+                            </div>
+                          }
+
+                          <!-- Quick discount preset chips -->
+                          <div class="flex items-center gap-1 text-[9px]">
+                            <button
+                              type="button"
+                              (click)="quickSetDiscount(item.variant, 10)"
+                              class="px-1.5 py-0.5 rounded bg-surface-container-high hover:bg-surface-container-highest text-outline hover:text-amber-300 transition cursor-pointer font-semibold"
+                            >
+                              10%
+                            </button>
+                            <button
+                              type="button"
+                              (click)="quickSetDiscount(item.variant, 20)"
+                              class="px-1.5 py-0.5 rounded bg-surface-container-high hover:bg-surface-container-highest text-outline hover:text-amber-300 transition cursor-pointer font-semibold"
+                            >
+                              20%
+                            </button>
+                            <button
+                              type="button"
+                              (click)="quickSetDiscount(item.variant, 30)"
+                              class="px-1.5 py-0.5 rounded bg-surface-container-high hover:bg-surface-container-highest text-outline hover:text-amber-300 transition cursor-pointer font-semibold"
+                            >
+                              30%
+                            </button>
+                            <button
+                              type="button"
+                              (click)="quickSetDiscount(item.variant, 50)"
+                              class="px-1.5 py-0.5 rounded bg-surface-container-high hover:bg-surface-container-highest text-outline hover:text-amber-300 transition cursor-pointer font-semibold"
+                            >
+                              50%
+                            </button>
+                          </div>
                         </div>
                       </td>
                       <td class="py-3.5 px-4 text-center">
                         <div class="inline-flex items-center gap-1">
+                          <button
+                            type="button"
+                            (click)="adjustPhysicalStock(item.variant, -1)"
+                            class="w-5 h-5 rounded bg-surface-container-high hover:bg-surface-container-highest text-outline hover:text-white flex items-center justify-center text-xs font-bold cursor-pointer transition"
+                            title="Restar 1 unidad física"
+                          >
+                            -
+                          </button>
                           <input
                             type="number"
                             [ngModel]="item.variant.stock_physical ?? item.variant.stock"
                             (blur)="onPhysicalStockChange(item.variant, $event)"
                             min="0"
-                            class="w-16 bg-surface border border-outline-variant rounded px-1.5 py-0.5 text-xs font-bold text-center text-on-surface focus:outline-none focus:border-primary"
-                            title="Stock Físico / Actual disponible"
+                            class="w-14 bg-surface border border-outline-variant rounded px-1.5 py-0.5 text-xs font-bold text-center text-on-surface focus:outline-none focus:border-primary"
+                            title="Stock Físico disponible"
                           />
-                          <span class="text-[11px] text-outline">uds.</span>
+                          <button
+                            type="button"
+                            (click)="adjustPhysicalStock(item.variant, 1)"
+                            class="w-5 h-5 rounded bg-surface-container-high hover:bg-surface-container-highest text-outline hover:text-white flex items-center justify-center text-xs font-bold cursor-pointer transition"
+                            title="Sumar 1 unidad física"
+                          >
+                            +
+                          </button>
                         </div>
                       </td>
                       <td class="py-3.5 px-4 text-center">
@@ -277,14 +400,14 @@ export interface SpecGroup {
                             [ngModel]="item.variant.stock_virtual ?? 0"
                             (blur)="onVirtualStockChange(item.variant, $event)"
                             min="0"
-                            class="w-16 bg-surface border border-purple-500/40 rounded px-1.5 py-0.5 text-xs font-bold text-center text-purple-300 focus:outline-none focus:border-purple-400"
+                            class="w-14 bg-surface border border-purple-500/40 rounded px-1.5 py-0.5 text-xs font-bold text-center text-purple-300 focus:outline-none focus:border-purple-400"
                             title="Stock Virtual / Proveedor"
                           />
                           <span class="text-[11px] text-purple-400/80">uds.</span>
                         </div>
                       </td>
                       <td class="py-3.5 px-4 text-center">
-                        <span class="font-mono font-bold text-xs text-primary bg-primary/10 border border-primary/25 px-2 py-0.5 rounded" title="Total disponible para compras en tienda (Actual + Virtual)">
+                        <span class="font-mono font-bold text-xs text-primary bg-primary/10 border border-primary/25 px-2 py-0.5 rounded whitespace-nowrap" title="Total disponible para compras en tienda (Físico + Virtual)">
                           {{ item.variant.stock }} uds.
                         </span>
                       </td>
@@ -324,22 +447,22 @@ export interface SpecGroup {
                         <div class="flex items-center justify-end gap-1.5">
                           <button
                             (click)="openEditProductModal(item.product)"
-                            title="Editar producto e imágenes"
+                            title="Editar producto, descuentos e imágenes"
                             class="px-2.5 py-1 rounded bg-surface-container-high hover:bg-surface-container-highest text-[11px] font-semibold text-primary transition cursor-pointer flex items-center gap-1"
                           >
                             <span>✏️</span>
                             <span>Editar</span>
                           </button>
                           <button
-                            (click)="incrementStock(item.variant.id, item.variant.stock, 5)"
-                            title="Sumar +5 unidades al stock"
+                            (click)="adjustPhysicalStock(item.variant, 5)"
+                            title="Sumar +5 unidades al stock físico"
                             class="px-2 py-1 rounded bg-surface-container-high hover:bg-surface-container-highest text-[11px] font-semibold text-on-surface-variant transition cursor-pointer"
                           >
                             +5
                           </button>
                           <button
-                            (click)="incrementStock(item.variant.id, item.variant.stock, 10)"
-                            title="Sumar +10 unidades al stock"
+                            (click)="adjustPhysicalStock(item.variant, 10)"
+                            title="Sumar +10 unidades al stock físico"
                             class="px-2 py-1 rounded bg-surface-container-high hover:bg-surface-container-highest text-[11px] font-semibold text-on-surface-variant transition cursor-pointer"
                           >
                             +10
@@ -349,7 +472,7 @@ export interface SpecGroup {
                     </tr>
                   } @empty {
                     <tr>
-                      <td colspan="7" class="text-center py-8 text-outline">
+                      <td colspan="11" class="text-center py-8 text-outline">
                         No se encontraron productos o variantes con los filtros actuales.
                       </td>
                     </tr>
@@ -1007,7 +1130,7 @@ export interface SpecGroup {
                     </div>
                   </div>
 
-                  <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                     <div>
                       <label class="block text-xs font-semibold text-on-surface-variant mb-1">Precio de Venta ($ USD) *</label>
                       <input
@@ -1017,8 +1140,20 @@ export interface SpecGroup {
                         required
                         min="0"
                         step="0.01"
-                        class="das-input text-xs"
+                        class="das-input text-xs font-mono font-bold"
                         placeholder="999.00"
+                      />
+                    </div>
+                    <div>
+                      <label class="block text-xs font-semibold text-on-surface-variant mb-1">Precio Antes / Regular ($)</label>
+                      <input
+                        type="number"
+                        [(ngModel)]="newVarForm.compare_at_price"
+                        name="compare_at_price"
+                        min="0"
+                        step="0.01"
+                        class="das-input text-xs font-mono"
+                        placeholder="Opcional (para Descuento)"
                       />
                     </div>
                     <div>
@@ -1045,6 +1180,17 @@ export interface SpecGroup {
                       />
                     </div>
                   </div>
+
+                  @if (newVarForm.compare_at_price && newVarForm.compare_at_price > newVarForm.price) {
+                    <div class="flex items-center gap-2 p-2 rounded-lg bg-amber-950/30 border border-amber-500/30 text-xs">
+                      <span class="px-1.5 py-0.5 rounded text-[10px] font-black bg-tertiary-container! text-[#f1bd81]! border border-[#f1bd81]/30">
+                        OFERTA -{{ calculateDiscountPercent(newVarForm.compare_at_price, newVarForm.price) }}%
+                      </span>
+                      <span class="text-amber-200">
+                        Precio regular tachado: &dollar;{{ newVarForm.compare_at_price | number:'1.2-2' }} &bull; Ahorro cliente: &dollar;{{ (newVarForm.compare_at_price - newVarForm.price) | number:'1.2-2' }}
+                      </span>
+                    </div>
+                  }
 
                   <div class="flex items-center justify-between p-2.5 rounded-lg bg-surface-container-high/60 border border-outline-variant/40 text-xs">
                     <span class="text-on-surface-variant font-medium">Stock Total Disponible en Tienda:</span>
@@ -1112,9 +1258,9 @@ export interface SpecGroup {
                         </div>
                       </div>
 
-                      <div class="grid grid-cols-1 sm:grid-cols-4 gap-2.5">
+                      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2.5">
                         <div>
-                          <label class="block text-[11px] font-semibold text-on-surface-variant mb-1">Precio ($ USD) *</label>
+                          <label class="block text-[11px] font-semibold text-on-surface-variant mb-1">Precio Venta ($) *</label>
                           <input
                             type="number"
                             [(ngModel)]="v.price"
@@ -1122,8 +1268,20 @@ export interface SpecGroup {
                             min="0"
                             step="0.01"
                             required
-                            class="das-input text-xs"
+                            class="das-input text-xs font-mono font-bold"
                             placeholder="799.00"
+                          />
+                        </div>
+                        <div>
+                          <label class="block text-[11px] font-semibold text-on-surface-variant mb-1">Precio Antes ($)</label>
+                          <input
+                            type="number"
+                            [(ngModel)]="v.compare_at_price"
+                            [name]="'new_var_compare_' + vIdx"
+                            min="0"
+                            step="0.01"
+                            class="das-input text-xs font-mono"
+                            placeholder="Opcional"
                           />
                         </div>
                         <div>
@@ -1149,7 +1307,7 @@ export interface SpecGroup {
                             placeholder="0"
                           />
                         </div>
-                        <div class="flex items-center pt-5">
+                        <div class="flex items-center pt-4">
                           <label class="flex items-center gap-1.5 cursor-pointer text-[11px] text-on-surface-variant">
                             <input
                               type="checkbox"
@@ -1157,10 +1315,22 @@ export interface SpecGroup {
                               [name]="'new_var_bundle_' + vIdx"
                               class="rounded bg-surface border-outline-variant text-primary"
                             />
-                            <span>Es Combo</span>
+                            <span>Combo</span>
                           </label>
                         </div>
                       </div>
+
+                      @if (v.compare_at_price && v.compare_at_price > v.price) {
+                        <div class="flex items-center gap-2 p-1.5 rounded-lg bg-amber-950/20 border border-amber-500/25 text-[11px]">
+                          <span class="px-1.5 py-0.2 rounded font-black text-[9px] bg-tertiary-container! text-[#f1bd81]! border border-[#f1bd81]/30">
+                            -{{ calculateDiscountPercent(v.compare_at_price, v.price) }}%
+                          </span>
+                          <span class="text-amber-200">
+                            Ahorro: &dollar;{{ (v.compare_at_price - v.price) | number:'1.2-2' }}
+                          </span>
+                        </div>
+                      }
+
                       <div class="text-[11px] text-outline flex items-center justify-end gap-1.5 pt-1">
                         <span>Total disponible:</span>
                         <span class="font-bold text-primary font-mono bg-primary/10 px-1.5 py-0.5 rounded text-[11px]">
@@ -1780,9 +1950,9 @@ export interface SpecGroup {
                       </div>
                     </div>
 
-                    <div class="grid grid-cols-1 sm:grid-cols-4 gap-2.5">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2.5">
                       <div>
-                        <label class="block text-[11px] font-semibold text-on-surface-variant mb-1">Precio ($ USD) *</label>
+                        <label class="block text-[11px] font-semibold text-on-surface-variant mb-1">Precio Venta ($) *</label>
                         <input
                           type="number"
                           [(ngModel)]="v.price"
@@ -1790,7 +1960,19 @@ export interface SpecGroup {
                           min="0"
                           step="0.01"
                           required
-                          class="das-input text-xs"
+                          class="das-input text-xs font-mono font-bold"
+                        />
+                      </div>
+                      <div>
+                        <label class="block text-[11px] font-semibold text-on-surface-variant mb-1">Precio Antes ($)</label>
+                        <input
+                          type="number"
+                          [(ngModel)]="v.compare_at_price"
+                          [name]="'edit_var_compare_' + vIdx"
+                          min="0"
+                          step="0.01"
+                          class="das-input text-xs font-mono"
+                          placeholder="Opcional (Oferta)"
                         />
                       </div>
                       <div>
@@ -1814,7 +1996,7 @@ export interface SpecGroup {
                           class="das-input text-xs font-bold"
                         />
                       </div>
-                      <div class="flex items-center pt-5">
+                      <div class="flex items-center pt-4">
                         <label class="flex items-center gap-1.5 cursor-pointer text-[11px] text-on-surface-variant">
                           <input
                             type="checkbox"
@@ -1822,10 +2004,21 @@ export interface SpecGroup {
                             [name]="'edit_var_bundle_' + vIdx"
                             class="rounded bg-surface border-outline-variant text-primary"
                           />
-                          <span>Es Combo</span>
+                          <span>Combo</span>
                         </label>
                       </div>
                     </div>
+
+                    @if (v.compare_at_price && v.compare_at_price > v.price) {
+                      <div class="flex items-center gap-2 p-1.5 rounded-lg bg-amber-950/20 border border-amber-500/25 text-[11px]">
+                        <span class="px-1.5 py-0.2 rounded font-black text-[9px] bg-tertiary-container! text-[#f1bd81]! border border-[#f1bd81]/30">
+                          OFERTA -{{ calculateDiscountPercent(v.compare_at_price, v.price) }}%
+                        </span>
+                        <span class="text-amber-200">
+                          Precio tachado: &dollar;{{ v.compare_at_price | number:'1.2-2' }} &bull; Ahorro cliente: &dollar;{{ (v.compare_at_price - v.price) | number:'1.2-2' }}
+                        </span>
+                      </div>
+                    }
                     <div class="text-[11px] text-outline flex items-center justify-end gap-1.5 pt-1">
                       <span>Total disponible:</span>
                       <span class="font-bold text-primary font-mono bg-primary/10 px-1.5 py-0.2 rounded">
@@ -1867,6 +2060,400 @@ export interface SpecGroup {
         </div>
       </div>
     }
+
+    <!-- ========================================================================= -->
+    <!-- MODAL 5: IMPORTADOR MASIVO DE PRODUCTOS (CSV / EXCEL XLSX) -->
+    <!-- ========================================================================= -->
+    @if (isImportModalOpen()) {
+      <div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md overflow-y-auto">
+        <div class="bg-surface-container-low border border-outline-variant rounded-2xl w-full max-w-5xl max-h-[92vh] flex flex-col shadow-2xl overflow-hidden my-auto">
+          <!-- Modal Header -->
+          <div class="flex items-center justify-between border-b border-outline-variant/40 p-5 bg-surface-container/30">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-xl">
+                📥
+              </div>
+              <div>
+                <h3 class="text-base sm:text-lg font-bold text-on-surface">Importador Masivo de Catálogo</h3>
+                <p class="text-xs text-outline">Carga o actualiza masivamente productos, categorías, marcas, precios y existencias vía CSV o Excel (.xlsx)</p>
+              </div>
+            </div>
+            <button
+              (click)="closeImportModal()"
+              [disabled]="isImporting()"
+              class="text-outline hover:text-white p-2 rounded-lg hover:bg-surface-container-high transition"
+            >
+              ✕
+            </button>
+          </div>
+
+          <!-- Modal Scrollable Content -->
+          <div class="p-6 overflow-y-auto space-y-6 flex-1">
+            <!-- Action bar & Template Downloads -->
+            <div class="bg-surface-container-lowest border border-outline-variant/30 rounded-xl p-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+              <div class="space-y-1">
+                <span class="text-xs font-bold text-on-surface flex items-center gap-1.5">
+                  <span>💡</span> ¿No tienes el archivo listo? Descarga las plantillas oficiales:
+                </span>
+                <p class="text-[11px] text-outline">
+                  Contienen las columnas predefinidas y filas de ejemplo con componentes de hardware reales listos para usar en Excel.
+                </p>
+              </div>
+              <div class="flex flex-wrap items-center gap-2 w-full md:w-auto">
+                <button
+                  type="button"
+                  (click)="downloadCsvTemplate()"
+                  class="btn-secondary py-1.5! px-3! text-xs flex items-center gap-1.5 text-primary border-primary/30 hover:border-primary"
+                >
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                  </svg>
+                  Plantilla CSV (.csv)
+                </button>
+                <button
+                  type="button"
+                  (click)="downloadXlsxTemplate()"
+                  class="btn-secondary py-1.5! px-3! text-xs flex items-center gap-1.5 text-emerald-400 border-emerald-500/30 hover:border-emerald-500"
+                >
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  Plantilla Excel (.xlsx)
+                </button>
+              </div>
+            </div>
+
+            <!-- Guidelines Chips -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-[11px]">
+              <div class="bg-surface-container/40 border border-outline-variant/30 rounded-lg p-3 space-y-1.5">
+                <span class="font-bold text-primary flex items-center gap-1">
+                  <span>📌</span> Columnas Obligatorias (Infaltables)
+                </span>
+                <div class="flex flex-wrap gap-1">
+                  <span class="px-2 py-0.5 rounded bg-primary/10 text-primary font-mono text-[10px]">sku</span>
+                  <span class="px-2 py-0.5 rounded bg-primary/10 text-primary font-mono text-[10px]">modelo</span>
+                  <span class="px-2 py-0.5 rounded bg-primary/10 text-primary font-mono text-[10px]">categoria</span>
+                  <span class="px-2 py-0.5 rounded bg-primary/10 text-primary font-mono text-[10px]">marca</span>
+                  <span class="px-2 py-0.5 rounded bg-primary/10 text-primary font-mono text-[10px]">precio</span>
+                  <span class="px-2 py-0.5 rounded bg-primary/10 text-primary font-mono text-[10px]">stock</span>
+                </div>
+                <p class="text-outline text-[10px]">Categorías y marcas inexistentes se crearán automáticamente durante la importación.</p>
+              </div>
+
+              <div class="bg-surface-container/40 border border-outline-variant/30 rounded-lg p-3 space-y-1.5">
+                <span class="font-bold text-on-surface flex items-center gap-1">
+                  <span>⚙️</span> Columnas Opcionales / Especiales
+                </span>
+                <div class="flex flex-wrap gap-1">
+                  <span class="px-2 py-0.5 rounded bg-surface-container-high text-on-surface-variant font-mono text-[10px]">precio_regular</span>
+                  <span class="px-2 py-0.5 rounded bg-surface-container-high text-on-surface-variant font-mono text-[10px]">descuento_porcentaje</span>
+                  <span class="px-2 py-0.5 rounded bg-surface-container-high text-on-surface-variant font-mono text-[10px]">stock_fisico</span>
+                  <span class="px-2 py-0.5 rounded bg-surface-container-high text-on-surface-variant font-mono text-[10px]">stock_virtual</span>
+                  <span class="px-2 py-0.5 rounded bg-surface-container-high text-on-surface-variant font-mono text-[10px]">variante</span>
+                  <span class="px-2 py-0.5 rounded bg-surface-container-high text-on-surface-variant font-mono text-[10px]">imagen_url</span>
+                </div>
+                <p class="text-outline text-[10px]">Si el SKU ya existe en la tienda, actualizará automáticamente sus existencias y descuentos.</p>
+              </div>
+            </div>
+
+            <!-- Upload Area -->
+            <div>
+              <input
+                #importFileInputRef
+                type="file"
+                (change)="onFileSelected($event)"
+                accept=".csv,.xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv"
+                class="hidden"
+              />
+
+              @if (!selectedImportFileName()) {
+                <div
+                  (click)="importFileInputRef.click()"
+                  class="border-2 border-dashed border-outline-variant/60 hover:border-primary/80 bg-surface-container-lowest hover:bg-primary/5 rounded-2xl p-8 text-center cursor-pointer transition-all flex flex-col items-center justify-center gap-3 group"
+                >
+                  <div class="w-14 h-14 rounded-2xl bg-surface-container-high group-hover:bg-primary/20 flex items-center justify-center text-3xl transition-transform group-hover:scale-110">
+                    📊
+                  </div>
+                  <div>
+                    <p class="text-sm font-semibold text-on-surface group-hover:text-primary transition">
+                      Haz clic para seleccionar o arrastra tu archivo aquí
+                    </p>
+                    <p class="text-xs text-outline mt-1">Soporta archivos de Excel (.XLSX) o archivos delimitados (.CSV)</p>
+                  </div>
+                </div>
+              } @else {
+                <div class="bg-surface-container border border-outline-variant/40 rounded-xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                  <div class="flex items-center gap-3">
+                    <div
+                      class="w-10 h-10 rounded-lg flex items-center justify-center font-bold text-xs uppercase"
+                      [class.bg-emerald-500/20]="selectedImportFileType() === 'xlsx'"
+                      [class.text-emerald-400]="selectedImportFileType() === 'xlsx'"
+                      [class.bg-primary/20]="selectedImportFileType() === 'csv'"
+                      [class.text-primary]="selectedImportFileType() === 'csv'"
+                    >
+                      {{ selectedImportFileType() === 'xlsx' ? 'XLSX' : 'CSV' }}
+                    </div>
+                    <div>
+                      <div class="text-xs font-bold text-on-surface flex items-center gap-2">
+                        <span>{{ selectedImportFileName() }}</span>
+                        <span class="text-[10px] px-1.5 py-0.5 rounded bg-surface-container-high text-outline">
+                          {{ selectedImportFileSize() }}
+                        </span>
+                      </div>
+                      <p class="text-[11px] text-outline">
+                        {{ importParsedItems().length }} filas procesadas para previsualización
+                      </p>
+                    </div>
+                  </div>
+                  <div class="flex items-center gap-2">
+                    <button
+                      type="button"
+                      (click)="importFileInputRef.click()"
+                      [disabled]="isImporting()"
+                      class="btn-secondary py-1.5! px-3! text-xs"
+                    >
+                      Cambiar Archivo
+                    </button>
+                    <button
+                      type="button"
+                      (click)="clearImportData()"
+                      [disabled]="isImporting()"
+                      class="text-xs text-red-400 hover:text-red-300 px-2 py-1"
+                    >
+                      Quitar
+                    </button>
+                  </div>
+                </div>
+              }
+            </div>
+
+            <!-- Result / Error Alert Message -->
+            @if (importResultMessage()) {
+              <div
+                class="p-4 rounded-xl text-xs flex items-center gap-3 border"
+                [class.bg-emerald-500/10]="importResultMessage()?.type === 'success'"
+                [class.border-emerald-500/30]="importResultMessage()?.type === 'success'"
+                [class.text-emerald-300]="importResultMessage()?.type === 'success'"
+                [class.bg-red-500/10]="importResultMessage()?.type === 'error'"
+                [class.border-red-500/30]="importResultMessage()?.type === 'error'"
+                [class.text-red-300]="importResultMessage()?.type === 'error'"
+              >
+                <span>{{ importResultMessage()?.type === 'success' ? '✅' : '⚠️' }}</span>
+                <span class="font-medium">{{ importResultMessage()?.text }}</span>
+              </div>
+            }
+
+            <!-- Import Progress Bar -->
+            @if (isImporting()) {
+              <div class="bg-surface-container-lowest border border-primary/30 rounded-xl p-4 space-y-2">
+                <div class="flex items-center justify-between text-xs">
+                  <span class="text-primary font-semibold flex items-center gap-2">
+                    <svg class="animate-spin h-3.5 w-3.5 text-primary" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                      <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+                    </svg>
+                    Importando catálogo en la base de datos...
+                  </span>
+                  <span class="text-outline font-mono">
+                    {{ importProgress().current }} / {{ importProgress().total }}
+                  </span>
+                </div>
+                <div class="w-full bg-surface-container-high rounded-full h-2 overflow-hidden">
+                  <div
+                    class="bg-primary h-2 rounded-full transition-all duration-300"
+                    [style.width.%]="importProgress().total ? (importProgress().current / importProgress().total) * 100 : 0"
+                  ></div>
+                </div>
+              </div>
+            }
+
+            <!-- Interactive Preview & Table (when items loaded) -->
+            @if (importParsedItems().length > 0) {
+              <div class="space-y-3">
+                <!-- Preview KPIs & Filter Tabs -->
+                <div class="flex flex-wrap items-center justify-between gap-3">
+                  <div class="flex flex-wrap items-center gap-2 text-xs">
+                    <button
+                      type="button"
+                      (click)="importFilter.set('ALL')"
+                      class="px-2.5 py-1 rounded-lg border text-xs transition"
+                      [class.bg-primary]="importFilter() === 'ALL'"
+                      [class.text-on-primary]="importFilter() === 'ALL'"
+                      [class.border-primary]="importFilter() === 'ALL'"
+                      [class.bg-surface-container]="importFilter() !== 'ALL'"
+                      [class.border-outline-variant/30]="importFilter() !== 'ALL'"
+                      [class.text-on-surface-variant]="importFilter() !== 'ALL'"
+                    >
+                      Todos ({{ totalImportCount() }})
+                    </button>
+                    <button
+                      type="button"
+                      (click)="importFilter.set('NEW')"
+                      class="px-2.5 py-1 rounded-lg border text-xs transition"
+                      [class.bg-emerald-500/20]="importFilter() === 'NEW'"
+                      [class.text-emerald-300]="importFilter() === 'NEW'"
+                      [class.border-emerald-500/40]="importFilter() === 'NEW'"
+                      [class.bg-surface-container]="importFilter() !== 'NEW'"
+                      [class.border-outline-variant/30]="importFilter() !== 'NEW'"
+                      [class.text-on-surface-variant]="importFilter() !== 'NEW'"
+                    >
+                      ✨ Nuevos ({{ newImportCount() }})
+                    </button>
+                    <button
+                      type="button"
+                      (click)="importFilter.set('UPDATE')"
+                      class="px-2.5 py-1 rounded-lg border text-xs transition"
+                      [class.bg-blue-500/20]="importFilter() === 'UPDATE'"
+                      [class.text-blue-300]="importFilter() === 'UPDATE'"
+                      [class.border-blue-500/40]="importFilter() === 'UPDATE'"
+                      [class.bg-surface-container]="importFilter() !== 'UPDATE'"
+                      [class.border-outline-variant/30]="importFilter() !== 'UPDATE'"
+                      [class.text-on-surface-variant]="importFilter() !== 'UPDATE'"
+                    >
+                      🔄 Actualizar Existencias ({{ updateImportCount() }})
+                    </button>
+                    @if (errorImportCount() > 0) {
+                      <button
+                        type="button"
+                        (click)="importFilter.set('ERROR')"
+                        class="px-2.5 py-1 rounded-lg border text-xs transition"
+                        [class.bg-red-500/20]="importFilter() === 'ERROR'"
+                        [class.text-red-300]="importFilter() === 'ERROR'"
+                        [class.border-red-500/40]="importFilter() === 'ERROR'"
+                        [class.bg-surface-container]="importFilter() !== 'ERROR'"
+                        [class.border-outline-variant/30]="importFilter() !== 'ERROR'"
+                        [class.text-on-surface-variant]="importFilter() !== 'ERROR'"
+                      >
+                        ⚠️ Con Errores ({{ errorImportCount() }})
+                      </button>
+                    }
+                  </div>
+
+                  <span class="text-xs text-outline">
+                    {{ validImportCount() }} listos para procesar
+                  </span>
+                </div>
+
+                <!-- Preview Scroll Table -->
+                <div class="border border-outline-variant/40 rounded-xl overflow-hidden bg-surface-container-lowest">
+                  <div class="overflow-x-auto max-h-72">
+                    <table class="w-full text-left text-xs">
+                      <thead class="bg-surface-container/60 text-[11px] font-bold text-outline uppercase sticky top-0 z-10 backdrop-blur-md">
+                        <tr>
+                          <th class="py-2.5 px-3">Estado</th>
+                          <th class="py-2.5 px-3">SKU</th>
+                          <th class="py-2.5 px-3">Modelo</th>
+                          <th class="py-2.5 px-3">Categoría</th>
+                          <th class="py-2.5 px-3">Marca</th>
+                          <th class="py-2.5 px-3 text-right">Precio</th>
+                          <th class="py-2.5 px-3 text-right">Descuento</th>
+                          <th class="py-2.5 px-3 text-center">Stock</th>
+                          <th class="py-2.5 px-3">Variante</th>
+                          <th class="py-2.5 px-3 text-center"></th>
+                        </tr>
+                      </thead>
+                      <tbody class="divide-y divide-outline-variant/20 text-on-surface">
+                        @for (item of filteredImportItems(); track $index) {
+                          <tr class="hover:bg-surface-container/30 transition-colors" [class.bg-red-500/5]="!item.isValid">
+                            <td class="py-2 px-3 whitespace-nowrap">
+                              @if (!item.isValid) {
+                                <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-red-500/20 text-red-300 border border-red-500/30" [title]="item.errorMessage">
+                                  ⚠️ Error
+                                </span>
+                              } @else if (item.isExisting) {
+                                <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-500/20 text-blue-300 border border-blue-500/30">
+                                  🔄 Actualizar
+                                </span>
+                              } @else {
+                                <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                                  ✨ Nuevo
+                                </span>
+                              }
+                            </td>
+                            <td class="py-2 px-3 font-mono font-bold text-xs whitespace-nowrap">
+                              {{ item.sku || '—' }}
+                            </td>
+                            <td class="py-2 px-3 min-w-40">
+                              <div class="font-medium truncate max-w-55" [title]="item.model">{{ item.model || '—' }}</div>
+                              @if (item.errorMessage) {
+                                <span class="text-[10px] text-red-400 block">{{ item.errorMessage }}</span>
+                              }
+                            </td>
+                            <td class="py-2 px-3 whitespace-nowrap text-outline">
+                              {{ item.category || '—' }}
+                            </td>
+                            <td class="py-2 px-3 whitespace-nowrap text-outline">
+                              {{ item.brand || '—' }}
+                            </td>
+                            <td class="py-2 px-3 text-right font-mono font-bold whitespace-nowrap">
+                              {{ item.price | currency:'USD':'symbol':'1.2-2' }}
+                            </td>
+                            <td class="py-2 px-3 text-right whitespace-nowrap">
+                              @if (item.discount_percent && item.discount_percent > 0) {
+                                <span class="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-bold text-[10px]">
+                                  -{{ item.discount_percent }}%
+                                </span>
+                              } @else {
+                                <span class="text-outline text-[11px]">—</span>
+                              }
+                            </td>
+                            <td class="py-2 px-3 text-center whitespace-nowrap">
+                              <span class="font-bold text-primary">{{ item.stock }}</span>
+                              <span class="text-[10px] text-outline ml-1">({{ item.stock_physical }}+{{ item.stock_virtual }})</span>
+                            </td>
+                            <td class="py-2 px-3 whitespace-nowrap text-outline text-[11px]">
+                              {{ item.variant_name }}
+                            </td>
+                            <td class="py-2 px-3 text-center whitespace-nowrap">
+                              <button
+                                type="button"
+                                (click)="removeImportItem($index)"
+                                class="text-outline hover:text-red-400 p-1 transition"
+                                title="Eliminar fila de la importación"
+                              >
+                                ✕
+                              </button>
+                            </td>
+                          </tr>
+                        }
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            }
+          </div>
+
+          <!-- Modal Footer -->
+          <div class="border-t border-outline-variant/40 p-4 bg-surface-container/30 flex items-center justify-between gap-3">
+            <button
+              type="button"
+              (click)="closeImportModal()"
+              [disabled]="isImporting()"
+              class="btn-secondary py-2! px-4! text-xs"
+            >
+              Cerrar
+            </button>
+            <button
+              type="button"
+              (click)="confirmImport()"
+              [disabled]="isImporting() || validImportCount() === 0"
+              class="btn-primary py-2! px-5! text-xs flex items-center gap-2 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              @if (isImporting()) {
+                <svg class="animate-spin h-3.5 w-3.5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+                </svg>
+                <span>Procesando...</span>
+              } @else {
+                <span>🚀 Confirmar e Importar ({{ validImportCount() }} productos)</span>
+              }
+            </button>
+          </div>
+        </div>
+      </div>
+    }
   `
 })
 export class InventoryManagementComponent {
@@ -1880,6 +2467,33 @@ export class InventoryManagementComponent {
   selectedBrand = signal<string>('ALL');
   selectedVisibility = signal<'ALL' | 'VISIBLE' | 'HIDDEN'>('ALL');
   onlyLowStock = signal<boolean>(false);
+
+  // Import Modal & Parser State
+  isImportModalOpen = signal<boolean>(false);
+  importParsedItems = signal<ParsedImportItem[]>([]);
+  importFilter = signal<'ALL' | 'VALID' | 'NEW' | 'UPDATE' | 'ERROR'>('ALL');
+  selectedImportFileName = signal<string>('');
+  selectedImportFileSize = signal<string>('');
+  selectedImportFileType = signal<'csv' | 'xlsx' | null>(null);
+  isImporting = signal<boolean>(false);
+  importProgress = signal<{ current: number; total: number }>({ current: 0, total: 0 });
+  importResultMessage = signal<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  totalImportCount = computed(() => this.importParsedItems().length);
+  validImportCount = computed(() => this.importParsedItems().filter((i) => i.isValid).length);
+  newImportCount = computed(() => this.importParsedItems().filter((i) => i.isValid && !i.isExisting).length);
+  updateImportCount = computed(() => this.importParsedItems().filter((i) => i.isValid && i.isExisting).length);
+  errorImportCount = computed(() => this.importParsedItems().filter((i) => !i.isValid).length);
+
+  filteredImportItems = computed(() => {
+    const filter = this.importFilter();
+    const items = this.importParsedItems();
+    if (filter === 'VALID') return items.filter((i) => i.isValid);
+    if (filter === 'NEW') return items.filter((i) => i.isValid && !i.isExisting);
+    if (filter === 'UPDATE') return items.filter((i) => i.isValid && i.isExisting);
+    if (filter === 'ERROR') return items.filter((i) => !i.isValid);
+    return items;
+  });
 
   // Modals state
   isNewProductModalOpen = signal<boolean>(false);
@@ -1926,14 +2540,39 @@ export class InventoryManagementComponent {
 
   // Variants & Editions management
   isNewProdMultiVariant = signal<boolean>(false);
-  newProdVariants = signal<Array<{ sku: string; variant_name: string; price: number; stock: number; stock_physical: number; stock_virtual: number; is_bundle: boolean }>>([]);
-  editProdVariants = signal<Array<{ id: string; sku: string; variant_name: string; price: number; stock: number; stock_physical: number; stock_virtual: number; is_bundle: boolean; isNew?: boolean }>>([]);
+  newProdVariants = signal<Array<{
+    sku: string;
+    variant_name: string;
+    price: number;
+    compare_at_price?: number | null;
+    discount_percent?: number | null;
+    stock: number;
+    stock_physical: number;
+    stock_virtual: number;
+    is_bundle: boolean;
+  }>>([]);
+
+  editProdVariants = signal<Array<{
+    id: string;
+    sku: string;
+    variant_name: string;
+    price: number;
+    compare_at_price?: number | null;
+    discount_percent?: number | null;
+    stock: number;
+    stock_physical: number;
+    stock_virtual: number;
+    is_bundle: boolean;
+    isNew?: boolean;
+  }>>([]);
   deletedVariantIds: string[] = [];
 
   newVarForm = {
     sku: '',
     variant_name: '',
     price: 0,
+    compare_at_price: null as number | null,
+    discount_percent: null as number | null,
     stock: 5,
     stock_physical: 5,
     stock_virtual: 0,
@@ -2092,11 +2731,40 @@ export class InventoryManagementComponent {
     const newPrice = parseFloat(input.value);
     if (!isNaN(newPrice) && newPrice >= 0) {
       await this.adminService.updateVariantPrice(variantId, newPrice);
+      await this.productService.loadProductsFromDatabase();
     }
+  }
+
+  async onDiscountPercentChange(variant: DbProductVariant, event: Event): Promise<void> {
+    const input = event.target as HTMLInputElement;
+    const val = parseFloat(input.value);
+    const percent = !isNaN(val) && val > 0 ? Math.min(99, Math.round(val)) : null;
+    await this.adminService.updateVariantDiscount(variant.id, { discountPercent: percent });
+    await this.productService.loadProductsFromDatabase();
+  }
+
+  async quickSetDiscount(variant: DbProductVariant, percent: number): Promise<void> {
+    const val = percent > 0 ? percent : null;
+    await this.adminService.updateVariantDiscount(variant.id, { discountPercent: val });
+    await this.productService.loadProductsFromDatabase();
+  }
+
+  async adjustPhysicalStock(variant: DbProductVariant, delta: number): Promise<void> {
+    const currentPhys = variant.stock_physical !== undefined ? variant.stock_physical : variant.stock;
+    const newPhys = Math.max(0, currentPhys + delta);
+    const virt = variant.stock_virtual ?? 0;
+    await this.adminService.updateVariantStock(variant.id, newPhys, virt);
+    await this.productService.loadProductsFromDatabase();
+  }
+
+  calculateDiscountPercent(compareAt?: number | null, price?: number | null): number {
+    if (!compareAt || !price || Number(compareAt) <= Number(price)) return 0;
+    return Math.round(((Number(compareAt) - Number(price)) / Number(compareAt)) * 100);
   }
 
   async incrementStock(variantId: string, currentStock: number, add: number): Promise<void> {
     await this.adminService.updateVariantStock(variantId, currentStock + add);
+    await this.productService.loadProductsFromDatabase();
   }
 
   // --- Category Actions ---
@@ -2315,6 +2983,8 @@ export class InventoryManagementComponent {
       sku: '',
       variant_name: '',
       price: 0,
+      compare_at_price: null,
+      discount_percent: null,
       stock: 5,
       stock_physical: 5,
       stock_virtual: 0,
@@ -2395,7 +3065,17 @@ export class InventoryManagementComponent {
       return;
     }
 
-    let variantsToSave: Array<{ sku: string; variant_name: string; price: number; stock: number; stock_physical?: number; stock_virtual?: number; is_bundle: boolean }> = [];
+    let variantsToSave: Array<{
+      sku: string;
+      variant_name: string;
+      price: number;
+      compare_at_price?: number;
+      discount_percent?: number;
+      stock: number;
+      stock_physical?: number;
+      stock_virtual?: number;
+      is_bundle: boolean;
+    }> = [];
 
     if (this.isNewProdMultiVariant()) {
       const list = this.newProdVariants();
@@ -2422,10 +3102,14 @@ export class InventoryManagementComponent {
       variantsToSave = list.map((v) => {
         const phys = Number(v.stock_physical) || 0;
         const virt = Number(v.stock_virtual) || 0;
+        const compAt = v.compare_at_price && Number(v.compare_at_price) > Number(v.price) ? Number(v.compare_at_price) : undefined;
+        const discPct = compAt ? Math.round(((compAt - Number(v.price)) / compAt) * 100) : (v.discount_percent ? Number(v.discount_percent) : undefined);
         return {
           sku: v.sku.trim().toUpperCase(),
           variant_name: v.variant_name.trim(),
           price: Number(v.price) || 0,
+          compare_at_price: compAt,
+          discount_percent: discPct,
           stock: phys + virt,
           stock_physical: phys,
           stock_virtual: virt,
@@ -2439,11 +3123,19 @@ export class InventoryManagementComponent {
       }
       const phys = Number(this.newVarForm.stock_physical) || 0;
       const virt = Number(this.newVarForm.stock_virtual) || 0;
+      const compAt = this.newVarForm.compare_at_price && Number(this.newVarForm.compare_at_price) > Number(this.newVarForm.price)
+        ? Number(this.newVarForm.compare_at_price)
+        : undefined;
+      const discPct = compAt
+        ? Math.round(((compAt - Number(this.newVarForm.price)) / compAt) * 100)
+        : (this.newVarForm.discount_percent ? Number(this.newVarForm.discount_percent) : undefined);
       variantsToSave = [
         {
           sku: this.newVarForm.sku.trim().toUpperCase(),
           variant_name: this.newVarForm.variant_name.trim() || 'Estándar',
           price: Number(this.newVarForm.price) || 0,
+          compare_at_price: compAt,
+          discount_percent: discPct,
           stock: phys + virt,
           stock_physical: phys,
           stock_virtual: virt,
@@ -2491,6 +3183,8 @@ export class InventoryManagementComponent {
           sku: 'SKU-' + prod.model.replace(/\s+/g, '-').toUpperCase().slice(0, 10),
           variant_name: 'Estándar',
           price: 0,
+          compare_at_price: null,
+          discount_percent: null,
           stock: 1,
           stock_physical: 1,
           stock_virtual: 0,
@@ -2503,11 +3197,19 @@ export class InventoryManagementComponent {
         existingVariants.map((v) => {
           const phys = v.stock_physical !== undefined ? Number(v.stock_physical) || 0 : (Number(v.stock) || 0);
           const virt = v.stock_virtual !== undefined ? Number(v.stock_virtual) || 0 : 0;
+          const compAt = v.compare_at_price !== undefined
+            ? Number(v.compare_at_price)
+            : (v.attributes?.['compare_at_price'] !== undefined ? Number(v.attributes['compare_at_price']) : null);
+          const discPct = v.discount_percent !== undefined
+            ? Number(v.discount_percent)
+            : (v.attributes?.['discount_percent'] !== undefined ? Number(v.attributes['discount_percent']) : (compAt && compAt > v.price ? Math.round(((compAt - v.price) / compAt) * 100) : null));
           return {
             id: v.id,
             sku: v.sku,
             variant_name: v.variant_name || 'Estándar',
             price: v.price,
+            compare_at_price: compAt,
+            discount_percent: discPct,
             stock: phys + virt,
             stock_physical: phys,
             stock_virtual: virt,
@@ -2536,6 +3238,8 @@ export class InventoryManagementComponent {
         sku: defaultSku,
         variant_name: `Edición ${nextNum}`,
         price: firstPrice,
+        compare_at_price: null,
+        discount_percent: null,
         stock: 5,
         stock_physical: 5,
         stock_virtual: 0,
@@ -2686,11 +3390,16 @@ export class InventoryManagementComponent {
       const phys = Number(v.stock_physical) || 0;
       const virt = Number(v.stock_virtual) || 0;
       const total = phys + virt;
+      const compAt = v.compare_at_price && Number(v.compare_at_price) > Number(v.price) ? Number(v.compare_at_price) : undefined;
+      const discPct = compAt ? Math.round(((compAt - Number(v.price)) / compAt) * 100) : (v.discount_percent ? Number(v.discount_percent) : undefined);
+
       if (v.isNew) {
         await this.adminService.addVariantToProduct(this.editingProduct()!.id, {
           sku: v.sku.trim().toUpperCase(),
           variant_name: v.variant_name.trim(),
           price: Number(v.price) || 0,
+          compare_at_price: compAt,
+          discount_percent: discPct,
           stock: total,
           stock_physical: phys,
           stock_virtual: virt,
@@ -2701,6 +3410,8 @@ export class InventoryManagementComponent {
           sku: v.sku.trim().toUpperCase(),
           variant_name: v.variant_name.trim(),
           price: Number(v.price) || 0,
+          compare_at_price: compAt,
+          discount_percent: discPct,
           stock: total,
           stock_physical: phys,
           stock_virtual: virt,
@@ -2709,6 +3420,7 @@ export class InventoryManagementComponent {
       }
     }
 
+    await this.productService.loadProductsFromDatabase();
     this.productService.setProductActive(this.editingProduct()!.id, this.editProdForm.is_active);
     this.isEditProductModalOpen.set(false);
   }
@@ -2937,5 +3649,570 @@ export class InventoryManagementComponent {
     const catId = this.editProdCategoryId() || this.editProdForm.category_id;
     const template = this.getSuggestedSpecsForCategory(catId);
     this.editProdSpecGroups.set(JSON.parse(JSON.stringify(template)));
+  }
+
+  // =========================================================================
+  // BULK PRODUCT IMPORTER (CSV & XLSX)
+  // =========================================================================
+  openImportModal(): void {
+    this.clearImportData();
+    this.isImportModalOpen.set(true);
+  }
+
+  closeImportModal(): void {
+    if (this.isImporting()) return;
+    this.isImportModalOpen.set(false);
+    this.clearImportData();
+  }
+
+  clearImportData(): void {
+    this.importParsedItems.set([]);
+    this.selectedImportFileName.set('');
+    this.selectedImportFileSize.set('');
+    this.selectedImportFileType.set(null);
+    this.importResultMessage.set(null);
+    this.importFilter.set('ALL');
+  }
+
+  removeImportItem(index: number): void {
+    this.importParsedItems.update((items) => items.filter((_, i) => i !== index));
+  }
+
+  downloadCsvTemplate(): void {
+    const headers = [
+      'sku',
+      'modelo',
+      'categoria',
+      'marca',
+      'precio',
+      'precio_regular',
+      'descuento_porcentaje',
+      'stock_fisico',
+      'stock_virtual',
+      'variante',
+      'imagen_url',
+      'descripcion'
+    ];
+
+    const sampleRows = [
+      [
+        'AMD-RYZ7-7800X3D',
+        'AMD Ryzen 7 7800X3D',
+        'Procesadores',
+        'AMD',
+        '449.99',
+        '499.99',
+        '10',
+        '15',
+        '5',
+        'Box con Cooler',
+        'https://images.unsplash.com/photo-1591799264318-7e6ef8ddb7ea?auto=format&fit=crop&w=600&q=80',
+        'Procesador gaming 8 nucleos 16 hilos con 3D V-Cache'
+      ],
+      [
+        'COR-DDR5-32GB-6000',
+        'Corsair Vengeance RGB 32GB (2x16GB) 6000MHz',
+        'Memorias RAM',
+        'Corsair',
+        '129.99',
+        '149.99',
+        '13',
+        '25',
+        '10',
+        'Negro RGB',
+        'https://images.unsplash.com/photo-1541807084-5c52b6b3adef?auto=format&fit=crop&w=600&q=80',
+        'Kit de memoria RAM DDR5 de alto rendimiento'
+      ],
+      [
+        'ASUS-RTX4070S-OC',
+        'ASUS TUF Gaming GeForce RTX 4070 Super 12GB',
+        'Tarjetas de Video',
+        'ASUS',
+        '689.99',
+        '',
+        '',
+        '8',
+        '2',
+        'OC Edition',
+        'https://images.unsplash.com/photo-1587202372775-e229f172b9d7?auto=format&fit=crop&w=600&q=80',
+        'Tarjeta grafica NVIDIA RTX 4070 Super con disipacion triple fan'
+      ]
+    ];
+
+    const csvContent = '\uFEFF' + [
+      headers.join(','),
+      ...sampleRows.map((row) => row.map((val) => `"${val.replace(/"/g, '""')}"`).join(','))
+    ].join('\r\n');
+
+    this.downloadFile(csvContent, 'plantilla_productos_dasfusion.csv', 'text/csv;charset=utf-8;');
+  }
+
+  downloadXlsxTemplate(): void {
+    const sampleRows = [
+      {
+        sku: 'AMD-RYZ7-7800X3D',
+        modelo: 'AMD Ryzen 7 7800X3D',
+        categoria: 'Procesadores',
+        marca: 'AMD',
+        precio: 449.99,
+        precio_regular: 499.99,
+        descuento_porcentaje: 10,
+        stock_fisico: 15,
+        stock_virtual: 5,
+        variante: 'Box con Cooler',
+        imagen_url: 'https://images.unsplash.com/photo-1591799264318-7e6ef8ddb7ea?auto=format&fit=crop&w=600&q=80',
+        descripcion: 'Procesador gaming 8 nucleos 16 hilos con 3D V-Cache'
+      },
+      {
+        sku: 'COR-DDR5-32GB-6000',
+        modelo: 'Corsair Vengeance RGB 32GB (2x16GB) 6000MHz',
+        categoria: 'Memorias RAM',
+        marca: 'Corsair',
+        precio: 129.99,
+        precio_regular: 149.99,
+        descuento_porcentaje: 13,
+        stock_fisico: 25,
+        stock_virtual: 10,
+        variante: 'Negro RGB',
+        imagen_url: 'https://images.unsplash.com/photo-1541807084-5c52b6b3adef?auto=format&fit=crop&w=600&q=80',
+        descripcion: 'Kit de memoria RAM DDR5 de alto rendimiento'
+      },
+      {
+        sku: 'ASUS-RTX4070S-OC',
+        modelo: 'ASUS TUF Gaming GeForce RTX 4070 Super 12GB',
+        categoria: 'Tarjetas de Video',
+        marca: 'ASUS',
+        precio: 689.99,
+        precio_regular: '',
+        descuento_porcentaje: '',
+        stock_fisico: 8,
+        stock_virtual: 2,
+        variante: 'OC Edition',
+        imagen_url: 'https://images.unsplash.com/photo-1587202372775-e229f172b9d7?auto=format&fit=crop&w=600&q=80',
+        descripcion: 'Tarjeta grafica NVIDIA RTX 4070 Super con disipacion triple fan'
+      }
+    ];
+
+    const worksheet = XLSX.utils.json_to_sheet(sampleRows);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Productos');
+    XLSX.writeFile(workbook, 'plantilla_productos_dasfusion.xlsx');
+  }
+
+  private downloadFile(content: string, filename: string, type: string): void {
+    const blob = new Blob([content], { type });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  onFileSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    if (!input.files || input.files.length === 0) return;
+
+    const file = input.files[0];
+    this.selectedImportFileName.set(file.name);
+    this.selectedImportFileSize.set((file.size / 1024).toFixed(1) + ' KB');
+    this.importResultMessage.set(null);
+
+    const isCsv = file.name.toLowerCase().endsWith('.csv');
+    const isXlsx = file.name.toLowerCase().endsWith('.xlsx') || file.name.toLowerCase().endsWith('.xls');
+
+    if (!isCsv && !isXlsx) {
+      this.importResultMessage.set({
+        type: 'error',
+        text: 'Por favor selecciona un archivo con extensión .csv o .xlsx válido.'
+      });
+      input.value = '';
+      return;
+    }
+
+    this.selectedImportFileType.set(isCsv ? 'csv' : 'xlsx');
+
+    const reader = new FileReader();
+
+    if (isCsv) {
+      reader.onload = (e) => {
+        try {
+          const text = e.target?.result as string;
+          if (!text || text.trim().length === 0) {
+            this.importResultMessage.set({
+              type: 'error',
+              text: 'El archivo seleccionado está vacío.'
+            });
+            return;
+          }
+
+          const items = this.parseCsv(text);
+          if (items.length === 0) {
+            this.importResultMessage.set({
+              type: 'error',
+              text: 'No se encontraron registros de productos válidos en el archivo.'
+            });
+          }
+          this.importParsedItems.set(items);
+        } catch (err: any) {
+          this.importResultMessage.set({
+            type: 'error',
+            text: `Error al procesar el archivo CSV: ${err?.message || 'Formato inválido'}`
+          });
+        }
+      };
+      reader.readAsText(file, 'utf-8');
+    } else {
+      reader.onload = (e) => {
+        try {
+          const buffer = e.target?.result as ArrayBuffer;
+          if (!buffer || buffer.byteLength === 0) {
+            this.importResultMessage.set({
+              type: 'error',
+              text: 'El archivo de Excel seleccionado está vacío.'
+            });
+            return;
+          }
+
+          const items = this.parseXlsx(buffer);
+          if (items.length === 0) {
+            this.importResultMessage.set({
+              type: 'error',
+              text: 'No se encontraron filas de productos en la hoja de Excel.'
+            });
+          }
+          this.importParsedItems.set(items);
+        } catch (err: any) {
+          this.importResultMessage.set({
+            type: 'error',
+            text: `Error al leer el archivo Excel: ${err?.message || 'Formato inválido'}`
+          });
+        }
+      };
+      reader.readAsArrayBuffer(file);
+    }
+
+    reader.onerror = () => {
+      this.importResultMessage.set({
+        type: 'error',
+        text: 'Error de lectura al cargar el archivo desde el disco.'
+      });
+    };
+
+    input.value = '';
+  }
+
+  private parseCsv(text: string): ParsedImportItem[] {
+    const lines = text.split(/\r?\n/).filter((line) => line.trim().length > 0);
+    if (lines.length < 2) return [];
+
+    const firstLine = lines[0];
+    const delimiter = (firstLine.match(/;/g) || []).length > (firstLine.match(/,/g) || []).length ? ';' : ',';
+
+    const rawHeaders = this.parseCsvLine(lines[0], delimiter).map((h) => this.normalizeHeader(h));
+    const items: ParsedImportItem[] = [];
+
+    const existingVariantsMap = new Map<string, DbProductVariant>();
+    for (const prod of this.adminService.products()) {
+      for (const v of prod.variants || []) {
+        if (v.sku) {
+          existingVariantsMap.set(v.sku.trim().toUpperCase(), v);
+        }
+      }
+    }
+
+    for (let i = 1; i < lines.length; i++) {
+      const row = this.parseCsvLine(lines[i], delimiter);
+      if (row.length === 0 || row.every((val) => !val)) continue;
+
+      const rowMap: Record<string, string> = {};
+      rawHeaders.forEach((header, idx) => {
+        rowMap[header] = row[idx] ? row[idx].trim() : '';
+      });
+
+      items.push(this.createParsedItemFromMap(rowMap, existingVariantsMap));
+    }
+
+    return items;
+  }
+
+  private parseCsvLine(text: string, delimiter: string): string[] {
+    const result: string[] = [];
+    let cur = '';
+    let inQuotes = false;
+    for (let i = 0; i < text.length; i++) {
+      const c = text[i];
+      if (c === '"') {
+        if (inQuotes && text[i + 1] === '"') {
+          cur += '"';
+          i++;
+        } else {
+          inQuotes = !inQuotes;
+        }
+      } else if (c === delimiter && !inQuotes) {
+        result.push(cur.trim());
+        cur = '';
+      } else {
+        cur += c;
+      }
+    }
+    result.push(cur.trim());
+    return result;
+  }
+
+  private parseXlsx(buffer: ArrayBuffer): ParsedImportItem[] {
+    const data = new Uint8Array(buffer);
+    const workbook = XLSX.read(data, { type: 'array' });
+    if (!workbook.SheetNames || workbook.SheetNames.length === 0) return [];
+
+    const sheetName = workbook.SheetNames[0];
+    const worksheet = workbook.Sheets[sheetName];
+    if (!worksheet) return [];
+
+    const rawRows = XLSX.utils.sheet_to_json<Record<string, any>>(worksheet, { defval: '' });
+    if (!rawRows || rawRows.length === 0) return [];
+
+    const existingVariantsMap = new Map<string, DbProductVariant>();
+    for (const prod of this.adminService.products()) {
+      for (const v of prod.variants || []) {
+        if (v.sku) {
+          existingVariantsMap.set(v.sku.trim().toUpperCase(), v);
+        }
+      }
+    }
+
+    const items: ParsedImportItem[] = [];
+    for (const row of rawRows) {
+      const rowMap: Record<string, string> = {};
+      for (const [key, val] of Object.entries(row)) {
+        const normKey = this.normalizeHeader(key);
+        rowMap[normKey] = val !== null && val !== undefined ? String(val).trim() : '';
+      }
+
+      if (Object.values(rowMap).some((v) => v.length > 0)) {
+        items.push(this.createParsedItemFromMap(rowMap, existingVariantsMap));
+      }
+    }
+
+    return items;
+  }
+
+  private normalizeHeader(header: string): string {
+    const clean = header
+      .toLowerCase()
+      .trim()
+      .replace(/["']/g, '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '');
+
+    if (['sku', 'codigo', 'cod', 'id'].includes(clean)) return 'sku';
+    if (['modelo', 'model', 'nombre', 'producto', 'name', 'title'].includes(clean)) return 'modelo';
+    if (['categoria', 'category', 'rubro'].includes(clean)) return 'categoria';
+    if (['marca', 'brand', 'fabricante'].includes(clean)) return 'marca';
+    if (['precio', 'price', 'precio_venta', 'valor'].includes(clean)) return 'precio';
+    if (['precio_regular', 'compare_at_price', 'precio_anterior', 'precio_lista'].includes(clean)) return 'precio_regular';
+    if (['descuento_porcentaje', 'discount_percent', 'descuento', 'oferta'].includes(clean)) return 'descuento_porcentaje';
+    if (['stock_fisico', 'stock_physical', 'fisico'].includes(clean)) return 'stock_fisico';
+    if (['stock_virtual', 'stock_virtual', 'virtual'].includes(clean)) return 'stock_virtual';
+    if (['stock', 'cantidad', 'existencias', 'stock_total'].includes(clean)) return 'stock';
+    if (['variante', 'variant_name', 'version', 'variacion'].includes(clean)) return 'variante';
+    if (['imagen_url', 'image_url', 'imagen', 'foto', 'imagenes'].includes(clean)) return 'imagen_url';
+    if (['descripcion', 'short_description', 'desc', 'detalle'].includes(clean)) return 'descripcion';
+    return clean;
+  }
+
+  private createParsedItemFromMap(
+    rowMap: Record<string, string>,
+    existingVariantsMap: Map<string, DbProductVariant>
+  ): ParsedImportItem {
+    const sku = (rowMap['sku'] || '').trim().toUpperCase();
+    const model = (rowMap['modelo'] || '').trim();
+    const category = (rowMap['categoria'] || '').trim();
+    const brand = (rowMap['marca'] || '').trim();
+    const rawPrice = parseFloat((rowMap['precio'] || '').replace(',', '.'));
+    const price = isNaN(rawPrice) ? 0 : rawPrice;
+
+    const rawRegularPrice = parseFloat((rowMap['precio_regular'] || '').replace(',', '.'));
+    const compare_at_price = !isNaN(rawRegularPrice) && rawRegularPrice > 0 ? rawRegularPrice : undefined;
+
+    const rawDiscount = parseFloat((rowMap['descuento_porcentaje'] || '').replace(',', '.'));
+    let discount_percent = !isNaN(rawDiscount) && rawDiscount > 0 ? Math.min(99, Math.round(rawDiscount)) : undefined;
+
+    if (!discount_percent && compare_at_price && compare_at_price > price) {
+      discount_percent = Math.round(((compare_at_price - price) / compare_at_price) * 100);
+    }
+
+    const rawStock = parseInt(rowMap['stock'] || '0', 10);
+    const rawPhysical = parseInt(rowMap['stock_fisico'] || '', 10);
+    const rawVirtual = parseInt(rowMap['stock_virtual'] || '0', 10);
+
+    const stock_physical = !isNaN(rawPhysical)
+      ? Math.max(0, rawPhysical)
+      : (!isNaN(rawStock) ? Math.max(0, rawStock) : 0);
+    const stock_virtual = !isNaN(rawVirtual) ? Math.max(0, rawVirtual) : 0;
+    const stock = stock_physical + stock_virtual;
+
+    const variant_name = (rowMap['variante'] || 'Estándar').trim();
+    const image_url = (rowMap['imagen_url'] || '').trim();
+    const short_description = (rowMap['descripcion'] || '').trim();
+
+    const errors: string[] = [];
+    if (!sku) errors.push('Falta SKU');
+    if (!model) errors.push('Falta Modelo/Nombre');
+    if (!category) errors.push('Falta Categoría');
+    if (!brand) errors.push('Falta Marca');
+    if (price <= 0) errors.push('Precio debe ser > 0');
+
+    const isValid = errors.length === 0;
+    const isExisting = existingVariantsMap.has(sku);
+
+    return {
+      sku,
+      model,
+      category,
+      brand,
+      price,
+      compare_at_price,
+      discount_percent,
+      stock,
+      stock_physical,
+      stock_virtual,
+      variant_name,
+      image_url: image_url || undefined,
+      short_description: short_description || undefined,
+      isValid,
+      errorMessage: errors.join(' • '),
+      isExisting,
+      action: !isValid ? 'error' : isExisting ? 'update' : 'create'
+    };
+  }
+
+  async confirmImport(): Promise<void> {
+    const validItems = this.importParsedItems().filter((item) => item.isValid);
+    if (validItems.length === 0) return;
+
+    this.isImporting.set(true);
+    this.importProgress.set({ current: 0, total: validItems.length });
+    this.importResultMessage.set(null);
+
+    let createdCount = 0;
+    let updatedCount = 0;
+
+    try {
+      // 1. Build category map (lowercase name -> id)
+      const categoriesMap = new Map<string, string>();
+      for (const cat of this.adminService.categories()) {
+        categoriesMap.set(cat.name.toLowerCase().trim(), cat.id);
+      }
+
+      // 2. Build brand map (lowercase name -> id)
+      const brandsMap = new Map<string, string>();
+      for (const b of this.adminService.brands()) {
+        brandsMap.set(b.name.toLowerCase().trim(), b.id);
+      }
+
+      // 3. Existing variants map
+      const existingVariantsMap = new Map<string, { variantId: string; productId: string }>();
+      for (const prod of this.adminService.products()) {
+        for (const v of prod.variants || []) {
+          if (v.sku) {
+            existingVariantsMap.set(v.sku.trim().toUpperCase(), {
+              variantId: v.id,
+              productId: prod.id
+            });
+          }
+        }
+      }
+
+      for (let i = 0; i < validItems.length; i++) {
+        const item = validItems[i];
+        this.importProgress.set({ current: i + 1, total: validItems.length });
+
+        // Resolve or create Category
+        const catKey = item.category.toLowerCase().trim();
+        let catId = categoriesMap.get(catKey);
+        if (!catId) {
+          const newCat = await this.adminService.createCategory({ name: item.category });
+          catId = newCat.id;
+          categoriesMap.set(catKey, catId);
+        }
+
+        // Resolve or create Brand
+        const brandKey = item.brand.toLowerCase().trim();
+        let brandId = brandsMap.get(brandKey);
+        if (!brandId) {
+          const newBrand = await this.adminService.createBrand({
+            name: item.brand,
+            category_ids: [catId]
+          });
+          brandId = newBrand.id;
+          brandsMap.set(brandKey, brandId);
+        }
+
+        const existing = existingVariantsMap.get(item.sku);
+        if (existing) {
+          // UPDATE existing variant price, discount, and stock
+          await this.adminService.updateVariantPrice(existing.variantId, item.price);
+          await this.adminService.updateVariantDiscount(existing.variantId, {
+            discountPercent: item.discount_percent ?? null,
+            compareAtPrice: item.compare_at_price ?? null
+          });
+          await this.adminService.updateVariantStock(existing.variantId, item.stock_physical, item.stock_virtual);
+          updatedCount++;
+        } else {
+          // CREATE new product with variant
+          const fallbackImg =
+            item.image_url ||
+            'https://images.unsplash.com/photo-1591799264318-7e6ef8ddb7ea?auto=format&fit=crop&w=600&q=80';
+
+          await this.adminService.createProductWithVariants(
+            {
+              model: item.model,
+              category_id: catId,
+              brand_id: brandId,
+              short_description: item.short_description || `Producto ${item.model}`,
+              images: [fallbackImg],
+              product_type: 'standalone',
+              is_active: true
+            },
+            [
+              {
+                sku: item.sku,
+                variant_name: item.variant_name || 'Estándar',
+                price: item.price,
+                compare_at_price: item.compare_at_price,
+                discount_percent: item.discount_percent,
+                stock: item.stock,
+                stock_physical: item.stock_physical,
+                stock_virtual: item.stock_virtual
+              }
+            ]
+          );
+
+          createdCount++;
+        }
+      }
+
+      // Reload products to sync state in both services
+      await this.productService.loadProductsFromDatabase();
+
+      this.importResultMessage.set({
+        type: 'success',
+        text: `¡Importación completada con éxito! Se crearon ${createdCount} producto(s) nuevo(s) y se actualizaron ${updatedCount} existencia(s).`
+      });
+
+      this.importParsedItems.set([]);
+      this.selectedImportFileName.set('');
+    } catch (err: any) {
+      console.error('Error durante la importación masiva:', err);
+      this.importResultMessage.set({
+        type: 'error',
+        text: `Ocurrió un error al procesar la importación: ${err?.message || 'Error desconocido'}`
+      });
+    } finally {
+      this.isImporting.set(false);
+    }
   }
 }

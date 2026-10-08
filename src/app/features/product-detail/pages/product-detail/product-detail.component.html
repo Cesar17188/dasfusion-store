@@ -126,13 +126,38 @@
             {{ prod.name }}
           </h1>
 
-          <div class="mt-3 sm:mt-4 flex items-baseline gap-3">
+          <div class="mt-3 sm:mt-4 flex items-baseline gap-3 flex-wrap">
             <span class="text-2xl sm:text-4xl font-black text-on-surface font-mono">
               {{ (selectedBundle() ? selectedBundle()!.price : selectedVariant() ? selectedVariant()!.price : prod.price) | currencyFormat }}
             </span>
-            @if (prod.compareAtPrice) {
+            @if (selectedVariant()?.compareAtPrice || prod.compareAtPrice) {
               <span class="text-xs sm:text-sm text-outline line-through">
-                {{ prod.compareAtPrice | currencyFormat }}
+                {{ (selectedVariant()?.compareAtPrice || prod.compareAtPrice) | currencyFormat }}
+              </span>
+              @if (selectedVariant()?.discountPercentage || prod.discountPercentage) {
+                <span class="px-2 py-0.5 rounded text-xs font-black bg-tertiary-container! text-[#f1bd81]! border border-[#f1bd81]/30">
+                  -{{ (selectedVariant()?.discountPercentage || prod.discountPercentage) }}% OFF
+                </span>
+              }
+            }
+          </div>
+
+          <!-- Stock availability indicator -->
+          <div class="flex items-center gap-2 mt-2 text-xs">
+            @if ((selectedVariant() ? selectedVariant()!.stock : prod.stock) > 5) {
+              <span class="inline-flex items-center gap-1.5 text-emerald-400 font-semibold">
+                <span class="h-2 w-2 rounded-full bg-emerald-400"></span>
+                Disponible en inventario ({{ selectedVariant() ? selectedVariant()!.stock : prod.stock }} unidades)
+              </span>
+            } @else if ((selectedVariant() ? selectedVariant()!.stock : prod.stock) > 0) {
+              <span class="inline-flex items-center gap-1.5 text-amber-300 font-semibold">
+                <span class="h-2 w-2 rounded-full bg-amber-400 animate-pulse"></span>
+                ¡Últimas unidades! Solo {{ selectedVariant() ? selectedVariant()!.stock : prod.stock }} disponibles
+              </span>
+            } @else {
+              <span class="inline-flex items-center gap-1.5 text-rose-400 font-semibold">
+                <span class="h-2 w-2 rounded-full bg-rose-500"></span>
+                Agotado temporalmente
               </span>
             }
           </div>

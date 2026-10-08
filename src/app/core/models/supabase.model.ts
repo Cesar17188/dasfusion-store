@@ -82,6 +82,8 @@ export interface DbProductVariant {
   sku: string; // Unique
   variant_name: string;
   price: number; // numeric
+  compare_at_price?: number;
+  discount_percent?: number;
   stock: number; // int4 (Total stock = physical + virtual)
   stock_physical?: number;
   stock_virtual?: number;
