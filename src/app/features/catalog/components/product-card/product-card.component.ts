@@ -1,4 +1,4 @@
-import { Component, inject, input, signal } from '@angular/core';
+import { Component, inject, input, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { Product } from '../../../../core/models/product.model';
@@ -17,6 +17,14 @@ export class ProductCardComponent {
 
   readonly product = input.required<Product>();
   readonly isAdded = signal<boolean>(false);
+
+  readonly hasDiscount = computed(() => {
+    const p = this.product();
+    if (p.discountPercentage !== undefined && p.discountPercentage <= 0) {
+      return false;
+    }
+    return !!(p.compareAtPrice && p.compareAtPrice > p.price);
+  });
 
   addToCart(event: MouseEvent): void {
     event.stopPropagation();

@@ -48,6 +48,38 @@ export class ProductDetailComponent implements OnInit {
     return p ? (Number(p.stock) || 0) : 0;
   });
 
+  readonly currentDisplayPrice = computed(() => {
+    const bundle = this.selectedBundle();
+    if (bundle) return bundle.price;
+    const variant = this.selectedVariant();
+    if (variant) return variant.price;
+    return this.product()?.price ?? 0;
+  });
+
+  readonly currentComparePrice = computed(() => {
+    if (this.selectedBundle()) return undefined;
+    const variant = this.selectedVariant();
+    if (variant) return variant.compareAtPrice;
+    return this.product()?.compareAtPrice;
+  });
+
+  readonly currentDiscountPercentage = computed(() => {
+    if (this.selectedBundle()) return undefined;
+    const variant = this.selectedVariant();
+    if (variant) return variant.discountPercentage;
+    return this.product()?.discountPercentage;
+  });
+
+  readonly hasDiscount = computed(() => {
+    const disc = this.currentDiscountPercentage();
+    if (disc !== undefined && disc <= 0) {
+      return false;
+    }
+    const comp = this.currentComparePrice();
+    const curr = this.currentDisplayPrice();
+    return !!(comp && comp > curr);
+  });
+
   private touchStartX = 0;
   private touchEndX = 0;
 

@@ -9,9 +9,9 @@
         NUEVO
       </span>
     }
-    @if (product().compareAtPrice && product().compareAtPrice! > product().price) {
+    @if (hasDiscount()) {
       <span class="das-chip bg-tertiary-container! text-[#f1bd81]! border-[#f1bd81]/30! text-[10px]! font-bold">
-        OFERTA @if (product().discountPercentage) { -{{ product().discountPercentage }}% }
+        OFERTA @if (product().discountPercentage && product().discountPercentage! > 0) { -{{ product().discountPercentage }}% }
       </span>
     }
   </div>
@@ -48,7 +48,7 @@
     <!-- Price & Actions -->
     <div class="mt-4 flex items-center justify-between pt-3 border-t border-outline-variant/40">
       <div class="flex flex-col">
-        @if (product().compareAtPrice) {
+        @if (hasDiscount()) {
           <span class="text-[11px] text-outline line-through">
             {{ product().compareAtPrice | currencyFormat }}
           </span>

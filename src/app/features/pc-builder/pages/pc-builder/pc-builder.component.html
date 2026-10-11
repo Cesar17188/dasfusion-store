@@ -33,40 +33,143 @@
           </span>
         </div>
 
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5 sm:gap-4">
-          @for (prod of currentCategoryProducts(); track prod.id) {
-            @let isSelected = pcBuilderService.selectedComponents()[currentStep.id]?.product?.id === prod.id;
-            <div
-              class="flex flex-col justify-between p-4 rounded-2xl border transition-all"
-              [class.border-primary]="isSelected"
-              [class.bg-primary-container/40]="isSelected"
-              [class.border-outline-variant/40]="!isSelected"
-              [class.bg-surface-container/80]="!isSelected"
-              [class.hover:border-primary/30]="!isSelected"
-            >
-              <div class="space-y-3">
-                <div class="aspect-video w-full rounded-xl bg-surface-container-lowest flex items-center justify-center p-3 border border-outline-variant/20">
-                  <img [src]="prod.images[0]" [alt]="prod.name" class="h-full object-contain" />
-                </div>
-                <div>
-                  <span class="text-[10px] font-bold uppercase text-outline">{{ prod.brand }}</span>
-                  <h3 class="text-xs sm:text-sm font-semibold text-on-surface line-clamp-2">{{ prod.name }}</h3>
-                </div>
-              </div>
-
-              <div class="mt-4 flex items-center justify-between pt-3 border-t border-outline-variant/30">
-                <span class="text-sm sm:text-base font-bold text-on-surface font-mono">{{ prod.price | currencyFormat }}</span>
-                <app-button
-                  size="sm"
-                  [variant]="isSelected ? 'secondary' : 'primary'"
-                  (clicked)="selectProduct(prod)"
-                >
-                  {{ isSelected ? 'Elegido ✓' : 'Seleccionar' }}
-                </app-button>
+        <!-- Smart Filter Banner & Toggle -->
+        @if (activeFilterRule(); as rule) {
+          <div class="p-3.5 rounded-xl bg-linear-to-r from-primary/15 via-primary/5 to-transparent border border-primary/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs animate-in fade-in">
+            <div class="flex items-start sm:items-center gap-2.5">
+              <span class="text-base">⚡</span>
+              <div>
+                <span class="font-bold text-primary block sm:inline">{{ rule.message }}</span>
+                @if (rule.submessage) {
+                  <span class="text-[11px] text-outline block sm:inline sm:ml-1 sm:before:content-['•'] sm:before:mr-1">
+                    {{ rule.submessage }}
+                  </span>
+                }
               </div>
             </div>
-          }
-        </div>
+
+            <button
+              type="button"
+              (click)="toggleFilterCompatibleOnly()"
+              class="self-end sm:self-auto px-2.5 py-1 rounded-lg border text-[11px] font-semibold transition cursor-pointer"
+              [class.bg-primary]="filterCompatibleOnly()"
+              [class.text-on-primary]="filterCompatibleOnly()"
+              [class.border-primary]="filterCompatibleOnly()"
+              [class.bg-surface-container]="!filterCompatibleOnly()"
+              [class.text-outline]="!filterCompatibleOnly()"
+              [class.border-outline-variant]="!filterCompatibleOnly()"
+            >
+              {{ filterCompatibleOnly() ? '✓ Solo compatibles' : 'Ver todas las piezas' }}
+            </button>
+          </div>
+        }
+
+        @if (currentCategoryProducts().length > 0) {
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5 sm:gap-4">
+            @for (prod of currentCategoryProducts(); track prod.id) {
+              @let isSelected = pcBuilderService.selectedComponents()[currentStep.id]?.product?.id === prod.id;
+              @let compat = getProductCompatibility(prod);
+              <div
+                class="flex flex-col justify-between p-4 rounded-2xl border transition-all"
+                [class.border-primary]="isSelected"
+                [class.bg-primary-container/40]="isSelected"
+                [class.border-outline-variant/40]="!isSelected && compat.isCompatible"
+                [class.bg-surface-container/80]="!isSelected && compat.isCompatible"
+                [class.opacity-60]="!compat.isCompatible"
+                [class.border-rose-500/40]="!compat.isCompatible"
+                [class.bg-rose-950/10]="!compat.isCompatible"
+                [class.hover:border-primary/30]="!isSelected && compat.isCompatible"
+              >
+                <div class="space-y-3">
+                  <div class="aspect-video w-full rounded-xl bg-surface-container-lowest flex items-center justify-center p-3 border border-outline-variant/20 relative">
+                    <img [src]="prod.images[0]" [alt]="prod.name" class="h-full object-contain" />
+
+                    @if (compat.badgeText) {
+                      <span
+                        class="absolute top-2 right-2 px-2 py-0.5 rounded-full text-[9px] font-bold border backdrop-blur-sm shadow-sm"
+                        [class.bg-emerald-950/80]="compat.isCompatible"
+                        [class.text-emerald-300]="compat.isCompatible"
+                        [class.border-emerald-500/40]="compat.isCompatible"
+                        [class.bg-rose-950/80]="!compat.isCompatible"
+                        [class.text-rose-300]="!compat.isCompatible"
+                        [class.border-rose-500/40]="!compat.isCompatible"
+                      >
+                        {{ compat.badgeText }}
+                      </span>
+                    }
+                  </div>
+                  <div>
+                    <span class="text-[10px] font-bold uppercase text-outline">{{ prod.brand }}</span>
+                    <h3 class="text-xs sm:text-sm font-semibold text-on-surface line-clamp-2">{{ prod.name }}</h3>
+
+                    @if (!compat.isCompatible && compat.reason) {
+                      <p class="text-[10px] text-rose-400 font-medium mt-1">
+                        ⚠️ {{ compat.reason }}
+                      </p>
+                    }
+                  </div>
+                </div>
+
+                <div class="mt-4 flex flex-col sm:flex-row items-stretch sm:items-center justify-between pt-3 border-t border-outline-variant/30 gap-2">
+                  <span class="text-sm sm:text-base font-bold text-on-surface font-mono">{{ prod.price | currencyFormat }}</span>
+
+                  @if (isSelected) {
+                    <div class="flex items-center gap-2 justify-end animate-in fade-in zoom-in-95 duration-150">
+                      <span class="text-[11px] font-bold text-emerald-300 bg-emerald-950/70 border border-emerald-500/40 px-2.5 py-1 rounded-lg flex items-center gap-1 shadow-sm">
+                        ✓ Elegido
+                      </span>
+                      @if (pcBuilderService.currentStepIndex() < pcBuilderService.steps().length - 1) {
+                        <app-button
+                          size="sm"
+                          variant="primary"
+                          (clicked)="pcBuilderService.nextStep()"
+                          class="shadow-md shadow-primary/20"
+                        >
+                          Siguiente paso →
+                        </app-button>
+                      } @else {
+                        <app-button
+                          size="sm"
+                          variant="primary"
+                          (clicked)="scrollToSummary()"
+                          class="shadow-md shadow-primary/20"
+                        >
+                          Ver Resumen ✓
+                        </app-button>
+                      }
+                    </div>
+                  } @else {
+                    <app-button
+                      size="sm"
+                      [variant]="compat.isCompatible ? 'primary' : 'outline'"
+                      [disabled]="!compat.isCompatible"
+                      (clicked)="selectProduct(prod)"
+                    >
+                      {{ compat.isCompatible ? 'Seleccionar' : 'Incompatible' }}
+                    </app-button>
+                  }
+                </div>
+              </div>
+            }
+          </div>
+        } @else {
+          <div class="p-8 rounded-2xl bg-surface-container/60 border border-outline-variant/30 text-center space-y-3">
+            <span class="text-3xl">🔍</span>
+            <p class="text-sm font-semibold text-on-surface">No se encontraron productos compatibles con tu configuración actual</p>
+            <p class="text-xs text-outline max-w-md mx-auto">
+              No hay productos que cumplan con la compatibilidad del componente previamente seleccionado. Puedes desactivar el filtro de solo compatibles o cambiar el componente del paso anterior.
+            </p>
+            @if (filterCompatibleOnly()) {
+              <button
+                type="button"
+                (click)="toggleFilterCompatibleOnly()"
+                class="px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-surface-container-high hover:bg-surface-container-highest text-primary transition cursor-pointer"
+              >
+                Ver todos los productos de esta categoría
+              </button>
+            }
+          </div>
+        }
 
         <!-- Navigation Next/Prev buttons -->
         <div class="flex items-center justify-between pt-6 border-t border-outline-variant/40">

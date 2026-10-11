@@ -83,12 +83,21 @@ export class ProductService {
                 : 0;
               const totalStock = stockPhys + stockVirt;
 
-              const compareAt = v.attributes?.['compare_at_price'] !== undefined
+              const compareAtRaw = v.attributes?.['compare_at_price'] !== undefined
                 ? (v.attributes['compare_at_price'] !== null ? Number(v.attributes['compare_at_price']) : undefined)
                 : (v.compare_at_price !== undefined && v.compare_at_price !== null ? Number(v.compare_at_price) : undefined);
 
-              const discountPct = v.attributes?.['discount_percent'] !== undefined
+              const rawDiscountPct = v.attributes?.['discount_percent'] !== undefined
                 ? (v.attributes['discount_percent'] !== null ? Number(v.attributes['discount_percent']) : undefined)
+                : (v.discount_percent !== undefined && v.discount_percent !== null ? Number(v.discount_percent) : undefined);
+
+              // Discount is valid only if greater than 0% and compareAtPrice > price
+              const hasOffer = (rawDiscountPct !== undefined ? rawDiscountPct > 0 : true) &&
+                               (compareAtRaw !== undefined && compareAtRaw > Number(v.price));
+
+              const compareAt = hasOffer ? compareAtRaw : undefined;
+              const discountPct = (rawDiscountPct !== undefined && rawDiscountPct > 0)
+                ? rawDiscountPct
                 : (compareAt && compareAt > Number(v.price) ? Math.round(((compareAt - Number(v.price)) / compareAt) * 100) : undefined);
 
               return {
@@ -97,7 +106,7 @@ export class ProductService {
                 sku: v.sku,
                 price: Number(v.price) || 0,
                 compareAtPrice: compareAt,
-                discountPercentage: discountPct,
+                discountPercentage: (discountPct !== undefined && discountPct > 0) ? discountPct : undefined,
                 stock: totalStock,
                 stock_physical: stockPhys,
                 stock_virtual: stockVirt,
@@ -107,8 +116,12 @@ export class ProductService {
 
           const minPrice = vars.length > 0 ? Math.min(...vars.map((v) => v.price)) : 0;
           const minVar = vars.find((v) => v.price === minPrice);
-          const prodCompareAt = minVar?.compareAtPrice || (vars.find((v) => v.compareAtPrice)?.compareAtPrice);
-          const prodDiscount = minVar?.discountPercentage || (prodCompareAt && prodCompareAt > minPrice ? Math.round(((prodCompareAt - minPrice) / prodCompareAt) * 100) : undefined);
+          const prodCompareAt = (minVar?.compareAtPrice && minVar.compareAtPrice > minPrice)
+            ? minVar.compareAtPrice
+            : undefined;
+          const prodDiscount = (minVar?.discountPercentage && minVar.discountPercentage > 0)
+            ? minVar.discountPercentage
+            : (prodCompareAt && prodCompareAt > minPrice ? Math.round(((prodCompareAt - minPrice) / prodCompareAt) * 100) : undefined);
           const totalStock = vars.reduce((acc: number, v) => acc + v.stock, 0);
           const totalPhys = vars.reduce((acc: number, v) => acc + (v.stock_physical || 0), 0);
           const totalVirt = vars.reduce((acc: number, v) => acc + (v.stock_virtual || 0), 0);
@@ -165,6 +178,15 @@ export class ProductService {
         return p;
       })
     );
+  }
+
+  /**
+   * Instantly removes deleted products from the storefront signal
+   */
+  removeProducts(productIds: string[]): void {
+    if (!productIds || productIds.length === 0) return;
+    const idSet = new Set(productIds);
+    this.productsSignal.update((list) => list.filter((p) => !idSet.has(p.id)));
   }
 
   /**

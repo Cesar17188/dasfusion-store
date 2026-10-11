@@ -1,4 +1,4 @@
-import { Component, effect, input, output } from '@angular/core';
+import { Component, effect, input, output, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ProductFilter } from '../../../../core/models/product.model';
@@ -15,6 +15,23 @@ export class ProductFiltersComponent {
   readonly currentFilter = input<ProductFilter>({});
 
   readonly filterChanged = output<ProductFilter>();
+
+  readonly categorySearch = signal('');
+  readonly brandSearch = signal('');
+
+  readonly filteredCategories = computed(() => {
+    const list = this.categories();
+    const query = this.categorySearch().trim().toLowerCase();
+    if (!query) return list;
+    return list.filter((c) => c.toLowerCase().includes(query));
+  });
+
+  readonly filteredBrands = computed(() => {
+    const list = this.brands();
+    const query = this.brandSearch().trim().toLowerCase();
+    if (!query) return list;
+    return list.filter((b) => b.toLowerCase().includes(query));
+  });
 
   selectedCategory = '';
   selectedBrands: string[] = [];
@@ -75,6 +92,8 @@ export class ProductFiltersComponent {
     this.minPrice = null;
     this.maxPrice = null;
     this.inStockOnly = false;
+    this.categorySearch.set('');
+    this.brandSearch.set('');
     this.emitChange();
   }
 

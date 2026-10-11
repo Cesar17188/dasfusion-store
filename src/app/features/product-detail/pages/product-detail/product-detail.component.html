@@ -128,15 +128,15 @@
 
           <div class="mt-3 sm:mt-4 flex items-baseline gap-3 flex-wrap">
             <span class="text-2xl sm:text-4xl font-black text-on-surface font-mono">
-              {{ (selectedBundle() ? selectedBundle()!.price : selectedVariant() ? selectedVariant()!.price : prod.price) | currencyFormat }}
+              {{ currentDisplayPrice() | currencyFormat }}
             </span>
-            @if (selectedVariant()?.compareAtPrice || prod.compareAtPrice) {
+            @if (hasDiscount()) {
               <span class="text-xs sm:text-sm text-outline line-through">
-                {{ (selectedVariant()?.compareAtPrice || prod.compareAtPrice) | currencyFormat }}
+                {{ currentComparePrice() | currencyFormat }}
               </span>
-              @if (selectedVariant()?.discountPercentage || prod.discountPercentage) {
+              @if (currentDiscountPercentage() && currentDiscountPercentage()! > 0) {
                 <span class="px-2 py-0.5 rounded text-xs font-black bg-tertiary-container! text-[#f1bd81]! border border-[#f1bd81]/30">
-                  -{{ (selectedVariant()?.discountPercentage || prod.discountPercentage) }}% OFF
+                  -{{ currentDiscountPercentage() }}% OFF
                 </span>
               }
             }

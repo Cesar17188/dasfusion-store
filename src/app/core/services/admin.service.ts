@@ -928,13 +928,27 @@ export class AdminService {
     await this.updateProduct(productId, { is_active: newStatus });
   }
 
-  async deleteProduct(productId: string): Promise<void> {
+  async deleteProducts(productIds: string[]): Promise<void> {
+    if (!productIds || productIds.length === 0) return;
     try {
-      await (this.supabase.from('product_variants') as any).delete().eq('product_id', productId);
-      await (this.supabase.from('products') as any).delete().eq('id', productId);
-    } catch {}
+      const { error: vErr } = await (this.supabase.from('product_variants') as any).delete().in('product_id', productIds);
+      if (vErr) {
+        console.error('Error al eliminar variantes en base de datos:', vErr);
+      }
+      const { error: pErr } = await (this.supabase.from('products') as any).delete().in('id', productIds);
+      if (pErr) {
+        console.error('Error al eliminar productos en base de datos:', pErr);
+      }
+    } catch (err) {
+      console.error('Error al eliminar productos en lote:', err);
+    }
 
-    this.products.update((prev) => prev.filter((p) => p.id !== productId));
+    const idSet = new Set(productIds);
+    this.products.update((prev) => prev.filter((p) => !idSet.has(p.id)));
+  }
+
+  async deleteProduct(productId: string): Promise<void> {
+    await this.deleteProducts([productId]);
   }
 
   // ====================================================================

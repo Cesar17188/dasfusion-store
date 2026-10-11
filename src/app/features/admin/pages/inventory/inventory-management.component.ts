@@ -211,12 +211,56 @@ export interface ParsedImportItem {
             </div>
           </div>
 
+          <!-- Multi-select Bulk Actions Banner -->
+          @if (selectedProductIds().size > 0) {
+            <div class="p-3.5 rounded-xl bg-rose-950/40 border border-rose-500/40 flex flex-wrap items-center justify-between gap-3 animate-in fade-in">
+              <div class="flex items-center gap-3">
+                <span class="px-2.5 py-1 rounded-full bg-rose-500/20 text-rose-300 font-bold text-xs border border-rose-500/30">
+                  {{ selectedProductIds().size }} {{ selectedProductIds().size === 1 ? 'producto seleccionado' : 'productos seleccionados' }}
+                </span>
+                <span class="text-xs text-outline hidden sm:inline">
+                  Puedes eliminar los productos seleccionados de forma masiva del catálogo y stock.
+                </span>
+              </div>
+
+              <div class="flex items-center gap-2">
+                <button
+                  type="button"
+                  (click)="clearSelection()"
+                  class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-surface-container hover:bg-surface-container-high text-on-surface-variant border border-outline-variant/40 transition cursor-pointer"
+                >
+                  Deseleccionar todos
+                </button>
+
+                <button
+                  type="button"
+                  (click)="deleteSelectedProducts()"
+                  [disabled]="isDeletingMultiple()"
+                  class="px-3.5 py-1.5 rounded-lg text-xs font-bold bg-rose-600 hover:bg-rose-500 disabled:opacity-50 text-white transition cursor-pointer flex items-center gap-1.5 shadow-md shadow-rose-950/50"
+                >
+                  <span>🗑️</span>
+                  <span>{{ isDeletingMultiple() ? 'Eliminando...' : 'Eliminar seleccionados (' + selectedProductIds().size + ')' }}</span>
+                </button>
+              </div>
+            </div>
+          }
+
           <!-- Inventory Table -->
           <div class="das-card overflow-hidden">
             <div class="overflow-x-auto">
               <table class="w-full text-left text-xs text-on-surface-variant">
                 <thead class="bg-surface-container-low text-outline uppercase text-[11px] border-b border-outline-variant/40">
                   <tr>
+                    <th class="py-3 px-3 w-10 text-center">
+                      <input
+                        type="checkbox"
+                        [checked]="isAllSelected()"
+                        [indeterminate]="isIndeterminate()"
+                        (change)="toggleSelectAll($event)"
+                        class="rounded border-outline-variant bg-surface-container text-primary focus:ring-primary h-4 w-4 cursor-pointer"
+                        title="Seleccionar / deseleccionar todos los productos visibles"
+                      />
+                    </th>
                     <th class="py-3 px-4">Producto / Modelo</th>
                     <th class="py-3 px-4">Categoría & Marca</th>
                     <th class="py-3 px-4">SKU / Variante</th>
@@ -232,7 +276,20 @@ export interface ParsedImportItem {
                 </thead>
                 <tbody class="divide-y divide-outline-variant/30">
                   @for (item of flattenedVariants(); track item.variant.id) {
-                    <tr class="hover:bg-surface-container/60 transition" [class.opacity-60]="item.product.is_active === false">
+                    <tr
+                      class="hover:bg-surface-container/60 transition"
+                      [class.opacity-60]="item.product.is_active === false"
+                      [class.bg-rose-950/20]="isProductSelected(item.product.id)"
+                    >
+                      <td class="py-3.5 px-3 text-center w-10">
+                        <input
+                          type="checkbox"
+                          [checked]="isProductSelected(item.product.id)"
+                          (change)="toggleSelectProduct(item.product.id)"
+                          class="rounded border-outline-variant bg-surface-container text-primary focus:ring-primary h-4 w-4 cursor-pointer"
+                          title="Seleccionar este producto"
+                        />
+                      </td>
                       <td class="py-3.5 px-4">
                         <div class="flex items-center gap-3">
                           <div
@@ -321,7 +378,7 @@ export interface ParsedImportItem {
                             }
                           </div>
 
-                          @if (item.variant.compare_at_price && item.variant.compare_at_price > item.variant.price) {
+                          @if (item.variant.compare_at_price && item.variant.compare_at_price > item.variant.price && (item.variant.discount_percent || 0) > 0) {
                             <div class="flex items-center gap-1.5 flex-wrap">
                               <span class="text-[10px] text-outline line-through">
                                 &dollar;{{ item.variant.compare_at_price | number:'1.2-2' }}
@@ -467,12 +524,20 @@ export interface ParsedImportItem {
                           >
                             +10
                           </button>
+                          <button
+                            type="button"
+                            (click)="deleteProduct(item.product.id)"
+                            title="Eliminar este producto"
+                            class="p-1 rounded bg-surface-container-high hover:bg-rose-950/60 text-outline hover:text-rose-400 border border-transparent hover:border-rose-500/30 transition cursor-pointer"
+                          >
+                            🗑️
+                          </button>
                         </div>
                       </td>
                     </tr>
                   } @empty {
                     <tr>
-                      <td colspan="11" class="text-center py-8 text-outline">
+                      <td colspan="12" class="text-center py-8 text-outline">
                         No se encontraron productos o variantes con los filtros actuales.
                       </td>
                     </tr>
@@ -2669,6 +2734,98 @@ export class InventoryManagementComponent {
     return list;
   });
 
+  // Multiple Selection State
+  selectedProductIds = signal<Set<string>>(new Set());
+  isDeletingMultiple = signal<boolean>(false);
+
+  readonly visibleProductIds = computed(() => {
+    const ids = new Set<string>();
+    for (const item of this.flattenedVariants()) {
+      ids.add(item.product.id);
+    }
+    return ids;
+  });
+
+  readonly isAllSelected = computed(() => {
+    const visible = this.visibleProductIds();
+    if (visible.size === 0) return false;
+    const selected = this.selectedProductIds();
+    for (const id of visible) {
+      if (!selected.has(id)) return false;
+    }
+    return true;
+  });
+
+  readonly isIndeterminate = computed(() => {
+    const visible = this.visibleProductIds();
+    if (visible.size === 0) return false;
+    const selected = this.selectedProductIds();
+    let count = 0;
+    for (const id of visible) {
+      if (selected.has(id)) count++;
+    }
+    return count > 0 && count < visible.size;
+  });
+
+  isProductSelected(productId: string): boolean {
+    return this.selectedProductIds().has(productId);
+  }
+
+  toggleSelectProduct(productId: string): void {
+    this.selectedProductIds.update((prev) => {
+      const next = new Set(prev);
+      if (next.has(productId)) {
+        next.delete(productId);
+      } else {
+        next.add(productId);
+      }
+      return next;
+    });
+  }
+
+  toggleSelectAll(event: Event): void {
+    const checked = (event.target as HTMLInputElement).checked;
+    const visible = this.visibleProductIds();
+    this.selectedProductIds.update((prev) => {
+      const next = new Set(prev);
+      if (checked) {
+        visible.forEach((id) => next.add(id));
+      } else {
+        visible.forEach((id) => next.delete(id));
+      }
+      return next;
+    });
+  }
+
+  clearSelection(): void {
+    this.selectedProductIds.set(new Set());
+  }
+
+  async deleteSelectedProducts(): Promise<void> {
+    const ids = Array.from(this.selectedProductIds());
+    if (ids.length === 0) return;
+
+    const count = ids.length;
+    const confirmMsg =
+      count === 1
+        ? '¿Estás seguro de eliminar el producto seleccionado y todas sus variantes de forma permanente?'
+        : `¿Estás seguro de eliminar los ${count} productos seleccionados y todas sus variantes de forma permanente?`;
+
+    if (!confirm(confirmMsg)) return;
+
+    this.isDeletingMultiple.set(true);
+    try {
+      await this.adminService.deleteProducts(ids);
+      this.productService.removeProducts(ids);
+      this.clearSelection();
+    } catch (err) {
+      console.error('Error al eliminar productos seleccionados:', err);
+      alert('Ocurrió un error al eliminar los productos seleccionados.');
+    } finally {
+      this.isDeletingMultiple.set(false);
+    }
+  }
+
   // Helpers
   getCategoryName(id: string): string {
     const cat = this.adminService.categories().find((c) => c.id === id);
@@ -3426,9 +3583,14 @@ export class InventoryManagementComponent {
   }
 
   async deleteProduct(productId: string): Promise<void> {
-    if (confirm('¿Estás seguro de eliminar este producto y sus variantes?')) {
+    if (confirm('¿Estás seguro de eliminar este producto y sus variantes de forma permanente?')) {
       await this.adminService.deleteProduct(productId);
-      this.productService.setProductActive(productId, false);
+      this.productService.removeProducts([productId]);
+      this.selectedProductIds.update((prev) => {
+        const next = new Set(prev);
+        next.delete(productId);
+        return next;
+      });
       this.isEditProductModalOpen.set(false);
     }
   }

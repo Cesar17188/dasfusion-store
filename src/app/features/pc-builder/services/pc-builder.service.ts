@@ -6,10 +6,17 @@ import {
   CompatibilityCheck
 } from '../../../core/models/pc-builder.model';
 import { Product } from '../../../core/models/product.model';
+import {
+  detectCpuSocket,
+  detectMotherboardSocket,
+  detectMotherboardRamType,
+  detectRamType,
+  detectPsuWattage
+} from '../../../core/utils/pc-hardware.util';
 
 export const BUILDER_STEPS: ComponentStep[] = [
   { id: 'cpu', name: 'Procesador (CPU)', description: 'El cerebro de tu máquina', required: true, order: 1, iconName: 'cpu' },
-  { id: 'motherboard', name: 'Placa Base', description: 'Compatibilidad y conexiones', required: true, order: 2, iconName: 'circuit' },
+  { id: 'motherboard', name: 'Tarjeta Madre / Placa Madre', description: 'Compatibilidad y conexiones', required: true, order: 2, iconName: 'circuit' },
   { id: 'ram', name: 'Memoria RAM', description: 'Multitarea y velocidad de respuesta', required: true, order: 3, iconName: 'memory' },
   { id: 'gpu', name: 'Tarjeta Gráfica (GPU)', description: 'Potencia gráfica y FPS', required: false, order: 4, iconName: 'gpu' },
   { id: 'storage', name: 'Almacenamiento (SSD / NVMe)', description: 'Velocidad y capacidad de juegos', required: true, order: 5, iconName: 'hard-drive' },
@@ -62,29 +69,66 @@ export class PcBuilderService {
   readonly compatibility = computed<CompatibilityCheck>(() => {
     const issues: string[] = [];
     const selected = this.selectedComponentsSignal();
-    const cpu = selected['cpu'];
-    const mobo = selected['motherboard'];
+    const cpu = selected['cpu']?.product;
+    const mobo = selected['motherboard']?.product;
+    const ram = selected['ram']?.product;
+    const psu = selected['power_supply']?.product;
+    const estimatedWatts = this.estimatedWattage();
 
     if (cpu && mobo) {
-      const cpuSocket = cpu.product.specifications?.[0]?.specs?.['Socket'];
-      const moboSocket = mobo.product.specifications?.[0]?.specs?.['Socket'];
+      const cpuSocket = detectCpuSocket(cpu);
+      const moboSocket = detectMotherboardSocket(mobo);
       if (cpuSocket && moboSocket && cpuSocket !== moboSocket) {
-        issues.push(`Incompatibilidad de Socket: CPU es ${cpuSocket} pero la Placa es ${moboSocket}`);
+        issues.push(`Incompatibilidad de Socket: El procesador es ${cpuSocket} pero la Tarjeta Madre es ${moboSocket}`);
+      }
+    }
+
+    if (mobo && ram) {
+      const moboRam = detectMotherboardRamType(mobo);
+      const ramType = detectRamType(ram);
+      if (moboRam && ramType && moboRam !== ramType) {
+        issues.push(`Incompatibilidad de Memoria: La Tarjeta Madre requiere ${moboRam} pero la memoria RAM es ${ramType}`);
+      }
+    }
+
+    if (psu) {
+      const psuWatts = detectPsuWattage(psu);
+      if (psuWatts !== null && psuWatts < estimatedWatts) {
+        issues.push(`Potencia Insuficiente: La fuente entrega ${psuWatts}W pero el consumo estimado es ${estimatedWatts}W`);
       }
     }
 
     return {
       isCompatible: issues.length === 0,
       issues,
-      estimatedWattage: this.estimatedWattage()
+      estimatedWattage: estimatedWatts
     };
   });
 
   selectComponent(stepId: ComponentCategory, product: Product): void {
-    this.selectedComponentsSignal.update((curr) => ({
-      ...curr,
-      [stepId]: { stepId, product, quantity: 1 }
-    }));
+    this.selectedComponentsSignal.update((curr) => {
+      const next = {
+        ...curr,
+        [stepId]: { stepId, product, quantity: 1 }
+      };
+
+      // Auto-invalidation if upstream component changes
+      if (stepId === 'cpu' && curr.motherboard) {
+        const newCpuSock = detectCpuSocket(product);
+        const moboSock = detectMotherboardSocket(curr.motherboard.product);
+        if (newCpuSock && moboSock && newCpuSock !== moboSock) {
+          next.motherboard = null;
+        }
+      } else if (stepId === 'motherboard' && curr.ram) {
+        const newMoboRam = detectMotherboardRamType(product);
+        const ramType = detectRamType(curr.ram.product);
+        if (newMoboRam && ramType && newMoboRam !== ramType) {
+          next.ram = null;
+        }
+      }
+
+      return next;
+    });
   }
 
   removeComponent(stepId: ComponentCategory): void {
