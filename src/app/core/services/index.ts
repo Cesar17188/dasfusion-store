@@ -4,3 +4,4 @@ export * from './cart.service';
 export * from './product.service';
 export * from './supabase.service';
 export * from './admin.service';
+export * from './tax.service';

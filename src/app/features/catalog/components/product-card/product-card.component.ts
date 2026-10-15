@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { Product } from '../../../../core/models/product.model';
 import { CartService } from '../../../../core/services/cart.service';
+import { TaxService } from '../../../../core/services/tax.service';
 import { CurrencyFormatPipe } from '../../../../shared/pipes/currency-format.pipe';
 import { ButtonComponent } from '../../../../shared/components/button/button.component';
 
@@ -14,9 +15,21 @@ import { ButtonComponent } from '../../../../shared/components/button/button.com
 })
 export class ProductCardComponent {
   private readonly cartService = inject(CartService);
+  readonly taxService = inject(TaxService);
 
   readonly product = input.required<Product>();
   readonly isAdded = signal<boolean>(false);
+
+  readonly priceWithTax = computed(() => {
+    const p = this.product();
+    return this.taxService.calculatePriceWithTax(p.price);
+  });
+
+  readonly compareAtPriceWithTax = computed(() => {
+    const p = this.product();
+    if (!p.compareAtPrice) return undefined;
+    return this.taxService.calculatePriceWithTax(p.compareAtPrice);
+  });
 
   readonly hasDiscount = computed(() => {
     const p = this.product();

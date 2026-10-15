@@ -37,11 +37,14 @@ export interface AdminPurchaseOrderWithDetails extends DbPurchaseOrder {
   items: Array<DbPurchaseOrderItem & { variant?: DbProductVariant }>;
 }
 
+import { TaxService } from './tax.service';
+
 @Injectable({
   providedIn: 'root'
 })
 export class AdminService {
   private readonly supabase = inject(SupabaseService);
+  readonly taxService = inject(TaxService);
 
   // Reactive State Signals
   readonly leads = signal<DbCrmLead[]>([]);
@@ -954,7 +957,26 @@ export class AdminService {
   // ====================================================================
   // 4. SALES ORDERS & INVOICING / POS
   // ====================================================================
+  private loadLocalOrders(): AdminSalesOrderWithDetails[] {
+    if (typeof window === 'undefined') return [];
+    try {
+      const saved = localStorage.getItem('das_saved_sales_orders');
+      if (saved) {
+        return JSON.parse(saved);
+      }
+    } catch {}
+    return [];
+  }
+
+  private saveLocalOrders(orders: AdminSalesOrderWithDetails[]): void {
+    if (typeof window === 'undefined') return;
+    try {
+      localStorage.setItem('das_saved_sales_orders', JSON.stringify(orders));
+    } catch {}
+  }
+
   async fetchSalesOrders(): Promise<void> {
+    let dbOrders: AdminSalesOrderWithDetails[] = [];
     try {
       const { data: orders, error: oErr } = await (this.supabase.from('sales_orders') as any).select('*').order('created_at', { ascending: false });
       const { data: items, error: iErr } = await (this.supabase.from('sales_order_items') as any).select('*');
@@ -963,7 +985,7 @@ export class AdminService {
         const ordersList = orders as DbSalesOrder[];
         const itemsList = (items || []) as DbSalesOrderItem[];
 
-        const fullOrders: AdminSalesOrderWithDetails[] = ordersList.map((o) => {
+        dbOrders = ordersList.map((o) => {
           const customer = this.customers().find((c) => c.id === o.customer_id);
           const orderItems = itemsList
             .filter((it) => it.sales_order_id === o.id)
@@ -987,15 +1009,23 @@ export class AdminService {
             items: orderItems
           };
         });
-
-        this.salesOrders.set(fullOrders);
-        return;
       }
     } catch (err) {
       console.error('Error al cargar órdenes de venta desde Supabase:', err);
     }
 
-    this.salesOrders.set([]);
+    // Merge Supabase orders with locally saved orders (ensures no web/POS orders are ever lost)
+    const localOrders = this.loadLocalOrders();
+    const mergedMap = new Map<string, AdminSalesOrderWithDetails>();
+    localOrders.forEach((o) => mergedMap.set(o.id, o));
+    dbOrders.forEach((o) => mergedMap.set(o.id, o));
+
+    const mergedList = Array.from(mergedMap.values()).sort(
+      (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    );
+
+    this.salesOrders.set(mergedList);
+    this.saveLocalOrders(mergedList);
   }
 
   async updateOrderStatus(orderId: string, status: OrderStatus): Promise<void> {
@@ -1003,9 +1033,195 @@ export class AdminService {
       await (this.supabase.from('sales_orders') as any).update({ status }).eq('id', orderId);
     } catch {}
 
-    this.salesOrders.update((orders) =>
-      orders.map((o) => (o.id === orderId ? { ...o, status } : o))
+    this.salesOrders.update((orders) => {
+      const updated = orders.map((o) => (o.id === orderId ? { ...o, status } : o));
+      this.saveLocalOrders(updated);
+      return updated;
+    });
+  }
+
+  async updateOrderTax(orderId: string, newTaxRate: number): Promise<void> {
+    const order = this.salesOrders().find((o) => o.id === orderId);
+    if (!order) return;
+    const subtotal = order.subtotal;
+    const tax = Math.round(subtotal * newTaxRate * 100) / 100;
+    const total = Math.round((subtotal + tax) * 100) / 100;
+
+    try {
+      await (this.supabase.from('sales_orders') as any).update({ tax, total }).eq('id', orderId);
+    } catch (err) {
+      console.warn('Could not persist updated tax to Supabase sales_orders:', err);
+    }
+
+    this.salesOrders.update((orders) => {
+      const updated = orders.map((o) => (o.id === orderId ? { ...o, tax, total } : o));
+      this.saveLocalOrders(updated);
+      return updated;
+    });
+  }
+
+  /**
+   * Registra un pedido realizado desde la tienda web por un cliente
+   */
+  async placeCustomerOrder(payload: {
+    customerName: string;
+    customerEmail: string;
+    customerPhone: string;
+    shippingAddress: string;
+    paymentMethod?: string;
+    items: Array<{
+      productId: string;
+      variantId?: string;
+      quantity: number;
+      unitPrice: number;
+      productName?: string;
+      sku?: string;
+    }>;
+    subtotal: number;
+    tax: number;
+    total: number;
+    taxRate?: number;
+  }): Promise<AdminSalesOrderWithDetails> {
+    const orderId = crypto.randomUUID();
+    const nameParts = payload.customerName.trim().split(' ');
+    const firstName = nameParts[0] || 'Cliente';
+    const lastName = nameParts.slice(1).join(' ') || 'General';
+
+    // 1. Resolver o registrar perfil de cliente
+    let customer = this.customers().find(
+      (c) => c.email && c.email.toLowerCase() === payload.customerEmail.toLowerCase()
     );
+
+    let customerId = customer?.id;
+    if (!customer) {
+      const newCustId = crypto.randomUUID();
+      const newProfile: DbProfile = {
+        id: newCustId,
+        role: 'customer',
+        first_name: firstName,
+        last_name: lastName,
+        email: payload.customerEmail,
+        phone: payload.customerPhone,
+        address: payload.shippingAddress,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
+
+      try {
+        const { data, error } = await this.supabase.from('profiles').insert(newProfile as any).select().single();
+        if (!error && data) {
+          customer = data as DbProfile;
+          customerId = customer.id;
+        } else {
+          customer = newProfile;
+          customerId = newCustId;
+        }
+      } catch {
+        customer = newProfile;
+        customerId = newCustId;
+      }
+      this.customers.update((prev) => [customer!, ...prev]);
+    }
+
+    // 2. Fila para la orden de venta (sales_orders)
+    const validCustomerId = customerId || this.customers()[0]?.id || '467ea254-e327-4cbc-b2ca-ba5c3e5c1f84';
+    const newOrderRow: DbSalesOrder = {
+      id: orderId,
+      customer_id: validCustomerId,
+      status: 'pending',
+      subtotal: payload.subtotal,
+      tax: payload.tax,
+      total: payload.total,
+      shipping_address: `${payload.customerName} | ${payload.shippingAddress} | Tel: ${payload.customerPhone} | Email: ${payload.customerEmail}`,
+      created_at: new Date().toISOString()
+    };
+
+    // 3. Fila para cada ítem (sales_order_items) y deducción de stock
+    const orderItems: Array<DbSalesOrderItem & { variant?: DbProductVariant; product?: DbProduct }> = [];
+
+    payload.items.forEach((it) => {
+      const itemId = crypto.randomUUID();
+      let variant: DbProductVariant | undefined;
+      let product: DbProduct | undefined;
+
+      for (const p of this.products()) {
+        if (p.id === it.productId) {
+          product = p;
+          variant = p.variants?.find((v) => v.id === it.variantId) || p.variants?.[0];
+          break;
+        }
+      }
+
+      if (!variant && it.variantId) {
+        for (const p of this.products()) {
+          const v = p.variants?.find((x) => x.id === it.variantId);
+          if (v) {
+            variant = v;
+            product = p;
+            break;
+          }
+        }
+      }
+
+      const variantId = variant?.id || it.variantId || this.products()[0]?.variants?.[0]?.id || crypto.randomUUID();
+
+      if (variant) {
+        this.updateVariantStock(variant.id, Math.max(0, variant.stock - it.quantity));
+      }
+
+      orderItems.push({
+        id: itemId,
+        sales_order_id: orderId,
+        variant_id: variantId,
+        quantity: it.quantity,
+        unit_price: it.unitPrice,
+        variant,
+        product
+      });
+    });
+
+    // 4. Intentar guardar directamente en la base de datos de Supabase
+    try {
+      await this.supabase.from('sales_orders').insert(newOrderRow as any);
+      await this.supabase.from('sales_order_items').insert(
+        orderItems.map((i) => ({
+          id: i.id,
+          sales_order_id: i.sales_order_id,
+          variant_id: i.variant_id,
+          quantity: i.quantity,
+          unit_price: i.unit_price
+        })) as any
+      );
+    } catch (err) {
+      console.warn('Aviso al insertar pedido en Supabase:', err);
+    }
+
+    // 5. Registrar Lead en CRM para seguimiento comercial
+    try {
+      await this.createLead({
+        full_name: payload.customerName,
+        email: payload.customerEmail,
+        phone: payload.customerPhone,
+        stage: 'closed_won',
+        estimated_budget: payload.total,
+        notes: `Pedido Web #${orderId.slice(0, 8)} (${payload.paymentMethod || 'Web Store'}) - ${orderItems.length} ítems. Entrega: ${payload.shippingAddress}`
+      });
+    } catch {}
+
+    const fullOrder: AdminSalesOrderWithDetails = {
+      ...newOrderRow,
+      customer,
+      items: orderItems
+    };
+
+    // Actualizar estado reactivo para que aparezca en el panel de administrador inmediatamente
+    this.salesOrders.update((prev) => {
+      const updated = [fullOrder, ...prev];
+      this.saveLocalOrders(updated);
+      return updated;
+    });
+
+    return fullOrder;
   }
 
   /**
@@ -1017,7 +1233,7 @@ export class AdminService {
     items: Array<{ variantId: string; quantity: number; unitPrice: number }>;
     taxRate?: number;
   }): Promise<AdminSalesOrderWithDetails> {
-    const taxRate = payload.taxRate ?? 0.19; // 19% IVA standard
+    const taxRate = payload.taxRate ?? this.taxService.taxRate();
     const subtotal = payload.items.reduce((acc, it) => acc + it.unitPrice * it.quantity, 0);
     const tax = Math.round(subtotal * taxRate * 100) / 100;
     const total = Math.round((subtotal + tax) * 100) / 100;
@@ -1084,7 +1300,12 @@ export class AdminService {
       items: orderItems
     };
 
-    this.salesOrders.update((prev) => [fullOrder, ...prev]);
+    this.salesOrders.update((prev) => {
+      const updated = [fullOrder, ...prev];
+      this.saveLocalOrders(updated);
+      return updated;
+    });
+
     return fullOrder;
   }
 

@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { AuthService } from '../../../core/services/auth.service';
 import { AdminService } from '../../../core/services/admin.service';
+import { TaxService } from '../../../core/services/tax.service';
 
 @Component({
   selector: 'app-admin-layout',
@@ -44,6 +45,24 @@ import { AdminService } from '../../../core/services/admin.service';
             <span class="h-2 w-2 rounded-full bg-emerald-400 animate-pulse"></span>
             <span class="font-medium">Modo Administrador</span>
           </div>
+
+          <!-- Active Tax Badge -->
+          <a
+            routerLink="/admin/orders"
+            class="hidden md:flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-mono font-bold transition border"
+            [class.bg-emerald-500/10]="!taxService.isSpecialRate()"
+            [class.text-emerald-400]="!taxService.isSpecialRate()"
+            [class.border-emerald-500/20]="!taxService.isSpecialRate()"
+            [class.bg-amber-500/20]="taxService.isSpecialRate()"
+            [class.text-amber-300]="taxService.isSpecialRate()"
+            [class.border-amber-500/40]="taxService.isSpecialRate()"
+            [title]="'Tarifa de IVA activa: ' + taxService.taxReason() + ' (Clic para cambiar)'"
+          >
+            <span>IVA: {{ taxService.taxPercentage() }}%</span>
+            @if (taxService.isSpecialRate()) {
+              <span class="text-[9px] uppercase font-extrabold text-amber-300">Especial</span>
+            }
+          </a>
         </div>
 
         <!-- Top Right Actions -->
@@ -248,6 +267,7 @@ import { AdminService } from '../../../core/services/admin.service';
 export class AdminLayoutComponent {
   readonly authService = inject(AuthService);
   readonly adminService = inject(AdminService);
+  readonly taxService = inject(TaxService);
   private readonly router = inject(Router);
 
   readonly isSidebarOpen = signal<boolean>(false);

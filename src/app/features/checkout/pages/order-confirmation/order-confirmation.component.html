@@ -23,9 +23,15 @@
           <span class="text-zinc-400">Estado:</span>
           <span class="font-semibold text-emerald-400">Confirmado / En preparación</span>
         </div>
+        @if (total() !== null) {
+          <div class="flex justify-between border-b border-zinc-800 pb-3">
+            <span class="text-zinc-400">Total pagado:</span>
+            <span class="font-bold text-white">{{ total()! | currency:'USD':'symbol':'1.2-2' }}</span>
+          </div>
+        }
         <div class="flex justify-between">
           <span class="text-zinc-400">Confirmación enviada a:</span>
-          <span class="font-medium text-zinc-200">Tu correo registrado</span>
+          <span class="font-medium text-zinc-200">{{ email() || 'Tu correo registrado' }}</span>
         </div>
       </div>
     </app-card>

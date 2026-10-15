@@ -147,8 +147,15 @@
                 {{ cartService.shipping() === 0 ? 'GRATIS' : (cartService.shipping() | currencyFormat) }}
               </span>
             </div>
-            <div class="flex justify-between text-on-surface-variant">
-              <span>Impuestos (16%):</span>
+            <div class="flex justify-between text-on-surface-variant items-center">
+              <span class="flex items-center gap-1.5">
+                <span>IVA ({{ taxService.taxPercentage() }}%):</span>
+                @if (taxService.isSpecialRate()) {
+                  <span class="text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-bold uppercase">
+                    Especial
+                  </span>
+                }
+              </span>
               <span class="text-on-surface font-semibold font-mono">{{ cartService.tax() | currencyFormat }}</span>
             </div>
             <div class="flex justify-between text-sm font-black text-on-surface pt-3 border-t border-outline-variant/40">

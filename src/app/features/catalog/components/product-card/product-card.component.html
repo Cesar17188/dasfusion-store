@@ -47,14 +47,30 @@
 
     <!-- Price & Actions -->
     <div class="mt-4 flex items-center justify-between pt-3 border-t border-outline-variant/40">
-      <div class="flex flex-col">
-        @if (hasDiscount()) {
+      <div class="flex flex-col min-w-0 pr-2">
+        @if (hasDiscount() && compareAtPriceWithTax()) {
           <span class="text-[11px] text-outline line-through">
-            {{ product().compareAtPrice | currencyFormat }}
+            {{ compareAtPriceWithTax() | currencyFormat }}
           </span>
         }
-        <span class="text-base font-bold text-[#e3e2e6]">
-          {{ product().price | currencyFormat }}
+        <div class="flex items-baseline gap-1.5 flex-wrap">
+          <span class="text-base font-bold text-[#e3e2e6] font-mono">
+            {{ priceWithTax() | currencyFormat }}
+          </span>
+          <span
+            class="inline-flex items-center text-[9px] font-bold px-1.5 py-0.5 rounded border uppercase tracking-wider leading-none"
+            [class.text-emerald-400]="!taxService.isSpecialRate()"
+            [class.bg-emerald-500/10]="!taxService.isSpecialRate()"
+            [class.border-emerald-500/20]="!taxService.isSpecialRate()"
+            [class.text-amber-300]="taxService.isSpecialRate()"
+            [class.bg-amber-500/10]="taxService.isSpecialRate()"
+            [class.border-amber-500/30]="taxService.isSpecialRate()"
+          >
+            {{ taxService.taxPercentage() === 0 ? 'IVA 0%' : ('IVA ' + taxService.taxPercentage() + '%') }}
+          </span>
+        </div>
+        <span class="text-[10px] text-outline mt-0.5 truncate" [title]="'Precio sin IVA: ' + (product().price | currencyFormat)">
+          Sin IVA: {{ product().price | currencyFormat }}
         </span>
       </div>
 

@@ -1,6 +1,7 @@
-import { Injectable, computed, signal } from '@angular/core';
+import { Injectable, computed, signal, inject } from '@angular/core';
 import { CartItem, CartSummary } from '../models/cart.model';
 import { Product, ProductVariant, ProductBundle } from '../models/product.model';
+import { TaxService } from './tax.service';
 
 @Injectable({
   providedIn: 'root'
@@ -24,6 +25,8 @@ export class CartService {
     return (this.subtotal() * coupon.discountPercentage) / 100;
   });
 
+  private readonly taxService = inject(TaxService);
+
   readonly shipping = computed(() => {
     const sub = this.subtotal();
     if (sub === 0) return 0;
@@ -31,7 +34,7 @@ export class CartService {
   });
 
   readonly tax = computed(() => {
-    return (this.subtotal() - this.discount()) * 0.16; // 16% Tax
+    return Math.round((this.subtotal() - this.discount()) * this.taxService.taxRate() * 100) / 100;
   });
 
   readonly total = computed(() => {

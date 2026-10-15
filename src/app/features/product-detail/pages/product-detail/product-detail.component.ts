@@ -4,6 +4,7 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 import { Product, ProductBundle, ProductVariant } from '../../../../core/models/product.model';
 import { ProductService } from '../../../../core/services/product.service';
 import { CartService } from '../../../../core/services/cart.service';
+import { TaxService } from '../../../../core/services/tax.service';
 import { CurrencyFormatPipe } from '../../../../shared/pipes/currency-format.pipe';
 import { ButtonComponent } from '../../../../shared/components/button/button.component';
 import { StockLimitDialogComponent } from '../../../../shared/components/stock-limit-dialog/stock-limit-dialog.component';
@@ -28,6 +29,7 @@ export class ProductDetailComponent implements OnInit {
   private readonly route = inject(ActivatedRoute);
   private readonly productService = inject(ProductService);
   private readonly cartService = inject(CartService);
+  readonly taxService = inject(TaxService);
 
   protected readonly product = signal<Product | null>(null);
   protected readonly relatedProducts = signal<Product[]>([]);
@@ -56,11 +58,21 @@ export class ProductDetailComponent implements OnInit {
     return this.product()?.price ?? 0;
   });
 
+  readonly currentDisplayPriceWithTax = computed(() => {
+    return this.taxService.calculatePriceWithTax(this.currentDisplayPrice());
+  });
+
   readonly currentComparePrice = computed(() => {
     if (this.selectedBundle()) return undefined;
     const variant = this.selectedVariant();
     if (variant) return variant.compareAtPrice;
     return this.product()?.compareAtPrice;
+  });
+
+  readonly currentComparePriceWithTax = computed(() => {
+    const compare = this.currentComparePrice();
+    if (!compare) return undefined;
+    return this.taxService.calculatePriceWithTax(compare);
   });
 
   readonly currentDiscountPercentage = computed(() => {

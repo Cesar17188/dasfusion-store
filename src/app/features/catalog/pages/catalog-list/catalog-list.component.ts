@@ -5,6 +5,7 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { ProductFilter } from '../../../../core/models/product.model';
 import { ProductService } from '../../../../core/services/product.service';
 import { AuthService } from '../../../../core/services/auth.service';
+import { TaxService } from '../../../../core/services/tax.service';
 import { ProductCardComponent } from '../../components/product-card/product-card.component';
 import { ProductFiltersComponent } from '../../components/product-filters/product-filters.component';
 
@@ -17,6 +18,7 @@ import { ProductFiltersComponent } from '../../components/product-filters/produc
 export class CatalogListComponent {
   readonly productService = inject(ProductService);
   readonly authService = inject(AuthService);
+  readonly taxService = inject(TaxService);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
 

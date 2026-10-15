@@ -33,7 +33,28 @@
   <!-- Banner Header (Responsive) -->
   <div class="relative overflow-hidden rounded-2xl sm:rounded-3xl bg-linear-to-r from-primary-container via-surface-container to-surface border border-primary/20 p-5 sm:p-10 shadow-2xl">
     <div class="relative z-10 max-w-2xl space-y-2 sm:space-y-3">
-      <span class="text-[11px] sm:text-xs font-bold uppercase tracking-widest text-primary">Catálogo Oficial DASFUSION</span>
+      <div class="flex items-center gap-2 flex-wrap">
+        <span class="text-[11px] sm:text-xs font-bold uppercase tracking-widest text-primary">Catálogo Oficial DASFUSION</span>
+        <span
+          class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-semibold border transition"
+          [class.bg-emerald-500/10]="!taxService.isSpecialRate()"
+          [class.text-emerald-400]="!taxService.isSpecialRate()"
+          [class.border-emerald-500/20]="!taxService.isSpecialRate()"
+          [class.bg-amber-500/10]="taxService.isSpecialRate()"
+          [class.text-amber-300]="taxService.isSpecialRate()"
+          [class.border-amber-500/30]="taxService.isSpecialRate()"
+        >
+          <span
+            class="h-1.5 w-1.5 rounded-full"
+            [class.bg-emerald-400]="!taxService.isSpecialRate()"
+            [class.bg-amber-400]="taxService.isSpecialRate()"
+          ></span>
+          Precios con IVA ({{ taxService.taxPercentage() }}%) incluido
+          @if (taxService.isSpecialRate()) {
+            • <span class="font-bold">{{ taxService.taxReason() }}</span>
+          }
+        </span>
+      </div>
       <h1 class="text-2xl sm:text-4xl font-extrabold text-on-surface tracking-tight">Equipamiento Pro & Computación</h1>
       <p class="text-xs sm:text-sm text-on-surface-variant leading-relaxed">
         Explora smartphones de última generación, cámaras cinema y mirrorless, óptica premium, audio broadcast, iluminación de estudio y hardware para creadores.

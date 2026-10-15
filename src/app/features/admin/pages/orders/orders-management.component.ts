@@ -2,6 +2,7 @@ import { Component, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AdminService, AdminSalesOrderWithDetails } from '../../../../core/services/admin.service';
+import { TaxService } from '../../../../core/services/tax.service';
 import { OrderStatus } from '../../../../core/models/supabase.model';
 
 @Component({
@@ -25,6 +26,69 @@ import { OrderStatus } from '../../../../core/models/supabase.model';
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
             </svg>
             Refrescar Pedidos
+          </button>
+        </div>
+      </div>
+
+      <!-- Tax / IVA Active Policy Configuration Panel -->
+      <div
+        class="das-card p-4 sm:p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-l-4 transition-all"
+        [class.border-l-primary]="!taxService.isSpecialRate()"
+        [class.border-l-amber-400]="taxService.isSpecialRate()"
+      >
+        <div class="space-y-1">
+          <div class="flex items-center gap-2 flex-wrap">
+            <span class="text-xs font-bold uppercase tracking-wider text-outline">Tarifa de IVA para Nuevos Pedidos y Tienda</span>
+            <span
+              class="px-2 py-0.5 rounded-full text-xs font-bold font-mono border"
+              [class.bg-emerald-500/10]="!taxService.isSpecialRate()"
+              [class.text-emerald-400]="!taxService.isSpecialRate()"
+              [class.border-emerald-500/20]="!taxService.isSpecialRate()"
+              [class.bg-amber-500/20]="taxService.isSpecialRate()"
+              [class.text-amber-300]="taxService.isSpecialRate()"
+              [class.border-amber-500/40]="taxService.isSpecialRate()"
+            >
+              {{ taxService.taxPercentage() }}% Vigente
+            </span>
+            @if (taxService.isSpecialRate()) {
+              <span class="px-2 py-0.5 rounded text-[10px] bg-amber-400 text-black font-extrabold uppercase animate-pulse">
+                ⚡ Tarifa Especial Activa
+              </span>
+            }
+          </div>
+          <p class="text-xs text-on-surface-variant">
+            Motivo actual: <strong class="text-white">{{ taxService.taxReason() }}</strong>. 
+            Aplica a nuevos pedidos web, catálogo de productos y ventas en mostrador (POS).
+          </p>
+        </div>
+
+        <div class="flex items-center gap-2 flex-wrap">
+          <button
+            type="button"
+            (click)="taxService.setTaxRate(0.15, 'Tarifa Estándar SRI (15%)')"
+            [class.bg-primary-container]="taxService.taxRate() === 0.15"
+            [class.text-[#aec7f7]]="taxService.taxRate() === 0.15"
+            [class.border-[#aec7f7]/50]="taxService.taxRate() === 0.15"
+            class="px-3 py-1.5 rounded-xl text-xs font-bold bg-surface-container text-on-surface border border-outline-variant/40 hover:bg-surface-container-high transition cursor-pointer"
+          >
+            15% Estándar
+          </button>
+          <button
+            type="button"
+            (click)="taxService.setTaxRate(0, 'Día Sin IVA / Exoneración (0%)')"
+            [class.bg-emerald-500/20]="taxService.taxRate() === 0"
+            [class.text-emerald-300]="taxService.taxRate() === 0"
+            [class.border-emerald-500/50]="taxService.taxRate() === 0"
+            class="px-3 py-1.5 rounded-xl text-xs font-bold bg-surface-container text-on-surface border border-outline-variant/40 hover:bg-surface-container-high transition cursor-pointer"
+          >
+            0% Días Sin IVA
+          </button>
+          <button
+            type="button"
+            (click)="openCustomTaxModal()"
+            class="px-3 py-1.5 rounded-xl text-xs font-bold bg-surface-container text-outline hover:text-white border border-outline-variant/40 hover:bg-surface-container-high transition cursor-pointer"
+          >
+            ⚙️ Personalizar
           </button>
         </div>
       </div>
@@ -245,20 +309,43 @@ import { OrderStatus } from '../../../../core/models/supabase.model';
             </div>
           </div>
 
-          <!-- Totals Breakdown -->
-          <div class="flex justify-end pt-2">
+          <!-- Totals Breakdown & Adjust Tax for this Order -->
+          <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 pt-3 border-t border-outline-variant/40">
+            <!-- Individual Order Tax Recalculation -->
+            <div class="space-y-1.5 p-3 rounded-xl bg-[#121316] border border-outline-variant/30 text-xs">
+              <span class="text-[10px] font-bold uppercase tracking-wider text-outline block">Ajustar IVA de esta Orden:</span>
+              <div class="flex items-center gap-1.5 flex-wrap">
+                <button
+                  type="button"
+                  (click)="onAdjustOrderTax(selectedOrder()!.id, 0.15)"
+                  class="px-2.5 py-1 rounded-lg text-[10px] font-bold bg-surface-container hover:bg-surface-container-high border border-outline-variant/40 text-on-surface transition cursor-pointer"
+                  title="Fijar IVA en 15% estándar"
+                >
+                  15% (Estándar)
+                </button>
+                <button
+                  type="button"
+                  (click)="onAdjustOrderTax(selectedOrder()!.id, 0)"
+                  class="px-2.5 py-1 rounded-lg text-[10px] font-bold bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 text-emerald-300 transition cursor-pointer"
+                  title="Fijar IVA en 0% (Día Sin IVA o exonerado)"
+                >
+                  0% (Sin IVA)
+                </button>
+              </div>
+            </div>
+
             <div class="w-64 space-y-1.5 text-xs text-on-surface-variant">
               <div class="flex justify-between">
-                <span>Subtotal:</span>
+                <span>Subtotal Neto:</span>
                 <span>{{ selectedOrder()!.subtotal | currency:'USD':'symbol':'1.2-2' }}</span>
               </div>
-              <div class="flex justify-between">
+              <div class="flex justify-between items-center">
                 <span>Impuestos (IVA):</span>
-                <span>{{ selectedOrder()!.tax | currency:'USD':'symbol':'1.2-2' }}</span>
+                <span class="font-medium font-mono text-on-surface">{{ selectedOrder()!.tax | currency:'USD':'symbol':'1.2-2' }}</span>
               </div>
               <div class="flex justify-between text-sm font-bold text-[#e3e2e6] border-t border-outline-variant/40 pt-1.5">
                 <span>Total Factura:</span>
-                <span class="text-emerald-400">{{ selectedOrder()!.total | currency:'USD':'symbol':'1.2-2' }}</span>
+                <span class="text-emerald-400 font-mono">{{ selectedOrder()!.total | currency:'USD':'symbol':'1.2-2' }}</span>
               </div>
             </div>
           </div>
@@ -284,14 +371,85 @@ import { OrderStatus } from '../../../../core/models/supabase.model';
         </div>
       </div>
     }
+
+    <!-- Custom Tax Modal -->
+    @if (isCustomTaxModalOpen()) {
+      <div class="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+        <div class="w-full max-w-md das-card p-6 space-y-4 border border-outline-variant/60 shadow-2xl animate-in zoom-in-95 duration-150">
+          <div class="flex items-center justify-between pb-3 border-b border-outline-variant/40">
+            <h3 class="text-base font-bold text-[#e3e2e6]">Ajustar Tarifa de IVA Vigente</h3>
+            <button
+              type="button"
+              (click)="isCustomTaxModalOpen.set(false)"
+              class="text-outline hover:text-white text-sm cursor-pointer"
+            >
+              ✕
+            </button>
+          </div>
+
+          <p class="text-xs text-outline">
+            Configura el porcentaje de IVA para la tienda. Se aplicará a todos los cálculos de catálogo, checkout y pedidos nuevos.
+          </p>
+
+          <div class="space-y-3">
+            <div>
+              <label class="text-xs font-semibold text-outline block mb-1">Porcentaje de IVA (%)</label>
+              <input
+                type="number"
+                min="0"
+                max="100"
+                step="0.5"
+                [ngModel]="customTaxInput()"
+                (ngModelChange)="customTaxInput.set($event)"
+                placeholder="Ej. 12, 15"
+                class="das-input text-sm font-mono w-full"
+              />
+            </div>
+
+            <div>
+              <label class="text-xs font-semibold text-outline block mb-1">Motivo / Nombre de la Fecha Especial</label>
+              <input
+                type="text"
+                [ngModel]="customTaxReason()"
+                (ngModelChange)="customTaxReason.set($event)"
+                placeholder="Ej. Cyber Day Sin IVA, Exoneración..."
+                class="das-input text-xs w-full"
+              />
+            </div>
+          </div>
+
+          <div class="flex items-center justify-end gap-2 pt-3 border-t border-outline-variant/40">
+            <button
+              type="button"
+              (click)="isCustomTaxModalOpen.set(false)"
+              class="btn-secondary py-2! px-4! text-xs cursor-pointer"
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              (click)="applyCustomTax()"
+              class="btn-primary py-2! px-5! text-xs cursor-pointer"
+            >
+              Guardar Tarifa
+            </button>
+          </div>
+        </div>
+      </div>
+    }
   `
 })
 export class OrdersManagementComponent {
   readonly adminService = inject(AdminService);
+  readonly taxService = inject(TaxService);
 
   searchQuery = signal<string>('');
   selectedStatusFilter = signal<string>('ALL');
   selectedOrder = signal<AdminSalesOrderWithDetails | null>(null);
+
+  isCustomTaxModalOpen = signal<boolean>(false);
+  customTaxInput = signal<number>(15);
+  customTaxReason = signal<string>('Tarifa Estándar SRI (15%)');
 
   readonly filteredOrders = computed(() => {
     let list = this.adminService.salesOrders();
@@ -324,6 +482,28 @@ export class OrdersManagementComponent {
 
   async onUpdateStatus(orderId: string, status: OrderStatus): Promise<void> {
     await this.adminService.updateOrderStatus(orderId, status);
+  }
+
+  async onAdjustOrderTax(orderId: string, rate: number): Promise<void> {
+    await this.adminService.updateOrderTax(orderId, rate);
+    const updated = this.adminService.salesOrders().find((o) => o.id === orderId);
+    if (updated) {
+      this.selectedOrder.set(updated);
+    }
+  }
+
+  openCustomTaxModal(): void {
+    this.customTaxInput.set(this.taxService.taxPercentage());
+    this.customTaxReason.set(this.taxService.taxReason());
+    this.isCustomTaxModalOpen.set(true);
+  }
+
+  applyCustomTax(): void {
+    const pct = this.customTaxInput();
+    const rate = pct / 100;
+    const reason = this.customTaxReason().trim() || `Tarifa Especial (${pct}%)`;
+    this.taxService.setTaxRate(rate, reason);
+    this.isCustomTaxModalOpen.set(false);
   }
 
   viewOrderDetails(order: AdminSalesOrderWithDetails): void {

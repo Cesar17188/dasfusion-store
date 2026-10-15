@@ -1,7 +1,7 @@
 <div class="space-y-6 sm:space-y-8 max-w-5xl mx-auto pb-16 sm:pb-0">
-  <div class="pb-3 sm:pb-4 border-b border-[#44474e]/40">
-    <h1 class="text-xl sm:text-3xl font-extrabold text-[#e3e2e6]">Finalizar Compra Segura</h1>
-    <p class="text-xs sm:text-sm text-[#8e9099] mt-1">
+  <div class="pb-3 sm:pb-4 border-b border-outline-variant/40">
+    <h1 class="text-xl sm:text-3xl font-extrabold text-on-surface">Finalizar Compra Segura</h1>
+    <p class="text-xs sm:text-sm text-outline mt-1">
       Transacción encriptada con certificado de seguridad SSL de 256 bits.
     </p>
   </div>
@@ -10,9 +10,9 @@
     <!-- Form Data (2 cols on desktop) -->
     <div class="lg:col-span-2 space-y-6 sm:space-y-8">
       <!-- Shipping Info -->
-      <div class="bg-[#1e2022]/80 border border-[#44474e]/40 rounded-2xl p-4 sm:p-6 backdrop-blur-md space-y-4">
-        <h3 class="text-sm sm:text-base font-bold text-[#e3e2e6] flex items-center gap-2">
-          <span class="flex h-6 w-6 items-center justify-center rounded-full bg-[#1b365d] text-[#aec7f7] border border-[#aec7f7]/40 text-xs font-bold font-mono">1</span>
+      <div class="bg-surface-container/80 border border-outline-variant/40 rounded-2xl p-4 sm:p-6 backdrop-blur-md space-y-4">
+        <h3 class="text-sm sm:text-base font-bold text-on-surface flex items-center gap-2">
+          <span class="flex h-6 w-6 items-center justify-center rounded-full bg-primary-container text-primary border border-primary/40 text-xs font-bold font-mono">1</span>
           Información de Envío
         </h3>
 
@@ -77,9 +77,9 @@
       </div>
 
       <!-- Payment Method -->
-      <div class="bg-[#1e2022]/80 border border-[#44474e]/40 rounded-2xl p-4 sm:p-6 backdrop-blur-md space-y-4">
-        <h3 class="text-sm sm:text-base font-bold text-[#e3e2e6] flex items-center gap-2">
-          <span class="flex h-6 w-6 items-center justify-center rounded-full bg-[#1b365d] text-[#aec7f7] border border-[#aec7f7]/40 text-xs font-bold font-mono">2</span>
+      <div class="bg-surface-container/80 border border-outline-variant/40 rounded-2xl p-4 sm:p-6 backdrop-blur-md space-y-4">
+        <h3 class="text-sm sm:text-base font-bold text-on-surface flex items-center gap-2">
+          <span class="flex h-6 w-6 items-center justify-center rounded-full bg-primary-container text-primary border border-primary/40 text-xs font-bold font-mono">2</span>
           Método de Pago
         </h3>
 
@@ -88,12 +88,12 @@
             type="button"
             (click)="selectedPayment.set('credit_card')"
             class="p-2.5 sm:p-3 rounded-xl border text-[11px] sm:text-xs font-bold text-center transition cursor-pointer"
-            [class.border-[#aec7f7]]="selectedPayment() === 'credit_card'"
-            [class.bg-[#1b365d]]="selectedPayment() === 'credit_card'"
-            [class.text-[#aec7f7]]="selectedPayment() === 'credit_card'"
-            [class.border-[#44474e]/40]="selectedPayment() !== 'credit_card'"
-            [class.bg-[#121316]]="selectedPayment() !== 'credit_card'"
-            [class.text-[#8e9099]]="selectedPayment() !== 'credit_card'"
+            [class.border-primary]="selectedPayment() === 'credit_card'"
+            [class.bg-primary-container]="selectedPayment() === 'credit_card'"
+            [class.text-primary]="selectedPayment() === 'credit_card'"
+            [class.border-outline-variant/40]="selectedPayment() !== 'credit_card'"
+            [class.bg-surface-container-lowest]="selectedPayment() !== 'credit_card'"
+            [class.text-outline]="selectedPayment() !== 'credit_card'"
           >
             Tarjeta
           </button>
@@ -101,12 +101,12 @@
             type="button"
             (click)="selectedPayment.set('paypal')"
             class="p-2.5 sm:p-3 rounded-xl border text-[11px] sm:text-xs font-bold text-center transition cursor-pointer"
-            [class.border-[#aec7f7]]="selectedPayment() === 'paypal'"
-            [class.bg-[#1b365d]]="selectedPayment() === 'paypal'"
-            [class.text-[#aec7f7]]="selectedPayment() === 'paypal'"
-            [class.border-[#44474e]/40]="selectedPayment() !== 'paypal'"
-            [class.bg-[#121316]]="selectedPayment() !== 'paypal'"
-            [class.text-[#8e9099]]="selectedPayment() !== 'paypal'"
+            [class.border-primary]="selectedPayment() === 'paypal'"
+            [class.bg-primary-container]="selectedPayment() === 'paypal'"
+            [class.text-primary]="selectedPayment() === 'paypal'"
+            [class.border-outline-variant/40]="selectedPayment() !== 'paypal'"
+            [class.bg-surface-container-lowest]="selectedPayment() !== 'paypal'"
+            [class.text-outline]="selectedPayment() !== 'paypal'"
           >
             PayPal
           </button>
@@ -114,12 +114,12 @@
             type="button"
             (click)="selectedPayment.set('crypto')"
             class="p-2.5 sm:p-3 rounded-xl border text-[11px] sm:text-xs font-bold text-center transition cursor-pointer"
-            [class.border-[#aec7f7]]="selectedPayment() === 'crypto'"
-            [class.bg-[#1b365d]]="selectedPayment() === 'crypto'"
-            [class.text-[#aec7f7]]="selectedPayment() === 'crypto'"
-            [class.border-[#44474e]/40]="selectedPayment() !== 'crypto'"
-            [class.bg-[#121316]]="selectedPayment() !== 'crypto'"
-            [class.text-[#8e9099]]="selectedPayment() !== 'crypto'"
+            [class.border-primary]="selectedPayment() === 'crypto'"
+            [class.bg-primary-container]="selectedPayment() === 'crypto'"
+            [class.text-primary]="selectedPayment() === 'crypto'"
+            [class.border-outline-variant/40]="selectedPayment() !== 'crypto'"
+            [class.bg-surface-container-lowest]="selectedPayment() !== 'crypto'"
+            [class.text-outline]="selectedPayment() !== 'crypto'"
           >
             Crypto / USDT
           </button>
@@ -143,40 +143,47 @@
 
     <!-- Order Summary Column -->
     <div class="lg:col-span-1 space-y-4 sm:space-y-6">
-      <div class="bg-[#1e2022]/90 border border-[#44474e]/40 rounded-2xl p-5 sm:p-6 backdrop-blur-md space-y-4 sm:space-y-5">
-        <h3 class="text-sm sm:text-base font-bold text-[#e3e2e6]">Resumen Final</h3>
+      <div class="bg-surface-container/90 border border-outline-variant/40 rounded-2xl p-5 sm:p-6 backdrop-blur-md space-y-4 sm:space-y-5">
+        <h3 class="text-sm sm:text-base font-bold text-on-surface">Resumen Final</h3>
 
         <div class="space-y-2.5 max-h-48 overflow-y-auto pr-1">
           @for (item of cartService.items(); track item.id) {
             <div class="flex items-center justify-between text-xs">
-              <span class="text-[#c4c6cf] truncate max-w-[140px] sm:max-w-[160px]">{{ item.quantity }}x {{ item.product.name }}</span>
-              <span class="font-bold text-[#e3e2e6] font-mono">{{ item.totalPrice | currencyFormat }}</span>
+              <span class="text-on-surface-variant truncate max-w-35 sm:max-w-40">{{ item.quantity }}x {{ item.product.name }}</span>
+              <span class="font-bold text-on-surface font-mono">{{ item.totalPrice | currencyFormat }}</span>
             </div>
           }
         </div>
 
-        <div class="space-y-2 pt-3 border-t border-[#44474e]/40 text-xs">
-          <div class="flex justify-between text-[#c4c6cf]">
+        <div class="space-y-2 pt-3 border-t border-outline-variant/40 text-xs">
+          <div class="flex justify-between text-on-surface-variant">
             <span>Subtotal:</span>
             <span class="font-mono">{{ cartService.subtotal() | currencyFormat }}</span>
           </div>
           @if (cartService.discount() > 0) {
-            <div class="flex justify-between text-[#f1bd81]">
+            <div class="flex justify-between text-tertiary">
               <span>Descuento:</span>
               <span class="font-mono">-{{ cartService.discount() | currencyFormat }}</span>
             </div>
           }
-          <div class="flex justify-between text-[#c4c6cf]">
+          <div class="flex justify-between text-on-surface-variant">
             <span>Envío:</span>
             <span class="font-mono">{{ cartService.shipping() === 0 ? 'GRATIS' : (cartService.shipping() | currencyFormat) }}</span>
           </div>
-          <div class="flex justify-between text-[#c4c6cf]">
-            <span>Impuestos (16%):</span>
+          <div class="flex justify-between text-on-surface-variant items-center">
+            <span class="flex items-center gap-1.5">
+              <span>IVA ({{ taxService.taxPercentage() }}%):</span>
+              @if (taxService.isSpecialRate()) {
+                <span class="text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-bold uppercase">
+                  Especial
+                </span>
+              }
+            </span>
             <span class="font-mono">{{ cartService.tax() | currencyFormat }}</span>
           </div>
-          <div class="flex justify-between text-sm sm:text-base font-bold text-[#e3e2e6] pt-2 border-t border-[#44474e]/40">
+          <div class="flex justify-between text-sm sm:text-base font-bold text-on-surface pt-2 border-t border-outline-variant/40">
             <span>Total a Pagar:</span>
-            <span class="text-[#aec7f7] font-extrabold font-mono text-lg sm:text-xl">{{ cartService.total() | currencyFormat }}</span>
+            <span class="text-primary font-extrabold font-mono text-lg sm:text-xl">{{ cartService.total() | currencyFormat }}</span>
           </div>
         </div>
 

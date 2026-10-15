@@ -128,11 +128,22 @@
 
           <div class="mt-3 sm:mt-4 flex items-baseline gap-3 flex-wrap">
             <span class="text-2xl sm:text-4xl font-black text-on-surface font-mono">
-              {{ currentDisplayPrice() | currencyFormat }}
+              {{ currentDisplayPriceWithTax() | currencyFormat }}
             </span>
-            @if (hasDiscount()) {
+            <span
+              class="inline-flex items-center text-xs font-bold px-2 py-0.5 rounded border uppercase tracking-wider"
+              [class.text-emerald-400]="!taxService.isSpecialRate()"
+              [class.bg-emerald-500/10]="!taxService.isSpecialRate()"
+              [class.border-emerald-500/20]="!taxService.isSpecialRate()"
+              [class.text-amber-300]="taxService.isSpecialRate()"
+              [class.bg-amber-500/10]="taxService.isSpecialRate()"
+              [class.border-amber-500/30]="taxService.isSpecialRate()"
+            >
+              {{ taxService.taxPercentage() === 0 ? 'IVA 0% Exonerado' : ('Inc. IVA (' + taxService.taxPercentage() + '%)') }}
+            </span>
+            @if (hasDiscount() && currentComparePriceWithTax()) {
               <span class="text-xs sm:text-sm text-outline line-through">
-                {{ currentComparePrice() | currencyFormat }}
+                {{ currentComparePriceWithTax() | currencyFormat }}
               </span>
               @if (currentDiscountPercentage() && currentDiscountPercentage()! > 0) {
                 <span class="px-2 py-0.5 rounded text-xs font-black bg-tertiary-container! text-[#f1bd81]! border border-[#f1bd81]/30">
@@ -140,6 +151,9 @@
                 </span>
               }
             }
+          </div>
+          <div class="text-xs text-outline mt-1">
+            Precio neto (sin IVA): <span class="font-mono text-on-surface-variant font-medium">{{ currentDisplayPrice() | currencyFormat }}</span>
           </div>
 
           <!-- Stock availability indicator -->
@@ -325,9 +339,12 @@
     <div class="sm:hidden fixed bottom-0 left-0 right-0 z-40 bg-surface-container-lowest/95 border-t border-outline-variant/60 p-3 backdrop-blur-xl flex items-center justify-between gap-3 shadow-2xl">
       <div class="flex flex-col">
         <span class="text-[10px] text-outline uppercase font-bold">Precio Total</span>
-        <span class="text-base font-black text-on-surface font-mono">
-          {{ (selectedBundle() ? selectedBundle()!.price : selectedVariant() ? selectedVariant()!.price : prod.price) | currencyFormat }}
-        </span>
+        <div class="flex items-baseline gap-1">
+          <span class="text-base font-black text-on-surface font-mono">
+            {{ currentDisplayPriceWithTax() | currencyFormat }}
+          </span>
+          <span class="text-[9px] font-bold text-emerald-400">IVA incl.</span>
+        </div>
       </div>
 
       <button

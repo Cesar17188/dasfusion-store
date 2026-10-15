@@ -2,6 +2,7 @@ import { Component, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AdminService, AdminProductWithVariants, AdminSalesOrderWithDetails } from '../../../../core/services/admin.service';
+import { TaxService } from '../../../../core/services/tax.service';
 import { DbProductVariant, DbProfile } from '../../../../core/models/supabase.model';
 
 interface PosCartItem {
@@ -209,12 +210,42 @@ interface PosCartItem {
 
             <!-- Totals & Taxes Summary -->
             <div class="border-t border-outline-variant/40 pt-3 space-y-2 text-xs">
+              <!-- IVA Selector for POS Sale -->
+              <div class="space-y-1.5 pb-2 border-b border-outline-variant/30">
+                <div class="flex items-center justify-between text-[11px] font-bold text-outline uppercase">
+                  <span>Tarifa de IVA de la Venta</span>
+                  <span class="text-emerald-400 font-mono font-bold">{{ selectedTaxPercentage() }}%</span>
+                </div>
+                <div class="grid grid-cols-2 gap-1.5">
+                  <button
+                    type="button"
+                    (click)="selectedTaxRate.set(0.15)"
+                    [class.bg-primary-container]="selectedTaxRate() === 0.15"
+                    [class.text-[#aec7f7]]="selectedTaxRate() === 0.15"
+                    [class.border-[#aec7f7]/50]="selectedTaxRate() === 0.15"
+                    class="py-1 px-1.5 rounded-lg text-[11px] font-bold border border-outline-variant/40 bg-surface-container text-on-surface hover:bg-surface-container-high transition cursor-pointer text-center"
+                  >
+                    15% General
+                  </button>
+                  <button
+                    type="button"
+                    (click)="selectedTaxRate.set(0)"
+                    [class.bg-emerald-500/20]="selectedTaxRate() === 0"
+                    [class.text-emerald-300]="selectedTaxRate() === 0"
+                    [class.border-emerald-500/50]="selectedTaxRate() === 0"
+                    class="py-1 px-1.5 rounded-lg text-[11px] font-bold border border-outline-variant/40 bg-surface-container text-on-surface hover:bg-surface-container-high transition cursor-pointer text-center"
+                  >
+                    0% Sin IVA
+                  </button>
+                </div>
+              </div>
+
               <div class="flex justify-between text-on-surface-variant">
                 <span>Subtotal Neto:</span>
                 <span class="font-medium">{{ cartSubtotal() | currency:'USD':'symbol':'1.2-2' }}</span>
               </div>
               <div class="flex justify-between text-on-surface-variant">
-                <span>IVA (19%):</span>
+                <span>IVA ({{ selectedTaxPercentage() }}%):</span>
                 <span class="font-medium">{{ cartTax() | currency:'USD':'symbol':'1.2-2' }}</span>
               </div>
               <div class="flex justify-between text-base font-bold text-on-surface border-t border-outline-variant/30 pt-2">
@@ -347,7 +378,7 @@ interface PosCartItem {
             <!-- Total -->
             <div class="border-t border-outline-variant/40 pt-2 text-right space-y-1">
               <div><span class="text-outline">Subtotal: </span>{{ completedInvoice()!.subtotal | currency:'USD':'symbol':'1.2-2' }}</div>
-              <div><span class="text-outline">IVA (19%): </span>{{ completedInvoice()!.tax | currency:'USD':'symbol':'1.2-2' }}</div>
+              <div><span class="text-outline">IVA (15%): </span>{{ completedInvoice()!.tax | currency:'USD':'symbol':'1.2-2' }}</div>
               <div class="text-sm font-bold text-emerald-400"><span class="text-on-surface">TOTAL: </span>{{ completedInvoice()!.total | currency:'USD':'symbol':'1.2-2' }}</div>
             </div>
           </div>
@@ -376,6 +407,10 @@ interface PosCartItem {
 })
 export class PosInvoicingComponent {
   readonly adminService = inject(AdminService);
+  readonly taxService = inject(TaxService);
+
+  readonly selectedTaxRate = signal<number>(this.taxService.taxRate());
+  readonly selectedTaxPercentage = computed(() => Math.round(this.selectedTaxRate() * 100));
 
   searchQuery = signal<string>('');
   selectedCategory = signal<string>('ALL');
@@ -427,7 +462,7 @@ export class PosInvoicingComponent {
   });
 
   readonly cartTax = computed(() => {
-    return Math.round(this.cartSubtotal() * 0.19 * 100) / 100;
+    return Math.round(this.cartSubtotal() * this.selectedTaxRate() * 100) / 100;
   });
 
   readonly cartTotal = computed(() => {
@@ -498,7 +533,7 @@ export class PosInvoicingComponent {
       const payload = {
         customerId: this.selectedCustomerId(),
         shippingAddress: this.shippingAddress() || 'Mostrador / Venta Local',
-        taxRate: 0.19,
+        taxRate: this.selectedTaxRate(),
         items: this.cartItems().map((it) => ({
           variantId: it.variant.id,
           quantity: it.quantity,

@@ -2,12 +2,14 @@ import { Injectable, signal, computed, inject } from '@angular/core';
 import { Product, ProductFilter } from '../models/product.model';
 import { SupabaseService } from './supabase.service';
 import { DbProduct, DbCategory, DbBrand } from '../models/supabase.model';
+import { TaxService } from './tax.service';
 
 @Injectable({
   providedIn: 'root'
 })
 export class ProductService {
   private readonly supabaseService = inject(SupabaseService);
+  private readonly taxService = inject(TaxService);
   private readonly productsSignal = signal<Product[]>([]);
   private readonly categoriesSignal = signal<string[]>([]);
   private readonly brandsSignal = signal<string[]>([]);
@@ -309,8 +311,9 @@ export class ProductService {
           if (!matchesDirect && !matchesHierarchy) return false;
         }
         if (filter.brand && filter.brand.length > 0 && !filter.brand.includes(product.brand)) return false;
-        if (filter.minPrice !== undefined && product.price < filter.minPrice) return false;
-        if (filter.maxPrice !== undefined && product.price > filter.maxPrice) return false;
+        const priceWithTax = this.taxService.calculatePriceWithTax(product.price);
+        if (filter.minPrice !== undefined && priceWithTax < filter.minPrice) return false;
+        if (filter.maxPrice !== undefined && priceWithTax > filter.maxPrice) return false;
         if (filter.inStock && product.stock <= 0) return false;
         if (query) {
           const inName = product.name.toLowerCase().includes(query);

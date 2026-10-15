@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { CartService } from '../../../../core/services/cart.service';
+import { TaxService } from '../../../../core/services/tax.service';
 import { CartItem } from '../../../../core/models/cart.model';
 import { CurrencyFormatPipe } from '../../../../shared/pipes/currency-format.pipe';
 import { ButtonComponent } from '../../../../shared/components/button/button.component';
@@ -23,6 +24,7 @@ import { StockLimitDialogComponent } from '../../../../shared/components/stock-l
 })
 export class CartComponent {
   readonly cartService = inject(CartService);
+  readonly taxService = inject(TaxService);
 
   couponCode = '';
   couponMessage = signal<string>('');
