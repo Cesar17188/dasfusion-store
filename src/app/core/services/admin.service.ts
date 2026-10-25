@@ -29,6 +29,11 @@ export interface AdminProductWithVariants extends DbProduct {
 
 export interface AdminSalesOrderWithDetails extends DbSalesOrder {
   customer?: DbProfile;
+  tax_id?: string;
+  customer_name?: string;
+  customer_phone?: string;
+  customer_email?: string;
+  billing_address?: string;
   items: Array<DbSalesOrderItem & { variant?: DbProductVariant; product?: DbProduct }>;
 }
 
@@ -1003,9 +1008,33 @@ export class AdminService {
               return { ...it, variant, product };
             });
 
+          let parsedTaxId: string | undefined;
+          let parsedName: string | undefined;
+          let parsedPhone: string | undefined;
+          let parsedEmail: string | undefined;
+          let parsedBillingAddress: string | undefined;
+
+          if (o.shipping_address) {
+            const taxMatch = o.shipping_address.match(/CI\/RUC:\s*([^|\]]+)/i);
+            if (taxMatch) parsedTaxId = taxMatch[1].trim();
+            const nameMatch = o.shipping_address.match(/Factura:\s*([^|\]]+)/i);
+            if (nameMatch) parsedName = nameMatch[1].trim();
+            const phoneMatch = o.shipping_address.match(/Tel:\s*([^|\]]+)/i);
+            if (phoneMatch) parsedPhone = phoneMatch[1].trim();
+            const emailMatch = o.shipping_address.match(/Email:\s*([^|\]]+)/i);
+            if (emailMatch) parsedEmail = emailMatch[1].trim();
+            const dirMatch = o.shipping_address.match(/Dir:\s*([^|\]]+)/i);
+            if (dirMatch) parsedBillingAddress = dirMatch[1].trim();
+          }
+
           return {
             ...o,
             customer,
+            tax_id: parsedTaxId,
+            customer_name: parsedName,
+            customer_phone: parsedPhone,
+            customer_email: parsedEmail,
+            billing_address: parsedBillingAddress,
             items: orderItems
           };
         });
@@ -1065,8 +1094,10 @@ export class AdminService {
    */
   async placeCustomerOrder(payload: {
     customerName: string;
+    taxId?: string;
     customerEmail: string;
     customerPhone: string;
+    billingAddress?: string;
     shippingAddress: string;
     paymentMethod?: string;
     items: Array<{
@@ -1085,7 +1116,8 @@ export class AdminService {
     const orderId = crypto.randomUUID();
     const nameParts = payload.customerName.trim().split(' ');
     const firstName = nameParts[0] || 'Cliente';
-    const lastName = nameParts.slice(1).join(' ') || 'General';
+    const lastName = nameParts.slice(1).join(' ') || (payload.taxId ? `(${payload.taxId})` : 'General');
+    const effectiveAddress = payload.billingAddress || payload.shippingAddress;
 
     // 1. Resolver o registrar perfil de cliente
     let customer = this.customers().find(
@@ -1093,8 +1125,11 @@ export class AdminService {
     );
 
     let customerId = customer?.id;
+    let isProfileSavedInDb = !!customer;
+    let newCustId = '';
+
     if (!customer) {
-      const newCustId = crypto.randomUUID();
+      newCustId = crypto.randomUUID();
       const newProfile: DbProfile = {
         id: newCustId,
         role: 'customer',
@@ -1102,16 +1137,28 @@ export class AdminService {
         last_name: lastName,
         email: payload.customerEmail,
         phone: payload.customerPhone,
-        address: payload.shippingAddress,
+        address: effectiveAddress,
+        tax_id: payload.taxId || null,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       };
 
       try {
-        const { data, error } = await this.supabase.from('profiles').insert(newProfile as any).select().single();
+        const { data, error } = await this.supabase.from('profiles').insert({
+          id: newProfile.id,
+          role: newProfile.role,
+          first_name: newProfile.first_name,
+          last_name: newProfile.last_name,
+          email: newProfile.email,
+          phone: newProfile.phone,
+          address: newProfile.address,
+          created_at: newProfile.created_at,
+          updated_at: newProfile.updated_at
+        } as any).select().single();
         if (!error && data) {
-          customer = data as DbProfile;
+          customer = { ...(data as DbProfile), tax_id: payload.taxId || null };
           customerId = customer.id;
+          isProfileSavedInDb = true;
         } else {
           customer = newProfile;
           customerId = newCustId;
@@ -1121,10 +1168,31 @@ export class AdminService {
         customerId = newCustId;
       }
       this.customers.update((prev) => [customer!, ...prev]);
+    } else {
+      // Si el cliente ya existe, actualizar sus datos con la información más reciente
+      try {
+        await (this.supabase.from('profiles') as any).update({
+          phone: payload.customerPhone || customer.phone,
+          address: effectiveAddress || customer.address,
+          first_name: firstName || customer.first_name,
+          last_name: lastName || customer.last_name,
+          updated_at: new Date().toISOString()
+        }).eq('id', customer.id);
+      } catch {}
     }
 
     // 2. Fila para la orden de venta (sales_orders)
-    const validCustomerId = customerId || this.customers()[0]?.id || '467ea254-e327-4cbc-b2ca-ba5c3e5c1f84';
+    // Asegurar que el customer_id referencie una fila real en la tabla profiles para evitar error de Foreign Key
+    const fallbackDbCustomerId = this.customers().find(c => c.id && c.id !== newCustId)?.id || '467ea254-e327-4cbc-b2ca-ba5c3e5c1f84';
+    const validCustomerId = isProfileSavedInDb && customerId ? customerId : fallbackDbCustomerId;
+    
+    // Almacenar datos completos de facturación y entrega
+    const taxIdPart = payload.taxId ? ` | CI/RUC: ${payload.taxId}` : '';
+    const billingSummary = `[Factura: ${payload.customerName}${taxIdPart} | Tel: ${payload.customerPhone} | Email: ${payload.customerEmail} | Dir: ${effectiveAddress}]`;
+    const fullShippingAddress = payload.shippingAddress && payload.shippingAddress !== effectiveAddress
+      ? `${billingSummary} - Entrega: ${payload.shippingAddress}`
+      : billingSummary;
+
     const newOrderRow: DbSalesOrder = {
       id: orderId,
       customer_id: validCustomerId,
@@ -1132,7 +1200,7 @@ export class AdminService {
       subtotal: payload.subtotal,
       tax: payload.tax,
       total: payload.total,
-      shipping_address: `${payload.customerName} | ${payload.shippingAddress} | Tel: ${payload.customerPhone} | Email: ${payload.customerEmail}`,
+      shipping_address: fullShippingAddress,
       created_at: new Date().toISOString()
     };
 
@@ -1182,8 +1250,14 @@ export class AdminService {
 
     // 4. Intentar guardar directamente en la base de datos de Supabase
     try {
-      await this.supabase.from('sales_orders').insert(newOrderRow as any);
-      await this.supabase.from('sales_order_items').insert(
+      const { error: oErr } = await this.supabase.from('sales_orders').insert(newOrderRow as any);
+      if (oErr) {
+        console.error('❌ Error al guardar orden en Supabase sales_orders:', oErr.message, oErr);
+      } else {
+        console.log('✅ Orden guardada exitosamente en Supabase sales_orders:', newOrderRow.id);
+      }
+
+      const { error: iErr } = await this.supabase.from('sales_order_items').insert(
         orderItems.map((i) => ({
           id: i.id,
           sales_order_id: i.sales_order_id,
@@ -1192,8 +1266,11 @@ export class AdminService {
           unit_price: i.unit_price
         })) as any
       );
+      if (iErr) {
+        console.error('❌ Error al guardar items en Supabase sales_order_items:', iErr.message, iErr);
+      }
     } catch (err) {
-      console.warn('Aviso al insertar pedido en Supabase:', err);
+      console.error('❌ Excepción al insertar pedido en Supabase:', err);
     }
 
     // 5. Registrar Lead en CRM para seguimiento comercial
@@ -1204,13 +1281,18 @@ export class AdminService {
         phone: payload.customerPhone,
         stage: 'closed_won',
         estimated_budget: payload.total,
-        notes: `Pedido Web #${orderId.slice(0, 8)} (${payload.paymentMethod || 'Web Store'}) - ${orderItems.length} ítems. Entrega: ${payload.shippingAddress}`
+        notes: `Pedido Web #${orderId.slice(0, 8)} (${payload.paymentMethod || 'Web Store'}) - Factura: ${payload.customerName}${payload.taxId ? ' (CI/RUC: ' + payload.taxId + ')' : ''} - Tel: ${payload.customerPhone} - Facturación: ${effectiveAddress}${payload.shippingAddress && payload.shippingAddress !== effectiveAddress ? ' - Entrega: ' + payload.shippingAddress : ''}`
       });
     } catch {}
 
     const fullOrder: AdminSalesOrderWithDetails = {
       ...newOrderRow,
       customer,
+      tax_id: payload.taxId,
+      customer_name: payload.customerName,
+      customer_phone: payload.customerPhone,
+      customer_email: payload.customerEmail,
+      billing_address: effectiveAddress,
       items: orderItems
     };
 

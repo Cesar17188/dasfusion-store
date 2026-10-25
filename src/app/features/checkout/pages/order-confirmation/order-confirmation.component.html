@@ -1,6 +1,6 @@
 <div class="flex min-h-[60vh] items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
   <div class="w-full max-w-lg text-center space-y-6">
-    <div class="inline-flex h-20 w-20 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+    <div class="inline-flex h-20 w-20 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 shadow-lg shadow-emerald-500/10">
       <svg class="h-10 w-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"></path>
       </svg>
@@ -9,7 +9,7 @@
     <div class="space-y-2">
       <h1 class="text-3xl font-black text-white">¡Gracias por tu compra!</h1>
       <p class="text-sm text-zinc-400">
-        Tu pedido ha sido procesado exitosamente y estamos preparando tu paquete.
+        Tu pedido ha sido procesado exitosamente y los datos de facturación fueron registrados en el sistema.
       </p>
     </div>
 
@@ -17,20 +17,39 @@
       <div class="space-y-4 py-2 text-left text-xs">
         <div class="flex justify-between border-b border-zinc-800 pb-3">
           <span class="text-zinc-400">Número de Orden:</span>
-          <span class="font-bold text-blue-400">{{ orderNumber() }}</span>
+          <span class="font-bold text-blue-400 font-mono">{{ orderNumber() }}</span>
         </div>
         <div class="flex justify-between border-b border-zinc-800 pb-3">
-          <span class="text-zinc-400">Estado:</span>
-          <span class="font-semibold text-emerald-400">Confirmado / En preparación</span>
+          <span class="text-zinc-400">Estado de Compra:</span>
+          <span class="font-semibold text-emerald-400 flex items-center gap-1.5">
+            <span class="h-2 w-2 rounded-full bg-emerald-400 animate-pulse"></span>
+            Confirmado / En preparación
+          </span>
         </div>
+
+        @if (name()) {
+          <div class="flex justify-between border-b border-zinc-800 pb-3">
+            <span class="text-zinc-400">Factura emitida a:</span>
+            <span class="font-bold text-white text-right max-w-[60%] truncate">{{ name() }}</span>
+          </div>
+        }
+
+        @if (taxId()) {
+          <div class="flex justify-between border-b border-zinc-800 pb-3">
+            <span class="text-zinc-400">Cédula / RUC / Pasaporte:</span>
+            <span class="font-mono font-bold text-emerald-400">{{ taxId() }}</span>
+          </div>
+        }
+
         @if (total() !== null) {
           <div class="flex justify-between border-b border-zinc-800 pb-3">
             <span class="text-zinc-400">Total pagado:</span>
-            <span class="font-bold text-white">{{ total()! | currency:'USD':'symbol':'1.2-2' }}</span>
+            <span class="font-bold text-white font-mono">{{ total()! | currency:'USD':'symbol':'1.2-2' }}</span>
           </div>
         }
+
         <div class="flex justify-between">
-          <span class="text-zinc-400">Confirmación enviada a:</span>
+          <span class="text-zinc-400">Factura enviada a:</span>
           <span class="font-medium text-zinc-200">{{ email() || 'Tu correo registrado' }}</span>
         </div>
       </div>

@@ -14,21 +14,26 @@ export class OrderConfirmationComponent implements OnInit {
 
   protected readonly orderNumber = signal<string>('DAS-894123');
   protected readonly email = signal<string>('');
+  protected readonly name = signal<string>('');
+  protected readonly taxId = signal<string>('');
   protected readonly total = signal<number | null>(null);
 
   ngOnInit(): void {
-    const num = this.route.snapshot.queryParams['orderNumber'];
-    if (num) {
-      this.orderNumber.set(num);
+    const q = this.route.snapshot.queryParams;
+    if (q['orderNumber']) {
+      this.orderNumber.set(q['orderNumber']);
     }
-    const em = this.route.snapshot.queryParams['email'];
-    if (em) {
-      this.email.set(em);
+    if (q['email']) {
+      this.email.set(q['email']);
     }
-    const tot = this.route.snapshot.queryParams['total'];
-    if (tot !== undefined && tot !== null) {
-      this.total.set(Number(tot));
+    if (q['name']) {
+      this.name.set(q['name']);
+    }
+    if (q['taxId']) {
+      this.taxId.set(q['taxId']);
+    }
+    if (q['total'] !== undefined && q['total'] !== null) {
+      this.total.set(Number(q['total']));
     }
   }
 }
-

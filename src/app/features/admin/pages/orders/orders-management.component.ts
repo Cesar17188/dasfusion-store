@@ -261,19 +261,34 @@ import { OrderStatus } from '../../../../core/models/supabase.model';
             <button (click)="selectedOrder.set(null)" class="text-outline hover:text-white text-lg">✕</button>
           </div>
 
-          <!-- Customer Info & Shipping -->
+          <!-- Customer Info, Datos de Factura & Shipping -->
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-[#121316] p-4 rounded-xl border border-outline-variant/30 text-xs">
-            <div class="space-y-1">
-              <span class="text-outline font-bold uppercase text-[10px]">Cliente</span>
-              <div class="font-semibold text-[#e3e2e6]">
-                {{ selectedOrder()!.customer ? (selectedOrder()!.customer!.first_name + ' ' + selectedOrder()!.customer!.last_name) : 'Venta General' }}
+            <div class="space-y-1.5">
+              <span class="text-primary font-bold uppercase text-[10px] flex items-center gap-1.5">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                Datos de Factura
+              </span>
+              <div class="font-bold text-[#e3e2e6] text-sm">
+                {{ selectedOrder()!.customer_name || (selectedOrder()!.customer ? (selectedOrder()!.customer!.first_name + ' ' + selectedOrder()!.customer!.last_name) : 'Venta General') }}
               </div>
-              <div class="text-outline">{{ selectedOrder()!.customer?.phone || 'Sin teléfono' }}</div>
+              <div class="text-[11px] font-mono text-emerald-400 font-semibold">
+                CI/RUC: {{ selectedOrder()!.tax_id || selectedOrder()!.customer?.tax_id || 'Consumidor Final / N/A' }}
+              </div>
+              <div class="text-outline text-[11px]">
+                {{ selectedOrder()!.customer_email || selectedOrder()!.customer?.email || 'Sin correo registrado' }}
+              </div>
+              <div class="text-outline text-[11px]">
+                Tel: {{ selectedOrder()!.customer_phone || selectedOrder()!.customer?.phone || 'Sin teléfono' }}
+              </div>
             </div>
-            <div class="space-y-1">
-              <span class="text-outline font-bold uppercase text-[10px]">Dirección de Entrega</span>
-              <div class="text-on-surface-variant">{{ selectedOrder()!.shipping_address }}</div>
-              <div class="text-outline">{{ selectedOrder()!.created_at | date:'medium' }}</div>
+            <div class="space-y-1.5">
+              <span class="text-outline font-bold uppercase text-[10px]">Dirección y Facturación Registrada</span>
+              <div class="text-on-surface-variant wrap-break-word bg-surface-container-low p-2.5 rounded-lg border border-outline-variant/20 text-[11px]">
+                {{ selectedOrder()!.shipping_address }}
+              </div>
+              <div class="text-outline text-[10px]">{{ selectedOrder()!.created_at | date:'medium' }}</div>
             </div>
           </div>
 

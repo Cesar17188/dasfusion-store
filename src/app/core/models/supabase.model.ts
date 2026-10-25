@@ -29,6 +29,7 @@ export interface DbProfile {
   email?: string | null;
   phone?: string | null;
   address?: string | null;
+  tax_id?: string | null; // Cédula, RUC o Pasaporte para facturación
   created_at: string; // timestamptz
   updated_at: string; // timestamptz
 }

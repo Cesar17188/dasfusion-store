@@ -1,93 +1,286 @@
 <div class="space-y-6 sm:space-y-8 max-w-5xl mx-auto pb-16 sm:pb-0">
-  <div class="pb-3 sm:pb-4 border-b border-outline-variant/40">
-    <h1 class="text-xl sm:text-3xl font-extrabold text-on-surface">Finalizar Compra Segura</h1>
-    <p class="text-xs sm:text-sm text-outline mt-1">
-      Transacción encriptada con certificado de seguridad SSL de 256 bits.
-    </p>
+  <!-- Top Banner / Title -->
+  <div class="pb-3 sm:pb-4 border-b border-outline-variant/40 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+    <div>
+      <h1 class="text-xl sm:text-3xl font-extrabold text-on-surface">Finalizar Compra Segura</h1>
+      <p class="text-xs sm:text-sm text-outline mt-0.5">
+        Transacción encriptada con certificado de seguridad SSL de 256 bits y facturación electrónica válida.
+      </p>
+    </div>
+    <div class="flex items-center gap-2 self-start sm:self-auto bg-emerald-500/10 border border-emerald-500/30 px-3 py-1.5 rounded-full text-[11px] font-semibold text-emerald-400">
+      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+      </svg>
+      Checkout Seguro & Facturación SRI
+    </div>
   </div>
 
   <form [formGroup]="checkoutForm" (ngSubmit)="onPlaceOrder()" class="grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8">
-    <!-- Form Data (2 cols on desktop) -->
+    <!-- Main Form Column (2 cols on desktop) -->
     <div class="lg:col-span-2 space-y-6 sm:space-y-8">
-      <!-- Shipping Info -->
-      <div class="bg-surface-container/80 border border-outline-variant/40 rounded-2xl p-4 sm:p-6 backdrop-blur-md space-y-4">
-        <h3 class="text-sm sm:text-base font-bold text-on-surface flex items-center gap-2">
-          <span class="flex h-6 w-6 items-center justify-center rounded-full bg-primary-container text-primary border border-primary/40 text-xs font-bold font-mono">1</span>
-          Información de Envío
-        </h3>
 
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5 sm:gap-4 pt-2">
-          <app-input
-            label="Nombre Completo"
-            placeholder="Juan Pérez"
-            [required]="true"
-            formControlName="fullName"
-            [error]="checkoutForm.get('fullName')?.touched && checkoutForm.get('fullName')?.invalid ? 'Campo requerido' : ''"
-          ></app-input>
+      <!-- ========================================== -->
+      <!-- 1. DATOS DE FACTURA (REQUERIDO) -->
+      <!-- ========================================== -->
+      <div class="bg-surface-container/85 border border-outline-variant/40 rounded-2xl p-4 sm:p-6 backdrop-blur-md space-y-5 shadow-lg">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-outline-variant/30">
+          <div class="space-y-1">
+            <h3 class="text-base sm:text-lg font-bold text-on-surface flex items-center gap-2.5">
+              <span class="flex h-6 w-6 items-center justify-center rounded-full bg-primary-container text-primary border border-primary/40 text-xs font-bold font-mono">1</span>
+              Datos de Factura
+            </h3>
+            <p class="text-xs text-outline">
+              Información requerida para la emisión de la factura y comprobante electrónico.
+            </p>
+          </div>
 
-          <app-input
-            label="Correo Electrónico"
-            placeholder="juan@ejemplo.com"
-            type="email"
-            [required]="true"
-            formControlName="email"
-            [error]="checkoutForm.get('email')?.touched && checkoutForm.get('email')?.invalid ? 'Correo no válido' : ''"
-          ></app-input>
+          <!-- Tipo de Identificación / Selector Rápido -->
+          <div class="flex items-center gap-1.5 p-1 bg-surface-container-low rounded-xl border border-outline-variant/30">
+            <button
+              type="button"
+              (click)="setDocType('cedula')"
+              [class.bg-primary]="selectedDocType() === 'cedula'"
+              [class.text-on-primary]="selectedDocType() === 'cedula'"
+              [class.text-outline]="selectedDocType() !== 'cedula'"
+              class="px-2.5 py-1 text-[11px] font-bold rounded-lg transition cursor-pointer"
+            >
+              Cédula
+            </button>
+            <button
+              type="button"
+              (click)="setDocType('ruc')"
+              [class.bg-primary]="selectedDocType() === 'ruc'"
+              [class.text-on-primary]="selectedDocType() === 'ruc'"
+              [class.text-outline]="selectedDocType() !== 'ruc'"
+              class="px-2.5 py-1 text-[11px] font-bold rounded-lg transition cursor-pointer"
+            >
+              RUC
+            </button>
+            <button
+              type="button"
+              (click)="setDocType('pasaporte')"
+              [class.bg-primary]="selectedDocType() === 'pasaporte'"
+              [class.text-on-primary]="selectedDocType() === 'pasaporte'"
+              [class.text-outline]="selectedDocType() !== 'pasaporte'"
+              class="px-2.5 py-1 text-[11px] font-bold rounded-lg transition cursor-pointer"
+            >
+              Pasaporte
+            </button>
+            <button
+              type="button"
+              (click)="setDocType('consumidor_final')"
+              [disabled]="!isConsumidorFinalAllowed()"
+              [class.bg-primary]="selectedDocType() === 'consumidor_final' && isConsumidorFinalAllowed()"
+              [class.text-on-primary]="selectedDocType() === 'consumidor_final' && isConsumidorFinalAllowed()"
+              [class.text-outline]="selectedDocType() !== 'consumidor_final' || !isConsumidorFinalAllowed()"
+              [class.opacity-40]="!isConsumidorFinalAllowed()"
+              [class.cursor-not-allowed]="!isConsumidorFinalAllowed()"
+              [class.cursor-pointer]="isConsumidorFinalAllowed()"
+              class="px-2.5 py-1 text-[11px] font-bold rounded-lg transition"
+              [title]="!isConsumidorFinalAllowed() ? 'Consumidor Final solo aplica para compras menores a $50' : 'Consumidor Final (compras menores a $50)'"
+            >
+              Consumidor Final
+            </button>
+          </div>
+        </div>
 
-          <app-input
-            label="Teléfono Móvil"
-            placeholder="+1 (555) 000-0000"
-            type="tel"
-            [required]="true"
-            formControlName="phone"
-            [error]="checkoutForm.get('phone')?.touched && checkoutForm.get('phone')?.invalid ? 'Campo requerido' : ''"
-          ></app-input>
+        @if (!isConsumidorFinalAllowed()) {
+          <div class="flex items-center gap-2.5 p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs">
+            <svg class="w-4 h-4 shrink-0 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+            <span>
+              <strong>Normativa SRI:</strong> Consumidor Final solo es aplicable si la compra es menor a <strong>$50.00</strong>. Para esta compra ({{ cartService.total() | currencyFormat }}) es obligatorio registrar Cédula, RUC o Pasaporte.
+            </span>
+          </div>
+        }
 
-          <app-input
-            label="Dirección Principal"
-            placeholder="Av. Principal #123"
-            [required]="true"
-            formControlName="addressLine1"
-            [error]="checkoutForm.get('addressLine1')?.touched && checkoutForm.get('addressLine1')?.invalid ? 'Campo requerido' : ''"
-          ></app-input>
-
-          <app-input
-            label="Ciudad"
-            placeholder="Ciudad"
-            [required]="true"
-            formControlName="city"
-            [error]="checkoutForm.get('city')?.touched && checkoutForm.get('city')?.invalid ? 'Campo requerido' : ''"
-          ></app-input>
-
-          <div class="grid grid-cols-2 gap-2">
+        <!-- Form Fields Grid -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5 sm:gap-4 pt-1">
+          <!-- 1. Nombre Completo / Razón Social -->
+          <div class="sm:col-span-2">
             <app-input
-              label="Estado"
-              placeholder="Estado"
+              label="Nombre Completo / Razón Social"
+              placeholder="Ej: Juan Pérez o DasFusion Corporación S.A."
               [required]="true"
-              formControlName="state"
+              formControlName="fullName"
+              [error]="checkoutForm.get('fullName')?.touched && checkoutForm.get('fullName')?.invalid ? 'Ingresa el nombre o razón social completo' : ''"
+              hint="Nombre de la persona natural o empresa a quien se emite la factura"
             ></app-input>
+          </div>
+
+          <!-- 2. Cédula / RUC / Pasaporte -->
+          <div>
             <app-input
-              label="Código Postal"
-              placeholder="00000"
+              label="Cédula / RUC / Pasaporte"
+              [placeholder]="selectedDocType() === 'ruc' ? 'Ej: 1792012345001 (13 dígitos)' : (selectedDocType() === 'pasaporte' ? 'Ej: A12345678' : 'Ej: 1712345678 (10 dígitos)')"
               [required]="true"
-              formControlName="postalCode"
+              formControlName="identification"
+              [error]="!isConsumidorFinalAllowed() && (checkoutForm.get('identification')?.value === '9999999999999' || checkoutForm.get('identification')?.hasError('consumidorFinalNotAllowed'))
+                ? 'Compras desde $50 requieren Cédula o RUC'
+                : (checkoutForm.get('identification')?.touched && checkoutForm.get('identification')?.invalid ? 'Ingresa un número de identificación válido' : '')"
+              hint="Identificación tributaria para el comprobante electrónico"
+            ></app-input>
+          </div>
+
+          <!-- 3. Correo Electrónico -->
+          <div>
+            <app-input
+              label="Correo Electrónico"
+              placeholder="facturacion@ejemplo.com"
+              type="email"
+              [required]="true"
+              formControlName="email"
+              [error]="checkoutForm.get('email')?.touched && checkoutForm.get('email')?.invalid ? 'Ingresa un correo electrónico válido' : ''"
+              hint="Se enviará la factura autorizada y el XML/PDF a este correo"
+            ></app-input>
+          </div>
+
+          <!-- 4. Teléfono -->
+          <div>
+            <app-input
+              label="Teléfono / Celular"
+              placeholder="099 123 4567"
+              type="tel"
+              [required]="true"
+              formControlName="phone"
+              [error]="checkoutForm.get('phone')?.touched && checkoutForm.get('phone')?.invalid ? 'Campo obligatorio para coordinar la entrega' : ''"
+              hint="Número de contacto para notificaciones del pedido"
+            ></app-input>
+          </div>
+
+          <!-- 5. Provincia de Factura -->
+          <div>
+            <div class="w-full flex flex-col gap-1.5">
+              <label class="text-xs font-semibold uppercase tracking-wider text-on-surface-variant">
+                Provincia <span class="text-error">*</span>
+              </label>
+              <select
+                formControlName="province"
+                class="w-full bg-surface-container text-on-surface text-sm rounded-lg border border-outline-variant px-3.5 py-2.5 transition-all duration-200 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/25 cursor-pointer"
+                [class.border-error]="checkoutForm.get('province')?.touched && checkoutForm.get('province')?.invalid"
+              >
+                <option value="" disabled>Selecciona una provincia</option>
+                @for (prov of ecuadorProvinces; track prov) {
+                  <option [value]="prov">{{ prov }}</option>
+                }
+              </select>
+              @if (checkoutForm.get('province')?.touched && checkoutForm.get('province')?.invalid) {
+                <span class="text-xs text-error mt-0.5">Selecciona la provincia</span>
+              }
+            </div>
+          </div>
+
+          <!-- 6. Ciudad de Factura -->
+          <div>
+            <app-input
+              label="Ciudad"
+              placeholder="Quito, Guayaquil, Cuenca..."
+              [required]="true"
+              formControlName="city"
+              [error]="checkoutForm.get('city')?.touched && checkoutForm.get('city')?.invalid ? 'Ingresa la ciudad' : ''"
+            ></app-input>
+          </div>
+
+          <!-- 7. Dirección de Facturación -->
+          <div class="sm:col-span-2">
+            <app-input
+              label="Dirección de Facturación"
+              placeholder="Av. Amazonas N24-15 y Colón, Edif. Torres del Parque, Of. 402"
+              [required]="true"
+              formControlName="address"
+              [error]="checkoutForm.get('address')?.touched && checkoutForm.get('address')?.invalid ? 'Ingresa la dirección fiscal o domiciliaria completa' : ''"
+              hint="Calle principal, numeración, intersección y referencias"
             ></app-input>
           </div>
         </div>
+
+        <!-- Opción de Envío a la misma dirección -->
+        <div class="pt-3 border-t border-outline-variant/30 space-y-3">
+          <label class="flex items-center gap-3 cursor-pointer p-3 rounded-xl bg-surface-container-low/70 border border-outline-variant/30 hover:border-outline-variant transition">
+            <input
+              type="checkbox"
+              formControlName="sameAsBilling"
+              class="h-4 w-4 rounded border-outline-variant text-primary focus:ring-primary/30 accent-blue-500"
+            />
+            <div class="text-xs">
+              <span class="text-on-surface font-semibold select-none block">
+                La dirección de entrega es la misma que la dirección de facturación
+              </span>
+              <span class="text-outline text-[11px] block">
+                Desmarca esta casilla si requieres enviar los productos a una dirección física diferente.
+              </span>
+            </div>
+          </label>
+
+          @if (!checkoutForm.get('sameAsBilling')?.value) {
+            <div class="p-4 rounded-xl bg-surface-container-low border border-primary/30 space-y-3 animate-fadeIn">
+              <h4 class="text-xs font-bold uppercase tracking-wider text-primary flex items-center gap-2">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+                Dirección Alternativa de Entrega
+              </h4>
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                <div class="sm:col-span-2">
+                  <app-input
+                    label="Dirección de Destino"
+                    placeholder="Calle, número e intersección donde recibirás tu pedido"
+                    [required]="true"
+                    formControlName="shippingAddress"
+                    [error]="!checkoutForm.get('sameAsBilling')?.value && checkoutForm.get('shippingAddress')?.touched && !checkoutForm.get('shippingAddress')?.value ? 'Ingresa la dirección de entrega' : ''"
+                  ></app-input>
+                </div>
+                <div>
+                  <div class="w-full flex flex-col gap-1.5">
+                    <label class="text-xs font-semibold uppercase tracking-wider text-on-surface-variant">
+                      Provincia de Entrega <span class="text-error">*</span>
+                    </label>
+                    <select
+                      formControlName="shippingProvince"
+                      class="w-full bg-surface-container text-on-surface text-sm rounded-lg border border-outline-variant px-3.5 py-2.5 transition-all duration-200 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/25 cursor-pointer"
+                      [class.border-error]="!checkoutForm.get('sameAsBilling')?.value && checkoutForm.get('shippingProvince')?.touched && !checkoutForm.get('shippingProvince')?.value"
+                    >
+                      <option value="" disabled>Selecciona la provincia de entrega</option>
+                      @for (prov of ecuadorProvinces; track prov) {
+                        <option [value]="prov">{{ prov }}</option>
+                      }
+                    </select>
+                    @if (!checkoutForm.get('sameAsBilling')?.value && checkoutForm.get('shippingProvince')?.touched && !checkoutForm.get('shippingProvince')?.value) {
+                      <span class="text-xs text-error mt-0.5">Selecciona la provincia de entrega</span>
+                    }
+                  </div>
+                </div>
+                <div>
+                  <app-input
+                    label="Ciudad de Entrega"
+                    placeholder="Ciudad de destino"
+                    [required]="true"
+                    formControlName="shippingCity"
+                    [error]="!checkoutForm.get('sameAsBilling')?.value && checkoutForm.get('shippingCity')?.touched && !checkoutForm.get('shippingCity')?.value ? 'Ingresa la ciudad de entrega' : ''"
+                  ></app-input>
+                </div>
+              </div>
+            </div>
+          }
+        </div>
       </div>
 
-      <!-- Payment Method -->
-      <div class="bg-surface-container/80 border border-outline-variant/40 rounded-2xl p-4 sm:p-6 backdrop-blur-md space-y-4">
-        <h3 class="text-sm sm:text-base font-bold text-on-surface flex items-center gap-2">
+      <!-- ========================================== -->
+      <!-- 2. MÉTODO DE PAGO -->
+      <!-- ========================================== -->
+      <div class="bg-surface-container/85 border border-outline-variant/40 rounded-2xl p-4 sm:p-6 backdrop-blur-md space-y-4 shadow-lg">
+        <h3 class="text-base sm:text-lg font-bold text-on-surface flex items-center gap-2.5">
           <span class="flex h-6 w-6 items-center justify-center rounded-full bg-primary-container text-primary border border-primary/40 text-xs font-bold font-mono">2</span>
           Método de Pago
         </h3>
 
-        <div class="grid grid-cols-3 gap-2 sm:gap-3 pt-2">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 pt-2">
           <button
             type="button"
             (click)="selectedPayment.set('credit_card')"
-            class="p-2.5 sm:p-3 rounded-xl border text-[11px] sm:text-xs font-bold text-center transition cursor-pointer"
+            class="p-3.5 rounded-xl border text-xs font-bold text-center transition cursor-pointer flex flex-col items-center gap-1.5"
             [class.border-primary]="selectedPayment() === 'credit_card'"
             [class.bg-primary-container]="selectedPayment() === 'credit_card'"
             [class.text-primary]="selectedPayment() === 'credit_card'"
@@ -95,33 +288,27 @@
             [class.bg-surface-container-lowest]="selectedPayment() !== 'credit_card'"
             [class.text-outline]="selectedPayment() !== 'credit_card'"
           >
-            Tarjeta
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+            </svg>
+            Tarjeta de Crédito / Débito
           </button>
+
           <button
             type="button"
-            (click)="selectedPayment.set('paypal')"
-            class="p-2.5 sm:p-3 rounded-xl border text-[11px] sm:text-xs font-bold text-center transition cursor-pointer"
-            [class.border-primary]="selectedPayment() === 'paypal'"
-            [class.bg-primary-container]="selectedPayment() === 'paypal'"
-            [class.text-primary]="selectedPayment() === 'paypal'"
-            [class.border-outline-variant/40]="selectedPayment() !== 'paypal'"
-            [class.bg-surface-container-lowest]="selectedPayment() !== 'paypal'"
-            [class.text-outline]="selectedPayment() !== 'paypal'"
+            (click)="selectedPayment.set('transfer')"
+            class="p-3.5 rounded-xl border text-xs font-bold text-center transition cursor-pointer flex flex-col items-center gap-1.5"
+            [class.border-primary]="selectedPayment() === 'transfer'"
+            [class.bg-primary-container]="selectedPayment() === 'transfer'"
+            [class.text-primary]="selectedPayment() === 'transfer'"
+            [class.border-outline-variant/40]="selectedPayment() !== 'transfer'"
+            [class.bg-surface-container-lowest]="selectedPayment() !== 'transfer'"
+            [class.text-outline]="selectedPayment() !== 'transfer'"
           >
-            PayPal
-          </button>
-          <button
-            type="button"
-            (click)="selectedPayment.set('crypto')"
-            class="p-2.5 sm:p-3 rounded-xl border text-[11px] sm:text-xs font-bold text-center transition cursor-pointer"
-            [class.border-primary]="selectedPayment() === 'crypto'"
-            [class.bg-primary-container]="selectedPayment() === 'crypto'"
-            [class.text-primary]="selectedPayment() === 'crypto'"
-            [class.border-outline-variant/40]="selectedPayment() !== 'crypto'"
-            [class.bg-surface-container-lowest]="selectedPayment() !== 'crypto'"
-            [class.text-outline]="selectedPayment() !== 'crypto'"
-          >
-            Crypto / USDT
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 14v3m4-3v3m4-3v3M3 21h18M3 10h18M3 7l9-4 9 4M4 10h16v11H4V10z" />
+            </svg>
+            Transferencia Bancaria Directa
           </button>
         </div>
 
@@ -138,27 +325,46 @@
             </div>
           </div>
         }
+
+        @if (selectedPayment() === 'transfer') {
+          <div class="p-3.5 rounded-xl bg-surface-container-low border border-outline-variant/40 text-xs space-y-2">
+            <div class="font-bold text-on-surface flex items-center gap-2">
+              <span class="text-primary font-mono">BANCO PICHINCHA</span> | Cuenta Corriente
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-outline text-[11px]">
+              <div>Número: <strong class="text-on-surface font-mono">2100894123</strong></div>
+              <div>RUC: <strong class="text-on-surface font-mono">1792994123001</strong></div>
+              <div>Beneficiario: <strong class="text-on-surface">DASFUSION STORE C.A.</strong></div>
+              <div>Correo: <strong class="text-on-surface">pagos&#64;dasfusion.ec</strong></div>
+            </div>
+            <p class="text-[10px] text-primary/80 pt-1">
+              Podrás adjuntar o notificar tu comprobante tras confirmar el pedido.
+            </p>
+          </div>
+        }
       </div>
     </div>
 
-    <!-- Order Summary Column -->
+    <!-- Order Summary Column (Right) -->
     <div class="lg:col-span-1 space-y-4 sm:space-y-6">
-      <div class="bg-surface-container/90 border border-outline-variant/40 rounded-2xl p-5 sm:p-6 backdrop-blur-md space-y-4 sm:space-y-5">
-        <h3 class="text-sm sm:text-base font-bold text-on-surface">Resumen Final</h3>
+      <div class="bg-surface-container/90 border border-outline-variant/40 rounded-2xl p-5 sm:p-6 backdrop-blur-md space-y-4 sm:space-y-5 shadow-xl sticky top-24">
+        <h3 class="text-sm sm:text-base font-bold text-on-surface">Resumen de Compra</h3>
 
+        <!-- Items Mini List -->
         <div class="space-y-2.5 max-h-48 overflow-y-auto pr-1">
           @for (item of cartService.items(); track item.id) {
-            <div class="flex items-center justify-between text-xs">
-              <span class="text-on-surface-variant truncate max-w-35 sm:max-w-40">{{ item.quantity }}x {{ item.product.name }}</span>
-              <span class="font-bold text-on-surface font-mono">{{ item.totalPrice | currencyFormat }}</span>
+            <div class="flex items-center justify-between text-xs gap-2">
+              <span class="text-on-surface-variant truncate max-w-44">{{ item.quantity }}x {{ item.product.name }}</span>
+              <span class="font-bold text-on-surface font-mono shrink-0">{{ item.totalPrice | currencyFormat }}</span>
             </div>
           }
         </div>
 
+        <!-- Prices Breakdown -->
         <div class="space-y-2 pt-3 border-t border-outline-variant/40 text-xs">
           <div class="flex justify-between text-on-surface-variant">
             <span>Subtotal:</span>
-            <span class="font-mono">{{ cartService.subtotal() | currencyFormat }}</span>
+            <span class="font-mono text-on-surface">{{ cartService.subtotal() | currencyFormat }}</span>
           </div>
           @if (cartService.discount() > 0) {
             <div class="flex justify-between text-tertiary">
@@ -168,7 +374,7 @@
           }
           <div class="flex justify-between text-on-surface-variant">
             <span>Envío:</span>
-            <span class="font-mono">{{ cartService.shipping() === 0 ? 'GRATIS' : (cartService.shipping() | currencyFormat) }}</span>
+            <span class="font-mono text-on-surface">{{ cartService.shipping() === 0 ? 'GRATIS' : (cartService.shipping() | currencyFormat) }}</span>
           </div>
           <div class="flex justify-between text-on-surface-variant items-center">
             <span class="flex items-center gap-1.5">
@@ -179,14 +385,39 @@
                 </span>
               }
             </span>
-            <span class="font-mono">{{ cartService.tax() | currencyFormat }}</span>
+            <span class="font-mono text-on-surface">{{ cartService.tax() | currencyFormat }}</span>
           </div>
-          <div class="flex justify-between text-sm sm:text-base font-bold text-on-surface pt-2 border-t border-outline-variant/40">
+          <div class="flex justify-between text-sm sm:text-base font-bold text-on-surface pt-3 border-t border-outline-variant/40">
             <span>Total a Pagar:</span>
             <span class="text-primary font-extrabold font-mono text-lg sm:text-xl">{{ cartService.total() | currencyFormat }}</span>
           </div>
         </div>
 
+        <!-- Form errors warning banner -->
+        @if (checkoutForm.touched && checkoutForm.invalid) {
+          <div class="p-3 rounded-xl bg-error/10 border border-error/30 text-error text-[11px] space-y-1">
+            <div class="font-bold flex items-center gap-1.5">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+              Por favor completa los campos requeridos:
+            </div>
+            <ul class="list-disc pl-4 space-y-0.5 text-[10px]">
+              @if (checkoutForm.get('fullName')?.invalid) { <li>Nombre Completo o Razón Social</li> }
+              @if (checkoutForm.get('identification')?.invalid) { <li>Cédula, RUC o Pasaporte</li> }
+              @if (checkoutForm.get('email')?.invalid) { <li>Correo Electrónico válido</li> }
+              @if (checkoutForm.get('phone')?.invalid) { <li>Teléfono de contacto</li> }
+              @if (checkoutForm.get('province')?.invalid) { <li>Provincia de facturación</li> }
+              @if (checkoutForm.get('city')?.invalid) { <li>Ciudad de facturación</li> }
+              @if (checkoutForm.get('address')?.invalid) { <li>Dirección de facturación</li> }
+              @if (!checkoutForm.get('sameAsBilling')?.value && (!checkoutForm.get('shippingAddress')?.value || !checkoutForm.get('shippingProvince')?.value || !checkoutForm.get('shippingCity')?.value)) {
+                <li>Dirección, provincia y ciudad de entrega</li>
+              }
+            </ul>
+          </div>
+        }
+
+        <!-- Action Submit Button -->
         <app-button
           type="submit"
           variant="primary"
@@ -195,6 +426,16 @@
         >
           Confirmar y Pagar
         </app-button>
+
+        <!-- Trust footer -->
+        <div class="pt-2 text-center text-[10px] text-outline space-y-1">
+          <div class="flex items-center justify-center gap-2">
+            <span>🔒 SSL Seguro</span>
+            <span>•</span>
+            <span>📄 Factura Electrónica SRI</span>
+          </div>
+          <div>Garantía Oficial DasFusion Store</div>
+        </div>
       </div>
     </div>
   </form>
