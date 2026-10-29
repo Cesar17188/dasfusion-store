@@ -43,7 +43,7 @@
 
         @if (total() !== null) {
           <div class="flex justify-between border-b border-zinc-800 pb-3">
-            <span class="text-zinc-400">Total pagado:</span>
+            <span class="text-zinc-400">Total a pagar:</span>
             <span class="font-bold text-white font-mono">{{ total()! | currency:'USD':'symbol':'1.2-2' }}</span>
           </div>
         }
@@ -54,6 +54,93 @@
         </div>
       </div>
     </app-card>
+
+    @if (paymentMethod() === 'transfer') {
+      <div class="rounded-2xl border border-emerald-500/30 bg-emerald-950/20 p-5 text-left space-y-4 shadow-xl">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0 border border-emerald-500/30">
+            <svg class="w-5 h-5 fill-current" viewBox="0 0 24 24">
+              <path d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.019 3.287l-.582 2.128 2.182-.573c.978.58 1.911.928 3.145.929 3.178 0 5.767-2.587 5.768-5.766.001-3.187-2.575-5.77-5.764-5.771zm3.392 8.244c-.144.405-.837.774-1.17.824-.299.045-.677.063-1.092-.069-.252-.08-.575-.187-.988-.365-1.739-.751-2.874-2.502-2.961-2.617-.087-.116-.708-.94-.708-1.793s.448-1.273.607-1.446c.159-.173.346-.217.462-.217l.332.006c.106.005.249-.04.39.298.144.347.491 1.2.534 1.287.043.087.072.188.014.304-.058.116-.087.188-.173.289l-.26.304c-.087.086-.177.18-.076.354.101.174.449.741.964 1.201.662.591 1.221.774 1.394.86s.275.072.376-.044c.101-.116.433-.506.549-.68.116-.173.231-.145.39-.086s1.011.477 1.184.564.289.13.332.202c.045.072.045.419-.099.824zm-3.392-10.416c-4.418 0-8 3.582-8 8 0 1.411.365 2.737 1.004 3.889l-1.066 3.902 4.004-1.05c1.114.604 2.388.949 3.742.949 4.418 0 8-3.582 8-8s-3.582-8-8-8z"/>
+            </svg>
+          </div>
+          <div>
+            <h3 class="text-sm font-bold text-white">¿Realizaste tu transferencia bancaria?</h3>
+            <p class="text-xs text-zinc-300">
+              Envía tu comprobante al <strong class="text-emerald-400 font-mono">{{ paymentWhatsAppDisplay }}</strong> para validar tu orden <strong class="text-white font-mono">{{ orderNumber() }}</strong>.
+            </p>
+          </div>
+        </div>
+
+        <a
+          [href]="whatsappReceiptUrl()"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="w-full py-3 px-4 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-black text-xs flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/20 transition cursor-pointer"
+        >
+          <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24">
+            <path d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.019 3.287l-.582 2.128 2.182-.573c.978.58 1.911.928 3.145.929 3.178 0 5.767-2.587 5.768-5.766.001-3.187-2.575-5.77-5.764-5.771zm3.392 8.244c-.144.405-.837.774-1.17.824-.299.045-.677.063-1.092-.069-.252-.08-.575-.187-.988-.365-1.739-.751-2.874-2.502-2.961-2.617-.087-.116-.708-.94-.708-1.793s.448-1.273.607-1.446c.159-.173.346-.217.462-.217l.332.006c.106.005.249-.04.39.298.144.347.491 1.2.534 1.287.043.087.072.188.014.304-.058.116-.087.188-.173.289l-.26.304c-.087.086-.177.18-.076.354.101.174.449.741.964 1.201.662.591 1.221.774 1.394.86s.275.072.376-.044c.101-.116.433-.506.549-.68.116-.173.231-.145.39-.086s1.011.477 1.184.564.289.13.332.202c.045.072.045.419-.099.824zm-3.392-10.416c-4.418 0-8 3.582-8 8 0 1.411.365 2.737 1.004 3.889l-1.066 3.902 4.004-1.05c1.114.604 2.388.949 3.742.949 4.418 0 8-3.582 8-8s-3.582-8-8-8z"/>
+          </svg>
+          <span>Enviar Comprobante por WhatsApp</span>
+        </a>
+
+        <!-- Collapsible list of authorized bank accounts -->
+        <details class="text-xs text-zinc-400 group">
+          <summary class="cursor-pointer font-medium hover:text-white transition flex items-center justify-between select-none py-1">
+            <span>Ver datos de cuentas bancarias autorizadas</span>
+            <svg class="w-4 h-4 transition-transform group-open:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+            </svg>
+          </summary>
+          <div class="mt-3 space-y-3 pt-2 border-t border-zinc-800">
+            <!-- Datos Generales -->
+            <div class="p-3 rounded-lg bg-zinc-900/80 border border-zinc-700/60 text-xs space-y-1.5">
+              <div class="font-bold text-white text-[11px] uppercase tracking-wide flex items-center justify-between">
+                <span>Datos Generales del Beneficiario</span>
+                <span class="text-[10px] text-zinc-400 font-normal">Común para todas las cuentas</span>
+              </div>
+              <div class="text-zinc-300 text-[11px]">Titular: <strong class="text-white">{{ beneficiary.accountHolder }}</strong></div>
+              <div class="flex items-center justify-between text-[11px] text-zinc-300">
+                <span>{{ beneficiary.identificationType }}: <strong class="font-mono text-white">{{ beneficiary.identification }}</strong></span>
+                <button
+                  type="button"
+                  (click)="copyToClipboard(beneficiary.identification, 'conf-gen-id')"
+                  class="text-[10px] text-emerald-400 hover:underline cursor-pointer"
+                >
+                  {{ copiedField() === 'conf-gen-id' ? '¡Copiado!' : 'Copiar Cédula' }}
+                </button>
+              </div>
+              <div class="text-zinc-300 text-[11px]">Teléfono: <strong class="font-mono text-white">{{ beneficiary.phone }}</strong> • Correo: <strong class="text-white">{{ beneficiary.email }}</strong></div>
+            </div>
+
+            <!-- Cuentas bancarias apiladas sin logos para máxima legibilidad (Mobile First) -->
+            <div class="flex flex-col gap-2.5">
+              @for (acc of bankAccounts; track acc.id) {
+                <div class="p-3 rounded-xl bg-zinc-900/70 border border-zinc-800 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 shadow-sm">
+                  <div class="min-w-0">
+                    <div class="font-bold text-white text-xs sm:text-sm truncate">{{ acc.bankName }}</div>
+                    <div class="text-zinc-400 text-[10px] sm:text-[11px]">{{ acc.accountType }}</div>
+                  </div>
+
+                  <div class="w-full sm:w-auto flex items-center justify-between sm:justify-end gap-3 bg-zinc-950/80 px-3 py-1.5 rounded-lg border border-zinc-800">
+                    <div>
+                      <span class="text-[9px] text-zinc-400 uppercase font-semibold block leading-none">N° Cuenta:</span>
+                      <strong class="font-mono text-white text-xs sm:text-sm">{{ acc.accountNumber }}</strong>
+                    </div>
+                    <button
+                      type="button"
+                      (click)="copyToClipboard(acc.accountNumber, 'conf-' + acc.id)"
+                      class="text-xs text-emerald-400 hover:text-emerald-300 active:scale-95 transition cursor-pointer font-bold px-2 py-1 rounded bg-emerald-500/10 border border-emerald-500/20 touch-manipulation"
+                    >
+                      {{ copiedField() === 'conf-' + acc.id ? '¡Copiado!' : 'Copiar' }}
+                    </button>
+                  </div>
+                </div>
+              }
+            </div>
+          </div>
+        </details>
+      </div>
+    }
 
     <div class="flex items-center justify-center gap-4 pt-4">
       <a

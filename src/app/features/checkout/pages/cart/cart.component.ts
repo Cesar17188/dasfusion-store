@@ -227,9 +227,16 @@ export class CartComponent {
           <h4>Términos & Cuentas Autorizadas</h4>
           <ul>
             <li>Precios expresados en Dólares de los Estados Unidos (USD), incluyen impuestos de ley (IVA).</li>
-            <li>Disponibilidad de inventario sujeta a stock al momento de la confirmación formal del pedido.</li>
-            <li><strong>Banco Pichincha:</strong> Cuenta Corriente N° 2100894123 • A nombre de: <strong>DASFUSION STORE C.A.</strong> • RUC: 1792994123001</li>
-            <li>Para concretar la compra, contáctanos a <strong>ventas@dasfusion.ec</strong> o al <strong>+593 99 123 4567</strong> adjuntando el N° ${qNum}.</li>
+            <li><strong>Datos Generales del Beneficiario:</strong>
+              <br/>• Titular: Omar David Santillán Fernández | CI: 1715593388 | Teléfono: 0987148786 | Correo: pagos@dasfusion.ec
+            </li>
+            <li><strong>Cuentas Bancarias Autorizadas:</strong>
+              <br/>• Banco Internacional: Cuenta de Ahorros N° 808083672
+              <br/>• Banco Guayaquil (Peigo): Cuenta de Ahorros N° 0061661586
+              <br/>• Produbanco: Cuenta Digital N° 20002218923
+              <br/>• Banco General Rumiñahui (BGR): Cuenta de Ahorro N° 8687596500
+            </li>
+            <li>Para validar tu pago, envía tu comprobante por WhatsApp al <strong>+593 98 714 8786</strong> (0987148786) o a <strong>pagos@dasfusion.ec</strong> adjuntando el N° ${qNum}.</li>
           </ul>
         </div>
 

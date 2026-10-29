@@ -2953,23 +2953,26 @@ export class InventoryManagementComponent {
   async saveCategoryForm(): Promise<void> {
     if (!this.categoryForm.name.trim()) return;
 
-    if (this.editingCategory()) {
-      await this.adminService.updateCategory(this.editingCategory()!.id, {
-        name: this.categoryForm.name.trim(),
-        slug: this.categoryForm.slug.trim(),
-        parent_id: this.categoryForm.parent_id,
-        is_active: this.categoryForm.is_active
-      });
-    } else {
-      await this.adminService.createCategory({
-        name: this.categoryForm.name.trim(),
-        slug: this.categoryForm.slug.trim(),
-        parent_id: this.categoryForm.parent_id,
-        is_active: this.categoryForm.is_active
-      });
+    try {
+      if (this.editingCategory()) {
+        await this.adminService.updateCategory(this.editingCategory()!.id, {
+          name: this.categoryForm.name.trim(),
+          slug: this.categoryForm.slug.trim(),
+          parent_id: this.categoryForm.parent_id,
+          is_active: this.categoryForm.is_active
+        });
+      } else {
+        await this.adminService.createCategory({
+          name: this.categoryForm.name.trim(),
+          slug: this.categoryForm.slug.trim(),
+          parent_id: this.categoryForm.parent_id,
+          is_active: this.categoryForm.is_active
+        });
+      }
+      this.isCategoryModalOpen.set(false);
+    } catch (err: any) {
+      alert('Error al guardar la categoría en la base de datos: ' + (err?.message || 'Error desconocido'));
     }
-
-    this.isCategoryModalOpen.set(false);
   }
 
   async toggleCategoryStatus(id: string): Promise<void> {
@@ -3026,28 +3029,31 @@ export class InventoryManagementComponent {
   async saveBrandForm(): Promise<void> {
     if (!this.brandForm.name.trim()) return;
 
-    if (this.editingBrand()) {
-      await this.adminService.updateBrand(this.editingBrand()!.id, {
-        name: this.brandForm.name.trim(),
-        slug: this.brandForm.slug.trim(),
-        category_ids: this.brandForm.category_ids,
-        is_active: this.brandForm.is_active
-      });
-    } else {
-      const created = await this.adminService.createBrand({
-        name: this.brandForm.name.trim(),
-        slug: this.brandForm.slug.trim(),
-        category_ids: this.brandForm.category_ids,
-        is_active: this.brandForm.is_active
-      });
-      if (this.isNewProductModalOpen()) {
-        this.newProdForm.brand_id = created.id;
-      } else if (this.editingProduct()) {
-        this.editProdForm.brand_id = created.id;
+    try {
+      if (this.editingBrand()) {
+        await this.adminService.updateBrand(this.editingBrand()!.id, {
+          name: this.brandForm.name.trim(),
+          slug: this.brandForm.slug.trim(),
+          category_ids: this.brandForm.category_ids,
+          is_active: this.brandForm.is_active
+        });
+      } else {
+        const created = await this.adminService.createBrand({
+          name: this.brandForm.name.trim(),
+          slug: this.brandForm.slug.trim(),
+          category_ids: this.brandForm.category_ids,
+          is_active: this.brandForm.is_active
+        });
+        if (this.isNewProductModalOpen()) {
+          this.newProdForm.brand_id = created.id;
+        } else if (this.editingProduct()) {
+          this.editProdForm.brand_id = created.id;
+        }
       }
+      this.isBrandModalOpen.set(false);
+    } catch (err: any) {
+      alert('Error al guardar la marca en la base de datos: ' + (err?.message || 'Error desconocido'));
     }
-
-    this.isBrandModalOpen.set(false);
   }
 
   async toggleBrandStatus(id: string): Promise<void> {
@@ -3303,16 +3309,20 @@ export class InventoryManagementComponent {
 
     const specs = this.serializeSpecGroups(this.newProdSpecGroups());
 
-    await this.adminService.createProductWithVariants(
-      {
-        ...this.newProdForm,
-        images: this.newProdImages(),
-        specifications: specs
-      },
-      variantsToSave
-    );
-    await this.productService.loadProductsFromDatabase();
-    this.isNewProductModalOpen.set(false);
+    try {
+      await this.adminService.createProductWithVariants(
+        {
+          ...this.newProdForm,
+          images: this.newProdImages(),
+          specifications: specs
+        },
+        variantsToSave
+      );
+      await this.productService.loadProductsFromDatabase();
+      this.isNewProductModalOpen.set(false);
+    } catch (err: any) {
+      alert('Error al guardar el producto en la base de datos: ' + (err?.message || 'Error desconocido'));
+    }
   }
 
   // --- Product Edition & Additional Images Methods ---
@@ -3525,61 +3535,65 @@ export class InventoryManagementComponent {
 
     const specs = this.serializeSpecGroups(this.editProdSpecGroups());
 
-    // 1. Update product base info
-    await this.adminService.updateProduct(this.editingProduct()!.id, {
-      model: this.editProdForm.model.trim(),
-      category_id: this.editProdForm.category_id,
-      brand_id: this.editProdForm.brand_id,
-      short_description: this.editProdForm.short_description.trim(),
-      product_type: this.editProdForm.product_type,
-      is_active: this.editProdForm.is_active,
-      images: this.editProdImages(),
-      specifications: specs
-    });
+    try {
+      // 1. Update product base info
+      await this.adminService.updateProduct(this.editingProduct()!.id, {
+        model: this.editProdForm.model.trim(),
+        category_id: this.editProdForm.category_id,
+        brand_id: this.editProdForm.brand_id,
+        short_description: this.editProdForm.short_description.trim(),
+        product_type: this.editProdForm.product_type,
+        is_active: this.editProdForm.is_active,
+        images: this.editProdImages(),
+        specifications: specs
+      });
 
-    // 2. Delete removed variants
-    for (const vId of this.deletedVariantIds) {
-      await this.adminService.deleteVariant(vId);
-    }
-
-    // 3. Update existing or insert new variants
-    for (const v of variants) {
-      const phys = Number(v.stock_physical) || 0;
-      const virt = Number(v.stock_virtual) || 0;
-      const total = phys + virt;
-      const compAt = v.compare_at_price && Number(v.compare_at_price) > Number(v.price) ? Number(v.compare_at_price) : undefined;
-      const discPct = compAt ? Math.round(((compAt - Number(v.price)) / compAt) * 100) : (v.discount_percent ? Number(v.discount_percent) : undefined);
-
-      if (v.isNew) {
-        await this.adminService.addVariantToProduct(this.editingProduct()!.id, {
-          sku: v.sku.trim().toUpperCase(),
-          variant_name: v.variant_name.trim(),
-          price: Number(v.price) || 0,
-          compare_at_price: compAt,
-          discount_percent: discPct,
-          stock: total,
-          stock_physical: phys,
-          stock_virtual: virt,
-          is_bundle: !!v.is_bundle
-        });
-      } else {
-        await this.adminService.updateVariant(v.id, {
-          sku: v.sku.trim().toUpperCase(),
-          variant_name: v.variant_name.trim(),
-          price: Number(v.price) || 0,
-          compare_at_price: compAt,
-          discount_percent: discPct,
-          stock: total,
-          stock_physical: phys,
-          stock_virtual: virt,
-          is_bundle: !!v.is_bundle
-        });
+      // 2. Delete removed variants
+      for (const vId of this.deletedVariantIds) {
+        await this.adminService.deleteVariant(vId);
       }
-    }
 
-    await this.productService.loadProductsFromDatabase();
-    this.productService.setProductActive(this.editingProduct()!.id, this.editProdForm.is_active);
-    this.isEditProductModalOpen.set(false);
+      // 3. Update existing or insert new variants
+      for (const v of variants) {
+        const phys = Number(v.stock_physical) || 0;
+        const virt = Number(v.stock_virtual) || 0;
+        const total = phys + virt;
+        const compAt = v.compare_at_price && Number(v.compare_at_price) > Number(v.price) ? Number(v.compare_at_price) : undefined;
+        const discPct = compAt ? Math.round(((compAt - Number(v.price)) / compAt) * 100) : (v.discount_percent ? Number(v.discount_percent) : undefined);
+
+        if (v.isNew) {
+          await this.adminService.addVariantToProduct(this.editingProduct()!.id, {
+            sku: v.sku.trim().toUpperCase(),
+            variant_name: v.variant_name.trim(),
+            price: Number(v.price) || 0,
+            compare_at_price: compAt,
+            discount_percent: discPct,
+            stock: total,
+            stock_physical: phys,
+            stock_virtual: virt,
+            is_bundle: !!v.is_bundle
+          });
+        } else {
+          await this.adminService.updateVariant(v.id, {
+            sku: v.sku.trim().toUpperCase(),
+            variant_name: v.variant_name.trim(),
+            price: Number(v.price) || 0,
+            compare_at_price: compAt,
+            discount_percent: discPct,
+            stock: total,
+            stock_physical: phys,
+            stock_virtual: virt,
+            is_bundle: !!v.is_bundle
+          });
+        }
+      }
+
+      await this.productService.loadProductsFromDatabase();
+      this.productService.setProductActive(this.editingProduct()!.id, this.editProdForm.is_active);
+      this.isEditProductModalOpen.set(false);
+    } catch (err: any) {
+      alert('Error al actualizar el producto en la base de datos: ' + (err?.message || 'Error desconocido'));
+    }
   }
 
   async deleteProduct(productId: string): Promise<void> {

@@ -9,6 +9,13 @@ import { AuthService } from '../../../../core/services/auth.service';
 import { ButtonComponent } from '../../../../shared/components/button/button.component';
 import { InputComponent } from '../../../../shared/components/input/input.component';
 import { CurrencyFormatPipe } from '../../../../shared/pipes/currency-format.pipe';
+import {
+  BANK_ACCOUNTS,
+  PAYMENT_WHATSAPP_PHONE,
+  PAYMENT_WHATSAPP_DISPLAY,
+  BENEFICIARY_INFO,
+  BankAccount
+} from '../../../../core/constants/bank-accounts.constant';
 
 @Component({
   selector: 'app-checkout-process',
@@ -27,6 +34,45 @@ export class CheckoutProcessComponent implements OnInit {
   protected readonly isProcessing = signal<boolean>(false);
   protected readonly selectedPayment = signal<'credit_card' | 'transfer'>('credit_card');
   protected readonly selectedDocType = signal<'cedula' | 'ruc' | 'pasaporte' | 'consumidor_final'>('cedula');
+
+  readonly beneficiary = BENEFICIARY_INFO;
+  readonly bankAccounts: BankAccount[] = BANK_ACCOUNTS;
+  readonly paymentWhatsAppPhone = PAYMENT_WHATSAPP_PHONE;
+  readonly paymentWhatsAppDisplay = PAYMENT_WHATSAPP_DISPLAY;
+  protected readonly copiedField = signal<string | null>(null);
+
+  copyToClipboard(text: string, fieldId: string): void {
+    if (typeof navigator !== 'undefined' && navigator.clipboard) {
+      navigator.clipboard.writeText(text).then(() => {
+        this.copiedField.set(fieldId);
+        setTimeout(() => {
+          if (this.copiedField() === fieldId) {
+            this.copiedField.set(null);
+          }
+        }, 2000);
+      }).catch(err => {
+        console.error('Error al copiar:', err);
+      });
+    }
+  }
+
+  readonly whatsappReceiptUrl = computed(() => {
+    const formVal = this.checkoutForm.value;
+    const name = formVal.fullName ? formVal.fullName.trim() : '';
+    const total = this.cartService.total();
+    const totalFormatted = total ? `$${total.toFixed(2)}` : '';
+
+    let msg = '¡Hola! He realizado una transferencia bancaria para mi compra en DasFusion Store.';
+    if (name) {
+      msg += `\n*Cliente:* ${name}`;
+    }
+    if (totalFormatted) {
+      msg += `\n*Total a pagar:* ${totalFormatted}`;
+    }
+    msg += '\n\nAdjunto el comprobante de transferencia para su confirmación. ¡Muchas gracias!';
+
+    return `https://wa.me/${this.paymentWhatsAppPhone}?text=${encodeURIComponent(msg)}`;
+  });
 
   // Por normativa SRI en Ecuador, Consumidor Final solo aplica para compras estrictamente menores a $50
   readonly isConsumidorFinalAllowed = computed(() => this.cartService.total() < 50);
@@ -198,7 +244,8 @@ export class CheckoutProcessComponent implements OnInit {
           name: val.fullName.trim(),
           taxId: val.identification.trim(),
           email: val.email.trim(),
-          total: createdOrder.total
+          total: createdOrder.total,
+          paymentMethod: this.selectedPayment()
         }
       });
     } catch (err) {

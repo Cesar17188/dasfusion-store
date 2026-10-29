@@ -207,7 +207,7 @@ export class AdminService {
     const slug = cat.slug || cat.name.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
     const newCategory: DbCategory = {
       id: crypto.randomUUID(),
-      name: cat.name,
+      name: cat.name.trim(),
       slug,
       parent_id: cat.parent_id || null,
       is_active: cat.is_active ?? true
@@ -221,11 +221,19 @@ export class AdminService {
         parent_id: newCategory.parent_id,
         is_active: newCategory.is_active
       }).select().single();
-      if (!error && data) {
-        newCategory.id = data.id;
+
+      if (error) {
+        console.error('❌ Error al guardar categoría en Supabase:', error.message, error);
+        throw new Error(error.message || 'Error al guardar categoría en Supabase');
       }
-    } catch (err) {
-      console.warn('Error al guardar categoría en Supabase, guardando localmente:', err);
+
+      if (data) {
+        newCategory.id = data.id;
+        console.log('✅ Categoría guardada exitosamente en Supabase:', newCategory.id, newCategory.name);
+      }
+    } catch (err: any) {
+      console.error('❌ Fallo al insertar categoría en Supabase:', err);
+      throw err;
     }
 
     this.categories.update((prev) => [...prev, newCategory]);
@@ -252,7 +260,10 @@ export class AdminService {
           parent_id: (updatedCat as DbCategory).parent_id,
           is_active: (updatedCat as DbCategory).is_active ?? true
         };
-        await (this.supabase.from('categories') as any).update(payload).eq('id', id);
+        const { error } = await (this.supabase.from('categories') as any).update(payload).eq('id', id);
+        if (error) {
+          console.error('❌ Error al actualizar categoría en Supabase:', error.message, error);
+        }
       } catch (err) {
         console.warn('Error al actualizar categoría en Supabase:', err);
       }
@@ -262,7 +273,10 @@ export class AdminService {
 
   async deleteCategory(id: string): Promise<boolean> {
     try {
-      await (this.supabase.from('categories') as any).delete().eq('id', id);
+      const { error } = await (this.supabase.from('categories') as any).delete().eq('id', id);
+      if (error) {
+        console.error('❌ Error al eliminar categoría en Supabase:', error.message, error);
+      }
     } catch {}
 
     // Remove category and any child subcategories
@@ -282,7 +296,7 @@ export class AdminService {
     const slug = brand.slug || brand.name.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
     const newBrand: DbBrand = {
       id: crypto.randomUUID(),
-      name: brand.name,
+      name: brand.name.trim(),
       slug,
       category_ids: brand.category_ids || [],
       category_id: brand.category_ids?.[0] || null,
@@ -297,11 +311,19 @@ export class AdminService {
         is_active: newBrand.is_active,
         category_ids: newBrand.category_ids
       }).select().single();
-      if (!error && data) {
-        newBrand.id = data.id;
+
+      if (error) {
+        console.error('❌ Error al guardar marca en Supabase:', error.message, error);
+        throw new Error(error.message || 'Error al guardar marca en Supabase');
       }
-    } catch (err) {
-      console.warn('Error al guardar marca en Supabase, guardando localmente:', err);
+
+      if (data) {
+        newBrand.id = data.id;
+        console.log('✅ Marca guardada exitosamente en Supabase:', newBrand.id, newBrand.name);
+      }
+    } catch (err: any) {
+      console.error('❌ Fallo al insertar marca en Supabase:', err);
+      throw err;
     }
 
     this.brands.update((prev) => [...prev, newBrand]);
@@ -715,16 +737,29 @@ export class AdminService {
     });
 
     try {
-      await (this.supabase.from('products') as any).insert(newProd);
+      const { error: prodError } = await (this.supabase.from('products') as any).insert(newProd);
+      if (prodError) {
+        console.error('❌ Error al insertar producto en Supabase:', prodError.message, prodError);
+        throw new Error(`Error en producto: ${prodError.message}`);
+      }
+
       if (newVariants.length > 0) {
         // Prepare DB insert payload without ephemeral/non-column fields
         const insertPayload = newVariants.map((nv) => {
           const { stock_physical, stock_virtual, compare_at_price, discount_percent, ...dbFields } = nv;
           return dbFields;
         });
-        await (this.supabase.from('product_variants') as any).insert(insertPayload);
+        const { error: varError } = await (this.supabase.from('product_variants') as any).insert(insertPayload);
+        if (varError) {
+          console.error('❌ Error al insertar variantes en Supabase:', varError.message, varError);
+          throw new Error(`Error en variantes del producto: ${varError.message}`);
+        }
       }
-    } catch {}
+      console.log('✅ Producto y variantes guardados exitosamente en Supabase:', newProd.id, newProd.model);
+    } catch (err: any) {
+      console.error('❌ Fallo al guardar producto en Supabase:', err);
+      throw err;
+    }
 
     const category = this.categories().find((c) => c.id === newProd.category_id);
     const brand = this.brands().find((b) => b.id === newProd.brand_id);
@@ -813,8 +848,16 @@ export class AdminService {
 
     try {
       const { stock_physical, stock_virtual, compare_at_price, discount_percent, ...dbFields } = newVariant;
-      await (this.supabase.from('product_variants') as any).insert(dbFields);
-    } catch {}
+      const { error } = await (this.supabase.from('product_variants') as any).insert(dbFields);
+      if (error) {
+        console.error('❌ Error al insertar variante en Supabase:', error.message, error);
+        throw new Error(`Error al insertar variante: ${error.message}`);
+      }
+      console.log('✅ Variante guardada exitosamente en Supabase:', newVariant.id, newVariant.sku);
+    } catch (err: any) {
+      console.error('❌ Fallo al insertar variante en Supabase:', err);
+      throw err;
+    }
 
     this.products.update((prods) =>
       prods.map((p) => {
