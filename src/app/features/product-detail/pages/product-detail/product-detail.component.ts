@@ -5,6 +5,7 @@ import { Product, ProductBundle, ProductVariant } from '../../../../core/models/
 import { ProductService } from '../../../../core/services/product.service';
 import { CartService } from '../../../../core/services/cart.service';
 import { TaxService } from '../../../../core/services/tax.service';
+import { SeoService } from '../../../../core/services/seo.service';
 import { CurrencyFormatPipe } from '../../../../shared/pipes/currency-format.pipe';
 import { ButtonComponent } from '../../../../shared/components/button/button.component';
 import { StockLimitDialogComponent } from '../../../../shared/components/stock-limit-dialog/stock-limit-dialog.component';
@@ -29,6 +30,7 @@ export class ProductDetailComponent implements OnInit {
   private readonly route = inject(ActivatedRoute);
   private readonly productService = inject(ProductService);
   private readonly cartService = inject(CartService);
+  readonly seoService = inject(SeoService);
   readonly taxService = inject(TaxService);
 
   protected readonly product = signal<Product | null>(null);
@@ -60,6 +62,12 @@ export class ProductDetailComponent implements OnInit {
 
   readonly currentDisplayPriceWithTax = computed(() => {
     return this.taxService.calculatePriceWithTax(this.currentDisplayPrice());
+  });
+
+  readonly productSemanticTriples = computed(() => {
+    const prod = this.product();
+    if (!prod) return [];
+    return this.seoService.getProductSemanticTriples(prod, this.currentDisplayPriceWithTax());
   });
 
   readonly currentComparePrice = computed(() => {
@@ -117,6 +125,7 @@ export class ProductDetailComponent implements OnInit {
         } else {
           this.selectedVariant.set(null);
         }
+        this.seoService.setProductSeo(found, this.currentDisplayPriceWithTax());
       } else {
         this.relatedProducts.set([]);
         this.selectedVariant.set(null);

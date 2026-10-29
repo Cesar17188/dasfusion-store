@@ -5,3 +5,5 @@ export * from './product.service';
 export * from './supabase.service';
 export * from './admin.service';
 export * from './tax.service';
+export * from './cookie.service';
+export * from './seo.service';

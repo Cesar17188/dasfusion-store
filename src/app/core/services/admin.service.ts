@@ -172,10 +172,17 @@ export class AdminService {
   // ====================================================================
   async fetchCategoriesAndBrands(): Promise<void> {
     try {
-      const [catRes, brandRes] = await Promise.all([
-        this.supabase.from('categories').select('*').order('name'),
-        this.supabase.from('brands').select('*').order('name')
+      let [catRes, brandRes] = await Promise.all([
+        this.supabase.publicFrom('categories').select('*').order('name'),
+        this.supabase.publicFrom('brands').select('*').order('name')
       ]);
+
+      if (catRes.error || brandRes.error) {
+        [catRes, brandRes] = await Promise.all([
+          this.supabase.from('categories').select('*').order('name'),
+          this.supabase.from('brands').select('*').order('name')
+        ]);
+      }
 
       if (!catRes.error && catRes.data) {
         this.categories.set((catRes.data as any[]).map((c) => ({
@@ -425,8 +432,20 @@ export class AdminService {
   // ====================================================================
   async fetchProductsAndVariants(): Promise<void> {
     try {
-      const { data: prodData, error: prodErr } = await (this.supabase.from('products') as any).select('*').order('created_at', { ascending: false });
-      const { data: varData, error: varErr } = await (this.supabase.from('product_variants') as any).select('*');
+      let [prodRes, varRes] = await Promise.all([
+        (this.supabase.publicFrom('products') as any).select('*').order('created_at', { ascending: false }),
+        (this.supabase.publicFrom('product_variants') as any).select('*')
+      ]);
+
+      if (prodRes.error || varRes.error) {
+        [prodRes, varRes] = await Promise.all([
+          (this.supabase.from('products') as any).select('*').order('created_at', { ascending: false }),
+          (this.supabase.from('product_variants') as any).select('*')
+        ]);
+      }
+
+      const { data: prodData, error: prodErr } = prodRes;
+      const { data: varData, error: varErr } = varRes;
 
       if (!prodErr && !varErr && prodData) {
         const productsList = prodData as DbProduct[];

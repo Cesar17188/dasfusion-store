@@ -5,6 +5,7 @@ import { BuilderStepperComponent } from '../../components/builder-stepper/builde
 import { BuilderSummaryComponent } from '../../components/builder-summary/builder-summary.component';
 import { Product } from '../../../../core/models/product.model';
 import { ProductService } from '../../../../core/services/product.service';
+import { SeoService } from '../../../../core/services/seo.service';
 import { CurrencyFormatPipe } from '../../../../shared/pipes/currency-format.pipe';
 import { ButtonComponent } from '../../../../shared/components/button/button.component';
 import {
@@ -21,8 +22,13 @@ import {
 export class PcBuilderComponent {
   readonly pcBuilderService = inject(PcBuilderService);
   private readonly productService = inject(ProductService);
+  private readonly seoService = inject(SeoService);
 
   readonly filterCompatibleOnly = signal<boolean>(true);
+
+  constructor() {
+    this.seoService.setPcBuilderSeo();
+  }
 
   readonly activeFilterRule = computed(() => {
     const step = this.pcBuilderService.currentStep();

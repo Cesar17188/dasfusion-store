@@ -1,16 +1,20 @@
-<div
+<article
+  itemscope
+  itemtype="https://schema.org/Product"
   [routerLink]="['/catalog', product().slug]"
-  class="group relative flex flex-col overflow-hidden rounded-2xl border border-outline-variant/40 bg-surface-container/80 p-4 transition-all duration-300 hover:-translate-y-1 hover:border-[#aec7f7]/40 hover:bg-surface-container-high hover:shadow-[0_10px_30px_-10px_rgba(0,0,0,0.6)] cursor-pointer"
+  class="group relative flex flex-col overflow-hidden rounded-2xl border border-outline-variant/40 bg-surface-container/80 p-4 transition-all duration-300 hover:-translate-y-1 hover:border-primary/40 hover:bg-surface-container-high hover:shadow-[0_10px_30px_-10px_rgba(0,0,0,0.6)] cursor-pointer"
 >
+  <meta itemprop="category" [content]="product().category" />
+
   <!-- Badges -->
   <div class="absolute left-3 top-3 z-10 flex flex-col gap-1.5">
     @if (product().isNew) {
-      <span class="das-chip bg-primary-container! text-[#aec7f7]! border-[#aec7f7]/30! text-[10px]! font-bold">
+      <span class="das-chip bg-primary-container! text-primary! border-primary/30! text-[10px]! font-bold">
         NUEVO
       </span>
     }
     @if (hasDiscount()) {
-      <span class="das-chip bg-tertiary-container! text-[#f1bd81]! border-[#f1bd81]/30! text-[10px]! font-bold">
+      <span class="das-chip bg-tertiary-container! text-tertiary! border-tertiary/30! text-[10px]! font-bold">
         OFERTA @if (product().discountPercentage && product().discountPercentage! > 0) { -{{ product().discountPercentage }}% }
       </span>
     }
@@ -19,8 +23,9 @@
   <!-- Image Container -->
   <div class="relative aspect-square w-full overflow-hidden rounded-xl bg-surface-container-lowest flex items-center justify-center p-4 border border-outline-variant/20">
     <img
+      itemprop="image"
       [src]="product().images[0] || 'https://images.unsplash.com/photo-1587202372775-e229f172b9d7?auto=format&fit=crop&w=400&q=80'"
-      [alt]="product().name"
+      [alt]="product().name + ' - ' + product().brand + ' en DASFUSION Store'"
       class="h-full w-full object-contain object-center transition-transform duration-300 group-hover:scale-105"
       loading="lazy"
     />
@@ -30,23 +35,43 @@
   <div class="mt-4 flex flex-1 flex-col justify-between">
     <div>
       <div class="flex items-center justify-between text-xs text-outline mb-1.5">
-        <span class="uppercase tracking-wider font-semibold text-outline">{{ product().brand }}</span>
+        <span itemprop="brand" itemscope itemtype="https://schema.org/Brand" class="uppercase tracking-wider font-semibold text-outline">
+          <span itemprop="name">{{ product().brand }}</span>
+        </span>
         <!-- Rating -->
-        <div class="flex items-center gap-1 text-[#f1bd81]">
+        <div
+          itemprop="aggregateRating"
+          itemscope
+          itemtype="https://schema.org/AggregateRating"
+          class="flex items-center gap-1 text-tertiary"
+        >
           <svg class="h-3.5 w-3.5 fill-current" viewBox="0 0 20 20">
             <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"></path>
           </svg>
-          <span class="text-[11px] font-medium text-[#e3e2e6]">{{ product().rating }}</span>
+          <span itemprop="ratingValue" class="text-[11px] font-medium text-on-surface">{{ product().rating }}</span>
+          <meta itemprop="reviewCount" [content]="product().reviewCount || 1" />
         </div>
       </div>
 
-      <h3 class="text-sm font-semibold text-[#e3e2e6] line-clamp-2 group-hover:text-[#aec7f7] transition-colors">
+      <h3 itemprop="name" class="text-sm font-semibold text-on-surface line-clamp-2 group-hover:text-primary transition-colors">
         {{ product().name }}
       </h3>
     </div>
 
-    <!-- Price & Actions -->
-    <div class="mt-4 flex items-center justify-between pt-3 border-t border-outline-variant/40">
+    <!-- Price & Actions (Tripleta: Producto -> offers -> Offer) -->
+    <div
+      itemprop="offers"
+      itemscope
+      itemtype="https://schema.org/Offer"
+      class="mt-4 flex items-center justify-between pt-3 border-t border-outline-variant/40"
+    >
+      <meta itemprop="priceCurrency" content="USD" />
+      <meta itemprop="price" [content]="priceWithTax().toFixed(2)" />
+      <link
+        itemprop="availability"
+        [href]="product().stock > 0 ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock'"
+      />
+
       <div class="flex flex-col min-w-0 pr-2">
         @if (hasDiscount() && compareAtPriceWithTax()) {
           <span class="text-[11px] text-outline line-through">
@@ -54,7 +79,7 @@
           </span>
         }
         <div class="flex items-baseline gap-1.5 flex-wrap">
-          <span class="text-base font-bold text-[#e3e2e6] font-mono">
+          <span class="text-base font-bold text-on-surface font-mono">
             {{ priceWithTax() | currencyFormat }}
           </span>
           <span
@@ -94,4 +119,4 @@
       </app-button>
     </div>
   </div>
-</div>
+</article>

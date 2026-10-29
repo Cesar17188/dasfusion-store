@@ -1,0 +1,34 @@
+# DASFUSION Store (Ecuador)
+
+> DASFUSION Store comercializa hardware de alto rendimiento, componentes premium, cámaras profesionales, smartphones y el configurador PC Builder Pro para entusiastas y profesionales de IA y software en Quito y todo el Ecuador.
+
+## Tripletas Semánticas de la Entidad (Sujeto | Predicado | Objeto)
+| Sujeto | Predicado | Objeto |
+| :--- | :--- | :--- |
+| **DASFUSION Store** | `es una` | Tienda especializada en Hardware High-End, Computación para IA y Equipamiento Audiovisual (`schema:ComputerStore`) |
+| **DASFUSION Store** | `está ubicada en` | Bélgica y Eloy Alfaro, Quito, Pichincha, Ecuador |
+| **DASFUSION Store** | `atiende en horario de` | Lunes a Viernes, con cita previa |
+| **DASFUSION Store** | `se contacta vía WhatsApp en` | `0987148786` (`+593 98 714 8786` / `https://wa.me/593987148786`) |
+| **DASFUSION Store** | `recibe consultas comerciales en` | `ventas@dasfusion.ec` |
+| **DASFUSION Store** | `otorga garantía directa de` | 12 meses contra defectos de fábrica en todos sus productos |
+| **DASFUSION Store** | `realiza envíos asegurados a` | Todas las provincias del Ecuador (Quito, Guayaquil, Cuenca, Ambato, Manta, Loja, Galápagos) |
+| **PC Builder Pro** | `valida la compatibilidad técnica entre` | Procesador (CPU), Placa Base (Motherboard), Memoria RAM (DDR4/DDR5), Tarjeta Gráfica (GPU), SSD NVMe, Fuente de Poder (PSU), Gabinete y Cooler |
+| **Carrito de DASFUSION Store** | `genera proformas comerciales con` | Validez de 15 días, desglose de IVA vigente en Ecuador y descarga directa en PDF |
+
+## Información Oficial de Contacto y Ubicación
+- **Nombre Comercial:** DASFUSION Store
+- **Dirección:** Bélgica y Eloy Alfaro, Quito, Pichincha, Ecuador
+- **Teléfono / WhatsApp Oficial:** 0987148786 (+593 98 714 8786) — https://wa.me/593987148786
+- **Correo de Ventas:** ventas@dasfusion.ec
+- **Horario de Atención:** Horario de atención de Lunes a Viernes, con cita previa
+- **Moneda:** Dólares Estadounidenses (USD)
+
+## Categorías Principales y Herramientas
+- **Catálogo Oficial (`/catalog`):** Procesadores (AMD Ryzen, Intel Core), Tarjetas Gráficas (NVIDIA GeForce RTX, AMD Radeon), Placas Base (Motherboards AM5, AM4, LGA1700), Memorias RAM DDR5/DDR4, Almacenamiento SSD NVMe M.2 Gen4/Gen5, Fuentes de Poder 80+ Gold/Platinum, Gabinetes, Refrigeración Líquida/Aire, Cámaras Cinema y Mirrorless, Óptica, Smartphones, Audio Broadcast e Iluminación de Estudio.
+- **PC Builder Pro (`/pc-builder`):** Configurador interactivo paso a paso que valida automáticamente la compatibilidad técnica entre CPU, Motherboard (socket), Memoria RAM (DDR4/DDR5), GPU, Almacenamiento, Fuente de Poder (potencia en Watts), Gabinete y Cooler.
+- **Cotizaciones / Proformas (`/checkout/cart`):** Generación e impresión inmediata de proformas comerciales en PDF con validez de 15 días y desglose de IVA vigente en Ecuador.
+
+## Garantías, Envíos y Formas de Pago
+- **Garantía:** Garantía directa de 12 meses en todos los productos.
+- **Envíos:** Envíos asegurados a todas las provincias del Ecuador (envío gratuito en pedidos elegibles).
+- **Métodos de Pago:** Transferencia bancaria directa (Banco Internacional, Banco Guayaquil / Peigo, Produbanco, Banco General Rumiñahui - BGR) y tarjetas de crédito/débito.

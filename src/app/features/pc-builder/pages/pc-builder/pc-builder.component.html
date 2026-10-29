@@ -1,15 +1,22 @@
-<div class="space-y-6 sm:space-y-8 pb-24 lg:pb-0">
-  <!-- Header -->
+<div
+  itemscope
+  itemtype="https://schema.org/WebApplication"
+  class="space-y-6 sm:space-y-8 pb-24 lg:pb-0"
+>
+  <meta itemprop="applicationCategory" content="ShoppingApplication" />
+  <meta itemprop="operatingSystem" content="All" />
+
+  <!-- Header (Tripleta: PC Builder Pro -> verifica compatibilidad -> componentes de PC) -->
   <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
     <div>
       <div class="flex items-center gap-2">
-        <h1 class="text-xl sm:text-3xl font-extrabold text-on-surface">Configurador PC Builder Pro</h1>
+        <h1 itemprop="name" class="text-xl sm:text-3xl font-extrabold text-on-surface">Configurador PC Builder Pro</h1>
         <span class="rounded bg-primary-container text-[10px] sm:text-xs font-bold text-primary px-2 py-0.5 border border-primary/30">
           V1.0
         </span>
       </div>
-      <p class="text-xs sm:text-sm text-outline mt-1">
-        Diseña y arma tu computadora paso a paso con verificación en tiempo real.
+      <p itemprop="description" class="text-xs sm:text-sm text-outline mt-1">
+        PC Builder Pro de DASFUSION Store diseña tu computadora paso a paso y verifica en tiempo real la compatibilidad entre CPU, placa base, RAM DDR5, GPU y fuente de poder.
       </p>
     </div>
   </div>

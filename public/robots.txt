@@ -1,0 +1,41 @@
+# DASFUSION Store - SEO & AEO Crawler Rules
+User-agent: *
+Allow: /
+Allow: /catalog
+Allow: /pc-builder
+Allow: /llms.txt
+Disallow: /admin
+Disallow: /checkout
+Disallow: /auth
+
+# Explicit permission for AI / Answer Engine Optimization (AEO) Bots
+User-agent: GPTBot
+Allow: /
+Disallow: /admin
+
+User-agent: OAI-SearchBot
+Allow: /
+Disallow: /admin
+
+User-agent: ChatGPT-User
+Allow: /
+Disallow: /admin
+
+User-agent: PerplexityBot
+Allow: /
+Disallow: /admin
+
+User-agent: ClaudeBot
+Allow: /
+Disallow: /admin
+
+User-agent: Google-Extended
+Allow: /
+Disallow: /admin
+
+User-agent: Applebot-Extended
+Allow: /
+Disallow: /admin
+
+Sitemap: https://dasfusion.ec/sitemap.xml
+

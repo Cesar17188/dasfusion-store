@@ -55,9 +55,9 @@
           }
         </span>
       </div>
-      <h1 class="text-2xl sm:text-4xl font-extrabold text-on-surface tracking-tight">Equipamiento Pro & Computación</h1>
+      <h1 class="text-2xl sm:text-4xl font-extrabold text-on-surface tracking-tight">Equipamiento Pro &amp; Computación</h1>
       <p class="text-xs sm:text-sm text-on-surface-variant leading-relaxed">
-        Explora smartphones de última generación, cámaras cinema y mirrorless, óptica premium, audio broadcast, iluminación de estudio y hardware para creadores.
+        DASFUSION Store comercializa smartphones de última generación, cámaras cinema y mirrorless, óptica premium, audio broadcast, iluminación de estudio y hardware de alto rendimiento en Ecuador.
       </p>
     </div>
   </div>
@@ -68,16 +68,16 @@
       type="button"
       (click)="onCategoryChipClick('')"
       class="px-3.5 py-2 rounded-full text-xs font-bold whitespace-nowrap transition cursor-pointer border"
-      [class.bg-[#aec7f7]]="!currentFilter().category"
-      [class.text-[#0a1b33]]="!currentFilter().category"
-      [class.border-[#aec7f7]]="!currentFilter().category"
+      [class.bg-primary]="!currentFilter().category"
+      [class.text-on-primary]="!currentFilter().category"
+      [class.border-primary]="!currentFilter().category"
       [class.shadow-md]="!currentFilter().category"
-      [class.bg-[#1e2022]]="!!currentFilter().category"
-      [class.text-[#e3e2e6]]="!!currentFilter().category"
-      [class.border-[#44474e]]="!!currentFilter().category"
-      [class.hover:border-[#aec7f7]]="!!currentFilter().category"
+      [class.bg-surface-container]="!!currentFilter().category"
+      [class.text-on-surface]="!!currentFilter().category"
+      [class.border-outline-variant]="!!currentFilter().category"
+      [class.hover:border-primary]="!!currentFilter().category"
       [class.hover:text-white]="!!currentFilter().category"
-      [class.hover:bg-[#292a2d]]="!!currentFilter().category"
+      [class.hover:bg-surface-container-high]="!!currentFilter().category"
     >
       Todos los Productos ({{ productService.products().length }})
     </button>
@@ -86,16 +86,16 @@
         type="button"
         (click)="onCategoryChipClick(cat)"
         class="px-3.5 py-2 rounded-full text-xs font-bold whitespace-nowrap transition cursor-pointer border"
-        [class.bg-[#aec7f7]]="currentFilter().category === cat"
-        [class.text-[#0a1b33]]="currentFilter().category === cat"
-        [class.border-[#aec7f7]]="currentFilter().category === cat"
+        [class.bg-primary]="currentFilter().category === cat"
+        [class.text-on-primary]="currentFilter().category === cat"
+        [class.border-primary]="currentFilter().category === cat"
         [class.shadow-md]="currentFilter().category === cat"
-        [class.bg-[#1e2022]]="currentFilter().category !== cat"
-        [class.text-[#e3e2e6]]="currentFilter().category !== cat"
-        [class.border-[#44474e]]="currentFilter().category !== cat"
-        [class.hover:border-[#aec7f7]]="currentFilter().category !== cat"
+        [class.bg-surface-container]="currentFilter().category !== cat"
+        [class.text-on-surface]="currentFilter().category !== cat"
+        [class.border-outline-variant]="currentFilter().category !== cat"
+        [class.hover:border-primary]="currentFilter().category !== cat"
         [class.hover:text-white]="currentFilter().category !== cat"
-        [class.hover:bg-[#292a2d]]="currentFilter().category !== cat"
+        [class.hover:bg-surface-container-high]="currentFilter().category !== cat"
       >
         {{ cat }}
       </button>
@@ -163,7 +163,23 @@
 
     <!-- Products Grid (1 col on mobile, 2 cols on sm, 3 cols on xl) -->
     <div class="lg:col-span-3">
-      @if (filteredProducts().length === 0) {
+      @if (productService.isLoading() && productService.products().length === 0) {
+        <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6">
+          @for (item of [1, 2, 3, 4, 5, 6]; track item) {
+            <div class="rounded-2xl border border-outline-variant/30 bg-surface-container/60 p-4 space-y-4 animate-pulse">
+              <div class="aspect-square w-full rounded-xl bg-surface-container-highest/50"></div>
+              <div class="space-y-2">
+                <div class="h-3 w-1/3 rounded bg-surface-container-highest/60"></div>
+                <div class="h-4 w-3/4 rounded bg-surface-container-highest/60"></div>
+              </div>
+              <div class="pt-3 border-t border-outline-variant/20 flex items-center justify-between">
+                <div class="h-5 w-20 rounded bg-surface-container-highest/60"></div>
+                <div class="h-8 w-20 rounded-lg bg-surface-container-highest/60"></div>
+              </div>
+            </div>
+          }
+        </div>
+      } @else if (filteredProducts().length === 0) {
         <div class="flex flex-col items-center justify-center rounded-2xl border border-dashed border-outline-variant/50 py-16 px-4 text-center">
           <svg class="h-12 w-12 text-outline mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
@@ -222,4 +238,73 @@
       </div>
     </div>
   }
+
+  <!-- AEO & SEO Semantic FAQ + Knowledge Triples Section -->
+  <section
+    aria-labelledby="faq-heading"
+    itemscope
+    itemtype="https://schema.org/FAQPage"
+    class="mt-12 pt-8 border-t border-outline-variant/40 space-y-6"
+  >
+    <div class="space-y-1">
+      <span class="text-[11px] font-bold uppercase tracking-widest text-primary">
+        Centro de Respuestas Rápidas &amp; Entidad Semántica
+      </span>
+      <h2 id="faq-heading" class="text-lg sm:text-2xl font-extrabold text-on-surface">
+        Preguntas Frecuentes sobre DASFUSION Store
+      </h2>
+      <p class="text-xs text-outline">
+        Información estructurada (Sujeto → Predicado → Objeto) sobre ubicación, horarios con cita previa, envíos asegurados y garantías en Ecuador.
+      </p>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+      @for (faq of seoService.storeFaqs; track faq.question) {
+        <details
+          itemscope
+          itemprop="mainEntity"
+          itemtype="https://schema.org/Question"
+          class="group rounded-2xl bg-surface-container/60 border border-outline-variant/40 p-4 open:border-primary/40 transition"
+        >
+          <summary
+            itemprop="name"
+            class="flex items-center justify-between gap-3 cursor-pointer list-none text-xs sm:text-sm font-bold text-on-surface"
+          >
+            <span>{{ faq.question }}</span>
+            <span class="text-primary transition-transform group-open:rotate-180 shrink-0">▼</span>
+          </summary>
+          <div
+            itemscope
+            itemprop="acceptedAnswer"
+            itemtype="https://schema.org/Answer"
+            class="mt-2.5 pt-2.5 border-t border-outline-variant/30"
+          >
+            <p itemprop="text" class="text-xs text-on-surface-variant leading-relaxed">
+              {{ faq.answer }}
+            </p>
+          </div>
+        </details>
+      }
+    </div>
+
+    <!-- Explicit Semantic Triples Summary (Subject - Predicate - Object) for AEO & Knowledge Graph -->
+    <div
+      aria-label="Resumen de relaciones semánticas de DASFUSION Store"
+      class="rounded-2xl bg-surface-container-low/70 border border-outline-variant/30 p-4 sm:p-5 space-y-3"
+    >
+      <h3 class="text-xs font-bold uppercase tracking-wider text-primary">
+        Ficha Semántica Oficial (DASFUSION Store Ecuador)
+      </h3>
+      <dl class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 text-xs">
+        @for (triple of seoService.storeSemanticTriples; track triple.predicate) {
+          <div class="p-2.5 rounded-xl bg-surface-container/50 border border-outline-variant/20">
+            <dt class="text-[11px] text-outline">
+              <strong class="text-on-surface">{{ triple.subject }}</strong> {{ triple.predicate }}:
+            </dt>
+            <dd class="text-on-surface-variant font-medium mt-0.5">{{ triple.object }}</dd>
+          </div>
+        }
+      </dl>
+    </div>
+  </section>
 </div>

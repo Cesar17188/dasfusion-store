@@ -3,4 +3,5 @@ export * from './components/input/input.component';
 export * from './components/modal/modal.component';
 export * from './components/card/card.component';
 export * from './components/stock-limit-dialog/stock-limit-dialog.component';
+export * from './components/cookie-banner/cookie-banner.component';
 export * from './pipes/currency-format.pipe';

@@ -41,12 +41,22 @@ export class ProductService {
   async loadProductsFromDatabase(): Promise<void> {
     this.isLoading.set(true);
     try {
-      const [prodRes, varRes, catRes, brandRes] = await Promise.all([
-        (this.supabaseService.from('products') as any).select('*').order('created_at', { ascending: false }),
-        (this.supabaseService.from('product_variants') as any).select('*'),
-        (this.supabaseService.from('categories') as any).select('*').order('name'),
-        (this.supabaseService.from('brands') as any).select('*').order('name')
+      let [prodRes, varRes, catRes, brandRes] = await Promise.all([
+        (this.supabaseService.publicFrom('products') as any).select('*').order('created_at', { ascending: false }),
+        (this.supabaseService.publicFrom('product_variants') as any).select('*'),
+        (this.supabaseService.publicFrom('categories') as any).select('*').order('name'),
+        (this.supabaseService.publicFrom('brands') as any).select('*').order('name')
       ]);
+
+      // Si por alguna política RLS específica requiere el cliente autenticado, reintentar con this.supabaseService.from
+      if (prodRes.error || !prodRes.data) {
+        [prodRes, varRes, catRes, brandRes] = await Promise.all([
+          (this.supabaseService.from('products') as any).select('*').order('created_at', { ascending: false }),
+          (this.supabaseService.from('product_variants') as any).select('*'),
+          (this.supabaseService.from('categories') as any).select('*').order('name'),
+          (this.supabaseService.from('brands') as any).select('*').order('name')
+        ]);
+      }
 
       const catData = (catRes.data || []) as any[];
       const brandData = (brandRes.data || []) as any[];
@@ -128,10 +138,11 @@ export class ProductService {
           const totalPhys = vars.reduce((acc: number, v) => acc + (v.stock_physical || 0), 0);
           const totalVirt = vars.reduce((acc: number, v) => acc + (v.stock_virtual || 0), 0);
 
+          const modelName = (dbP.model || 'Producto').trim();
           return {
             id: dbP.id,
-            name: dbP.model,
-            slug: dbP.model.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || dbP.id,
+            name: modelName,
+            slug: modelName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || dbP.id,
             brand: brand?.name || 'Genérico',
             category: cat?.name || 'General',
             subCategory: cat?.parent_id ? cat.name : undefined,

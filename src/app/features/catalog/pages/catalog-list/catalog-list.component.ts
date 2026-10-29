@@ -1,4 +1,4 @@
-import { Component, inject, signal, computed } from '@angular/core';
+import { Component, inject, signal, computed, effect, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -6,6 +6,7 @@ import { ProductFilter } from '../../../../core/models/product.model';
 import { ProductService } from '../../../../core/services/product.service';
 import { AuthService } from '../../../../core/services/auth.service';
 import { TaxService } from '../../../../core/services/tax.service';
+import { SeoService } from '../../../../core/services/seo.service';
 import { ProductCardComponent } from '../../components/product-card/product-card.component';
 import { ProductFiltersComponent } from '../../components/product-filters/product-filters.component';
 
@@ -15,10 +16,11 @@ import { ProductFiltersComponent } from '../../components/product-filters/produc
   imports: [CommonModule, FormsModule, ProductCardComponent, ProductFiltersComponent],
   templateUrl: './catalog-list.component.html'
 })
-export class CatalogListComponent {
+export class CatalogListComponent implements OnInit {
   readonly productService = inject(ProductService);
   readonly authService = inject(AuthService);
   readonly taxService = inject(TaxService);
+  readonly seoService = inject(SeoService);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
 
@@ -32,7 +34,22 @@ export class CatalogListComponent {
       if (params['accessDenied'] === 'admin_required') {
         this.showAdminNotice.set(true);
       }
+      if (params['q']) {
+        this.searchQuery.set(params['q']);
+      }
     });
+
+    effect(() => {
+      const products = this.filteredProducts();
+      const category = this.currentFilter().category;
+      this.seoService.setCatalogSeo(products, category);
+    });
+  }
+
+  ngOnInit(): void {
+    if (this.productService.products().length === 0 && !this.productService.isLoading()) {
+      this.productService.loadProductsFromDatabase();
+    }
   }
 
   async activateAdminAndGo(): Promise<void> {
@@ -46,7 +63,6 @@ export class CatalogListComponent {
 
   readonly categories = this.productService.categories;
 
-  // Dynamically filters brands based on the currently selected category
   readonly availableBrands = computed(() => {
     return this.productService.getBrandsByCategory(this.currentFilter().category);
   });
@@ -59,7 +75,6 @@ export class CatalogListComponent {
     const current = this.currentFilter().category;
     const nextCategory = (!category || current === category) ? undefined : category;
 
-    // Reset or filter out brands that don't belong to the new category
     const validBrands = this.productService.getBrandsByCategory(nextCategory);
     const updatedBrands = this.currentFilter().brand?.filter((b) => validBrands.includes(b));
 
