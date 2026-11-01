@@ -165,9 +165,9 @@
           >
             <meta itemprop="priceCurrency" content="USD" />
             <meta itemprop="price" [content]="currentDisplayPriceWithTax().toFixed(2)" />
-            <link
+            <meta
               itemprop="availability"
-              [href]="availableStock() > 0 ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock'"
+              [content]="availableStock() > 0 ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock'"
             />
             <span class="text-2xl sm:text-4xl font-black text-on-surface font-mono">
               {{ currentDisplayPriceWithTax() | currencyFormat }}

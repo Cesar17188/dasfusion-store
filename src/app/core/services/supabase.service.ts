@@ -13,7 +13,7 @@ export class SupabaseService {
   constructor() {
     this.cleanExpiredLocalSession();
 
-    // Cliente principal con lock no bloqueante para evitar deadlocks de Navigator LockManager
+    // Cliente principal de autenticación y operaciones de usuario/admin
     this.supabase = createClient<Database>(
       environment.supabaseUrl,
       environment.supabaseAnonKey,
@@ -21,23 +21,18 @@ export class SupabaseService {
         auth: {
           persistSession: true,
           autoRefreshToken: true,
-          detectSessionInUrl: true,
-          lock: async (_name: string, _acquireTimeout: number, fn: () => Promise<any>) => await fn()
+          detectSessionInUrl: true
         }
       }
     );
 
-    // Cliente público sin sesión persistente para lecturas de catálogo (productos, categorías, marcas)
-    // Garantiza que un token de usuario caducado en localStorage jamás bloquee la carga de la tienda
+    // Cliente público para lecturas de catálogo (productos, categorías, marcas) usando anonKey directo
+    // sin instanciar un segundo GoTrueClient ni depender del estado de sesión en localStorage
     this.publicSupabase = createClient<Database>(
       environment.supabaseUrl,
       environment.supabaseAnonKey,
       {
-        auth: {
-          persistSession: false,
-          autoRefreshToken: false,
-          detectSessionInUrl: false
-        }
+        accessToken: async () => environment.supabaseAnonKey
       }
     );
   }
