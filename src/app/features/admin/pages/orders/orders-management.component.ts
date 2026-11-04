@@ -160,6 +160,14 @@ import { OrderStatus } from '../../../../core/models/supabase.model';
           >
             Entregados
           </button>
+          <button
+            (click)="selectedStatusFilter.set('cancelled')"
+            [class.bg-rose-950]="selectedStatusFilter() === 'cancelled'"
+            [class.text-rose-300]="selectedStatusFilter() === 'cancelled'"
+            class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-surface-container text-on-surface-variant hover:bg-surface-container-high transition cursor-pointer"
+          >
+            Cancelados ({{ countByStatus('cancelled') }})
+          </button>
         </div>
       </div>
 
@@ -190,9 +198,9 @@ import { OrderStatus } from '../../../../core/models/supabase.model';
                   </td>
                   <td class="py-3.5 px-4">
                     <div class="font-medium text-[#e3e2e6]">
-                      {{ order.customer ? (order.customer.first_name + ' ' + order.customer.last_name) : 'Cliente General' }}
+                      {{ order.customer_name || (order.customer ? (order.customer.first_name + ' ' + order.customer.last_name) : 'Cliente General') }}
                     </div>
-                    <div class="text-[11px] text-outline">{{ order.customer?.phone || '' }}</div>
+                    <div class="text-[11px] text-outline">{{ order.customer_phone || order.customer?.phone || '' }}</div>
                   </td>
                   <td class="py-3.5 px-4 max-w-xs truncate text-[11px] text-outline">
                     {{ order.shipping_address }}
@@ -204,35 +212,55 @@ import { OrderStatus } from '../../../../core/models/supabase.model';
                     {{ order.total | currency:'USD':'symbol':'1.2-2' }}
                   </td>
                   <td class="py-3.5 px-4">
-                    <select
-                      [ngModel]="order.status"
-                      (ngModelChange)="onUpdateStatus(order.id, $event)"
-                      [class.bg-amber-950]="order.status === 'pending'"
-                      [class.text-amber-300]="order.status === 'pending'"
-                      [class.bg-sky-950]="order.status === 'processing'"
-                      [class.text-sky-300]="order.status === 'processing'"
-                      [class.bg-indigo-950]="order.status === 'shipped'"
-                      [class.text-indigo-300]="order.status === 'shipped'"
-                      [class.bg-emerald-950]="order.status === 'delivered'"
-                      [class.text-emerald-300]="order.status === 'delivered'"
-                      [class.bg-rose-950]="order.status === 'cancelled'"
-                      [class.text-rose-300]="order.status === 'cancelled'"
-                      class="border border-outline-variant text-xs font-semibold rounded-lg px-2.5 py-1 focus:outline-none focus:border-[#aec7f7]"
-                    >
-                      <option value="pending">Pendiente</option>
-                      <option value="processing">En Proceso</option>
-                      <option value="shipped">Enviado</option>
-                      <option value="delivered">Entregado</option>
-                      <option value="cancelled">Cancelado</option>
-                    </select>
+                    @if (order.status === 'cancelled') {
+                      <span
+                        class="inline-flex items-center gap-1.5 bg-rose-950 text-rose-300 border border-rose-500/40 text-xs font-semibold rounded-lg px-2.5 py-1 select-none"
+                      >
+                        <span class="h-1.5 w-1.5 rounded-full bg-rose-400"></span>
+                        Cancelado
+                      </span>
+                    } @else {
+                      <select
+                        [value]="order.status"
+                        (change)="onStatusSelectChange(order, $event)"
+                        [class.bg-amber-950]="order.status === 'pending'"
+                        [class.text-amber-300]="order.status === 'pending'"
+                        [class.bg-sky-950]="order.status === 'processing'"
+                        [class.text-sky-300]="order.status === 'processing'"
+                        [class.bg-indigo-950]="order.status === 'shipped'"
+                        [class.text-indigo-300]="order.status === 'shipped'"
+                        [class.bg-emerald-950]="order.status === 'delivered'"
+                        [class.text-emerald-300]="order.status === 'delivered'"
+                        class="border border-outline-variant text-xs font-semibold rounded-lg px-2.5 py-1 focus:outline-none focus:border-[#aec7f7] cursor-pointer"
+                      >
+                        <option value="pending">Pendiente</option>
+                        <option value="processing">En Proceso</option>
+                        <option value="shipped">Enviado</option>
+                        <option value="delivered">Entregado</option>
+                        <option value="cancelled">Cancelado</option>
+                      </select>
+                    }
                   </td>
                   <td class="py-3.5 px-4 text-right">
-                    <button
-                      (click)="viewOrderDetails(order)"
-                      class="px-2.5 py-1 rounded bg-surface-container-high hover:bg-[#343538] text-[#aec7f7] font-semibold text-xs transition cursor-pointer"
-                    >
-                      Ver Detalle
-                    </button>
+                    <div class="flex items-center justify-end gap-1.5">
+                      @if (order.status !== 'cancelled') {
+                        <button
+                          type="button"
+                          (click)="requestCancelOrder(order)"
+                          class="px-2.5 py-1 rounded bg-rose-950/70 hover:bg-rose-900 border border-rose-500/30 text-rose-300 font-semibold text-xs transition cursor-pointer"
+                          title="Cancelar pedido y restituir stock"
+                        >
+                          Cancelar
+                        </button>
+                      }
+                      <button
+                        type="button"
+                        (click)="viewOrderDetails(order)"
+                        class="px-2.5 py-1 rounded bg-surface-container-high hover:bg-[#343538] text-[#aec7f7] font-semibold text-xs transition cursor-pointer"
+                      >
+                        Ver Detalle
+                      </button>
+                    </div>
                   </td>
                 </tr>
               } @empty {
@@ -366,21 +394,105 @@ import { OrderStatus } from '../../../../core/models/supabase.model';
           </div>
 
           <!-- Actions Footer -->
-          <div class="flex items-center justify-between pt-4 border-t border-outline-variant/40">
-            <button
-              (click)="printInvoice()"
-              class="btn-secondary py-2! px-4! text-xs flex items-center gap-2"
-            >
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
-              </svg>
-              Imprimir Recibo
-            </button>
+          <div class="flex flex-wrap items-center justify-between gap-3 pt-4 border-t border-outline-variant/40">
+            <div class="flex items-center gap-2">
+              <button
+                (click)="printInvoice()"
+                class="btn-secondary py-2! px-4! text-xs flex items-center gap-2 cursor-pointer"
+              >
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                </svg>
+                Imprimir Recibo
+              </button>
+              @if (selectedOrder()!.status !== 'cancelled') {
+                <button
+                  type="button"
+                  (click)="requestCancelOrder(selectedOrder()!)"
+                  class="px-4 py-2 rounded-xl bg-rose-950/80 hover:bg-rose-900 border border-rose-500/40 text-rose-300 font-bold text-xs transition cursor-pointer"
+                >
+                  Cancelar Pedido
+                </button>
+              }
+            </div>
             <button
               (click)="selectedOrder.set(null)"
-              class="btn-primary py-2! px-5! text-xs"
+              class="btn-primary py-2! px-5! text-xs cursor-pointer"
             >
               Cerrar
+            </button>
+          </div>
+        </div>
+      </div>
+    }
+
+    <!-- Cancel Order Confirmation Dialog -->
+    @if (orderToCancel(); as targetOrder) {
+      <div class="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+        <div class="w-full max-w-md das-card p-6 space-y-5 border border-rose-500/40 shadow-2xl animate-in zoom-in-95 duration-150">
+          <div class="flex items-start gap-3.5">
+            <div class="w-10 h-10 rounded-xl bg-rose-500/20 border border-rose-500/40 text-rose-400 flex items-center justify-center shrink-0">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+            </div>
+            <div class="space-y-1">
+              <h3 class="text-base font-bold text-[#e3e2e6]">
+                ¿Deseas cancelar el pedido #{{ targetOrder.id.slice(0, 8) }}?
+              </h3>
+              <p class="text-xs text-outline leading-relaxed">
+                Al hacer clic en <strong class="text-white">Sí, cancelar pedido</strong>, el estado cambiará a <span class="text-rose-400 font-semibold">Cancelado</span> y los productos de esta orden se restituirán automáticamente al inventario tanto en la base de datos como en la vista pública de la tienda.
+              </p>
+            </div>
+          </div>
+
+          <!-- Resumen del pedido y productos a restituir -->
+          <div class="p-3.5 rounded-xl bg-[#121316] border border-outline-variant/40 space-y-2.5 text-xs">
+            <div class="flex items-center justify-between border-b border-outline-variant/30 pb-2">
+              <span class="text-outline">Cliente:</span>
+              <span class="font-bold text-[#e3e2e6]">
+                {{ targetOrder.customer_name || (targetOrder.customer ? (targetOrder.customer.first_name + ' ' + targetOrder.customer.last_name) : 'Cliente General') }}
+              </span>
+            </div>
+            <div class="flex items-center justify-between border-b border-outline-variant/30 pb-2">
+              <span class="text-outline">Total del pedido:</span>
+              <span class="font-mono font-bold text-emerald-400">{{ targetOrder.total | currency:'USD':'symbol':'1.2-2' }}</span>
+            </div>
+            <div class="space-y-1.5 pt-1">
+              <span class="text-[11px] font-bold uppercase tracking-wider text-outline block">
+                Unidades que se restituirán al inventario:
+              </span>
+              <div class="max-h-36 overflow-y-auto space-y-1 pr-1">
+                @for (item of targetOrder.items; track item.id) {
+                  <div class="flex items-center justify-between py-1 px-2 rounded bg-surface-container-low border border-outline-variant/20">
+                    <span class="text-[#e3e2e6] truncate pr-2">
+                      {{ item.variant?.variant_name || item.product?.model || 'Producto' }}
+                    </span>
+                    <span class="px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 font-mono font-bold text-[11px] shrink-0">
+                      +{{ item.quantity }} u.
+                    </span>
+                  </div>
+                }
+              </div>
+            </div>
+          </div>
+
+          <div class="flex items-center justify-end gap-2.5 pt-2 border-t border-outline-variant/40">
+            <button
+              type="button"
+              [disabled]="isCancellingOrder()"
+              (click)="closeCancelDialog()"
+              class="btn-secondary py-2! px-4! text-xs cursor-pointer"
+            >
+              No, conservar pedido
+            </button>
+            <button
+              type="button"
+              [disabled]="isCancellingOrder()"
+              (click)="confirmCancelOrder()"
+              class="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 disabled:opacity-50 text-white font-bold text-xs shadow-lg shadow-rose-900/30 transition cursor-pointer"
+            >
+              {{ isCancellingOrder() ? 'Restituyendo stock...' : 'Sí, cancelar pedido' }}
             </button>
           </div>
         </div>
@@ -461,6 +573,8 @@ export class OrdersManagementComponent {
   searchQuery = signal<string>('');
   selectedStatusFilter = signal<string>('ALL');
   selectedOrder = signal<AdminSalesOrderWithDetails | null>(null);
+  orderToCancel = signal<AdminSalesOrderWithDetails | null>(null);
+  isCancellingOrder = signal<boolean>(false);
 
   isCustomTaxModalOpen = signal<boolean>(false);
   customTaxInput = signal<number>(15);
@@ -476,8 +590,11 @@ export class OrdersManagementComponent {
     }
 
     if (query) {
+      const cleanQuery = query.replace(/^#|^das-/i, '');
       list = list.filter((o) => {
-        const idMatch = o.id.toLowerCase().includes(query);
+        const idMatch =
+          o.id.toLowerCase().includes(query) ||
+          o.id.toLowerCase().includes(cleanQuery);
         const customerName = o.customer ? `${o.customer.first_name} ${o.customer.last_name}`.toLowerCase() : '';
         const addrMatch = o.shipping_address.toLowerCase().includes(query);
         return idMatch || customerName.includes(query) || addrMatch;
@@ -493,6 +610,46 @@ export class OrdersManagementComponent {
 
   async refreshOrders(): Promise<void> {
     await this.adminService.fetchSalesOrders();
+  }
+
+  async onStatusSelectChange(order: AdminSalesOrderWithDetails, event: Event): Promise<void> {
+    const selectEl = event.target as HTMLSelectElement;
+    const newStatus = selectEl.value as OrderStatus;
+
+    if (newStatus === 'cancelled' && order.status !== 'cancelled') {
+      // Revertir visualmente el select hasta que el administrador confirme en el diálogo
+      selectEl.value = order.status;
+      this.requestCancelOrder(order);
+      return;
+    }
+
+    await this.onUpdateStatus(order.id, newStatus);
+  }
+
+  requestCancelOrder(order: AdminSalesOrderWithDetails): void {
+    this.orderToCancel.set(order);
+  }
+
+  closeCancelDialog(): void {
+    if (this.isCancellingOrder()) return;
+    this.orderToCancel.set(null);
+  }
+
+  async confirmCancelOrder(): Promise<void> {
+    const target = this.orderToCancel();
+    if (!target || this.isCancellingOrder()) return;
+
+    this.isCancellingOrder.set(true);
+    try {
+      await this.adminService.cancelOrderAndRestoreStock(target.id);
+      const updated = this.adminService.salesOrders().find((o) => o.id === target.id);
+      if (updated && this.selectedOrder()?.id === target.id) {
+        this.selectedOrder.set(updated);
+      }
+      this.orderToCancel.set(null);
+    } finally {
+      this.isCancellingOrder.set(false);
+    }
   }
 
   async onUpdateStatus(orderId: string, status: OrderStatus): Promise<void> {

@@ -16,8 +16,8 @@
     <app-card>
       <div class="space-y-4 py-2 text-left text-xs">
         <div class="flex justify-between border-b border-zinc-800 pb-3">
-          <span class="text-zinc-400">Número de Orden:</span>
-          <span class="font-bold text-blue-400 font-mono">{{ orderNumber() }}</span>
+          <span class="text-zinc-400">ID del Pedido:</span>
+          <span class="font-bold text-blue-400 font-mono">#{{ orderId() ? orderId().slice(0, 8) : orderNumber() }} ({{ orderNumber() }})</span>
         </div>
         <div class="flex justify-between border-b border-zinc-800 pb-3">
           <span class="text-zinc-400">Estado de Compra:</span>
@@ -66,7 +66,7 @@
           <div>
             <h3 class="text-sm font-bold text-white">¿Realizaste tu transferencia bancaria?</h3>
             <p class="text-xs text-zinc-300">
-              Envía tu comprobante al <strong class="text-emerald-400 font-mono">{{ paymentWhatsAppDisplay }}</strong> para validar tu orden <strong class="text-white font-mono">{{ orderNumber() }}</strong>.
+              Envía tu comprobante al <strong class="text-emerald-400 font-mono">{{ paymentWhatsAppDisplay }}</strong> junto con el ID de tu pedido <strong class="text-white font-mono">#{{ orderId() ? orderId().slice(0, 8) : orderNumber() }} ({{ orderNumber() }})</strong>.
             </p>
           </div>
         </div>

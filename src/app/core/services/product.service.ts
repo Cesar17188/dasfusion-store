@@ -203,6 +203,49 @@ export class ProductService {
   }
 
   /**
+   * Instantly updates a variant's stock and recalculates its parent product's total stock in the storefront signal
+   */
+  updateVariantStockInStore(variantId: string, stockPhysical: number, stockVirtual = 0): void {
+    const phys = Math.max(0, Number(stockPhysical) || 0);
+    const virt = Math.max(0, Number(stockVirtual) || 0);
+    const totalVarStock = phys + virt;
+
+    this.productsSignal.update((list) =>
+      list.map((p) => {
+        if (!p.variants || !p.variants.some((v) => v.id === variantId)) {
+          return p;
+        }
+        const updatedVariants = p.variants.map((v) =>
+          v.id === variantId
+            ? {
+                ...v,
+                stock: totalVarStock,
+                stock_physical: phys,
+                stock_virtual: virt,
+                attributes: {
+                  ...(v.attributes || {}),
+                  stock_physical: phys,
+                  stock_virtual: virt
+                }
+              }
+            : v
+        );
+        const totalStock = updatedVariants.reduce((acc, v) => acc + v.stock, 0);
+        const totalPhys = updatedVariants.reduce((acc, v) => acc + (v.stock_physical || 0), 0);
+        const totalVirt = updatedVariants.reduce((acc, v) => acc + (v.stock_virtual || 0), 0);
+
+        return {
+          ...p,
+          variants: updatedVariants,
+          stock: totalStock,
+          stock_physical: totalPhys,
+          stock_virtual: totalVirt
+        };
+      })
+    );
+  }
+
+  /**
    * Returns only brands that belong to the selected category.
    * If no category is chosen, returns all available brands in the store.
    * If a category is chosen, returns ONLY brands assigned to that category (or its taxonomy branch)

@@ -41,6 +41,11 @@ export class CheckoutProcessComponent implements OnInit {
   readonly paymentWhatsAppDisplay = PAYMENT_WHATSAPP_DISPLAY;
   protected readonly copiedField = signal<string | null>(null);
 
+  // ID único preasignado al pedido para que coincida tanto al enviar el comprobante por WhatsApp como al registrar la orden
+  readonly pendingOrderId = signal<string>(crypto.randomUUID());
+  readonly pendingOrderNumber = computed(() => `DAS-${this.pendingOrderId().slice(0, 8).toUpperCase()}`);
+  private readonly formValueSignal = signal<{ fullName?: string; identification?: string }>({});
+
   copyToClipboard(text: string, fieldId: string): void {
     if (typeof navigator !== 'undefined' && navigator.clipboard) {
       navigator.clipboard.writeText(text).then(() => {
@@ -57,19 +62,28 @@ export class CheckoutProcessComponent implements OnInit {
   }
 
   readonly whatsappReceiptUrl = computed(() => {
-    const formVal = this.checkoutForm.value;
+    const formVal = this.formValueSignal();
     const name = formVal.fullName ? formVal.fullName.trim() : '';
+    const taxId = formVal.identification ? formVal.identification.trim() : '';
     const total = this.cartService.total();
     const totalFormatted = total ? `$${total.toFixed(2)}` : '';
+    const orderId = this.pendingOrderId();
+    const shortId = orderId.slice(0, 8);
+    const orderNum = this.pendingOrderNumber();
 
     let msg = '¡Hola! He realizado una transferencia bancaria para mi compra en DasFusion Store.';
+    msg += `\n*ID del Pedido:* #${shortId} (${orderNum})`;
+    msg += `\n*Código de Orden:* ${orderId}`;
     if (name) {
       msg += `\n*Cliente:* ${name}`;
+    }
+    if (taxId) {
+      msg += `\n*CI/RUC:* ${taxId}`;
     }
     if (totalFormatted) {
       msg += `\n*Total a pagar:* ${totalFormatted}`;
     }
-    msg += '\n\nAdjunto el comprobante de transferencia para su confirmación. ¡Muchas gracias!';
+    msg += '\n\nAdjunto el comprobante de transferencia junto con el ID de mi pedido para su confirmación. ¡Muchas gracias!';
 
     return `https://wa.me/${this.paymentWhatsAppPhone}?text=${encodeURIComponent(msg)}`;
   });
@@ -137,6 +151,18 @@ export class CheckoutProcessComponent implements OnInit {
         email: user.email || ''
       });
     }
+
+    // Mantener sincronizados los datos del cliente para el mensaje de WhatsApp
+    this.formValueSignal.set({
+      fullName: this.checkoutForm.get('fullName')?.value,
+      identification: this.checkoutForm.get('identification')?.value
+    });
+    this.checkoutForm.valueChanges.subscribe((val) => {
+      this.formValueSignal.set({
+        fullName: val.fullName,
+        identification: val.identification
+      });
+    });
 
     // Si el monto es $50 o más, asegurar que no quede seleccionado Consumidor Final
     if (!this.isConsumidorFinalAllowed() && this.selectedDocType() === 'consumidor_final') {
@@ -217,8 +243,9 @@ export class CheckoutProcessComponent implements OnInit {
         sku: it.variant?.sku
       }));
 
-      // Guardar el pedido y persistir datos de factura en Supabase y estado local
+      // Guardar el pedido y persistir datos de factura en Supabase y estado local usando el mismo ID preasignado
       const createdOrder = await this.adminService.placeCustomerOrder({
+        orderId: this.pendingOrderId(),
         customerName: val.fullName.trim(),
         taxId: val.identification.trim(),
         customerEmail: val.email.trim(),

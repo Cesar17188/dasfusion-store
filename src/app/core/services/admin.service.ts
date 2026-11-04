@@ -43,6 +43,7 @@ export interface AdminPurchaseOrderWithDetails extends DbPurchaseOrder {
 }
 
 import { TaxService } from './tax.service';
+import { ProductService } from './product.service';
 
 @Injectable({
   providedIn: 'root'
@@ -50,6 +51,7 @@ import { TaxService } from './tax.service';
 export class AdminService {
   private readonly supabase = inject(SupabaseService);
   readonly taxService = inject(TaxService);
+  private readonly productService = inject(ProductService);
 
   // Reactive State Signals
   readonly leads = signal<DbCrmLead[]>([]);
@@ -531,6 +533,84 @@ export class AdminService {
         )
       }))
     );
+
+    // Sincronizar de inmediato el stock en la vista pública de la tienda
+    this.productService.updateVariantStockInStore(variantId, phys, virt);
+  }
+
+  /**
+   * Descuenta una cantidad vendida del stock de la variante (priorizando stock físico y luego virtual)
+   * y actualiza tanto Supabase como la vista de la tienda.
+   */
+  async deductVariantStockByQuantity(variantId: string, quantity: number): Promise<void> {
+    const qty = Math.max(0, Number(quantity) || 0);
+    if (!variantId || qty <= 0) return;
+
+    const existing = this.products().flatMap((p) => p.variants).find((v) => v.id === variantId);
+    let currentPhys = existing?.stock_physical ?? (Number(existing?.stock) || 0);
+    let currentVirt = existing?.stock_virtual ?? 0;
+
+    if (!existing) {
+      try {
+        const { data } = await (this.supabase.from('product_variants') as any)
+          .select('*')
+          .eq('id', variantId)
+          .maybeSingle();
+        if (data) {
+          currentPhys = data.attributes?.['stock_physical'] !== undefined
+            ? Number(data.attributes['stock_physical'])
+            : (Number(data.stock) || 0);
+          currentVirt = data.attributes?.['stock_virtual'] !== undefined
+            ? Number(data.attributes['stock_virtual'])
+            : 0;
+        }
+      } catch {}
+    }
+
+    let newPhys = currentPhys;
+    let newVirt = currentVirt;
+
+    if (newPhys >= qty) {
+      newPhys -= qty;
+    } else {
+      const remainder = qty - newPhys;
+      newPhys = 0;
+      newVirt = Math.max(0, newVirt - remainder);
+    }
+
+    await this.updateVariantStock(variantId, newPhys, newVirt);
+  }
+
+  /**
+   * Restituye una cantidad cancelada al inventario de la variante tanto en Supabase como en la tienda pública.
+   */
+  async restoreVariantStockByQuantity(variantId: string, quantity: number): Promise<void> {
+    const qty = Math.max(0, Number(quantity) || 0);
+    if (!variantId || qty <= 0) return;
+
+    const existing = this.products().flatMap((p) => p.variants).find((v) => v.id === variantId);
+    let currentPhys = existing?.stock_physical ?? (Number(existing?.stock) || 0);
+    let currentVirt = existing?.stock_virtual ?? 0;
+
+    try {
+      const { data } = await (this.supabase.from('product_variants') as any)
+        .select('*')
+        .eq('id', variantId)
+        .maybeSingle();
+      if (data) {
+        currentPhys = data.attributes?.['stock_physical'] !== undefined
+          ? Number(data.attributes['stock_physical'])
+          : (Number(data.stock) || 0);
+        currentVirt = data.attributes?.['stock_virtual'] !== undefined
+          ? Number(data.attributes['stock_virtual'])
+          : 0;
+      }
+    } catch {}
+
+    const newPhys = Math.max(0, currentPhys) + qty;
+    const newVirt = Math.max(0, currentVirt);
+
+    await this.updateVariantStock(variantId, newPhys, newVirt);
   }
 
   async updateVariantPrice(variantId: string, newPrice: number): Promise<void> {
@@ -1120,6 +1200,18 @@ export class AdminService {
   }
 
   async updateOrderStatus(orderId: string, status: OrderStatus): Promise<void> {
+    const existingOrder = this.salesOrders().find((o) => o.id === orderId);
+    const previousStatus = existingOrder?.status;
+
+    // Un pedido ya cancelado no permite cambios de estado posteriores
+    if (!existingOrder || previousStatus === 'cancelled' || previousStatus === status) return;
+
+    // Si pasa de un estado activo a 'cancelled', restituir los productos al inventario
+    if (status === 'cancelled') {
+      await this.cancelOrderAndRestoreStock(orderId);
+      return;
+    }
+
     try {
       await (this.supabase.from('sales_orders') as any).update({ status }).eq('id', orderId);
     } catch {}
@@ -1129,6 +1221,57 @@ export class AdminService {
       this.saveLocalOrders(updated);
       return updated;
     });
+  }
+
+  /**
+   * Cancela un pedido y restituye cada producto/variante al inventario tanto en la base de datos
+   * de Supabase como en la vista pública de la tienda.
+   */
+  async cancelOrderAndRestoreStock(orderId: string): Promise<void> {
+    const order = this.salesOrders().find((o) => o.id === orderId);
+    if (!order || order.status === 'cancelled') return;
+
+    let itemsToRestore = order.items || [];
+
+    // Si por algún motivo no hay ítems en memoria, consultarlos en sales_order_items de Supabase
+    if (itemsToRestore.length === 0) {
+      try {
+        const { data } = await (this.supabase.from('sales_order_items') as any)
+          .select('*')
+          .eq('sales_order_id', orderId);
+        if (Array.isArray(data) && data.length > 0) {
+          itemsToRestore = data;
+        }
+      } catch {}
+    }
+
+    // Restituir cada ítem al inventario en base de datos y en la vista de la tienda
+    for (const item of itemsToRestore) {
+      if (item.variant_id && item.quantity > 0) {
+        await this.restoreVariantStockByQuantity(item.variant_id, item.quantity);
+      }
+    }
+
+    // Actualizar estado del pedido a 'cancelled' en Supabase
+    try {
+      await (this.supabase.from('sales_orders') as any)
+        .update({ status: 'cancelled' })
+        .eq('id', orderId);
+    } catch (err) {
+      console.error('Error al actualizar estado de orden cancelada en Supabase:', err);
+    }
+
+    // Actualizar estado local y reactivo de pedidos
+    this.salesOrders.update((orders) => {
+      const updated = orders.map((o) =>
+        o.id === orderId ? { ...o, status: 'cancelled' as OrderStatus } : o
+      );
+      this.saveLocalOrders(updated);
+      return updated;
+    });
+
+    // Sincronizar catálogo de la tienda con la base de datos para reflejar el stock restituido
+    await this.productService.loadProductsFromDatabase();
   }
 
   async updateOrderTax(orderId: string, newTaxRate: number): Promise<void> {
@@ -1155,6 +1298,7 @@ export class AdminService {
    * Registra un pedido realizado desde la tienda web por un cliente
    */
   async placeCustomerOrder(payload: {
+    orderId?: string;
     customerName: string;
     taxId?: string;
     customerEmail: string;
@@ -1175,7 +1319,7 @@ export class AdminService {
     total: number;
     taxRate?: number;
   }): Promise<AdminSalesOrderWithDetails> {
-    const orderId = crypto.randomUUID();
+    const orderId = payload.orderId || crypto.randomUUID();
     const nameParts = payload.customerName.trim().split(' ');
     const firstName = nameParts[0] || 'Cliente';
     const lastName = nameParts.slice(1).join(' ') || (payload.taxId ? `(${payload.taxId})` : 'General');
@@ -1295,8 +1439,8 @@ export class AdminService {
 
       const variantId = variant?.id || it.variantId || this.products()[0]?.variants?.[0]?.id || crypto.randomUUID();
 
-      if (variant) {
-        this.updateVariantStock(variant.id, Math.max(0, variant.stock - it.quantity));
+      if (variantId) {
+        this.deductVariantStockByQuantity(variantId, it.quantity);
       }
 
       orderItems.push({
@@ -1408,8 +1552,8 @@ export class AdminService {
         if (foundV) {
           variant = foundV;
           product = p;
-          // Deduct local stock
-          this.updateVariantStock(it.variantId, Math.max(0, foundV.stock - it.quantity));
+          // Deduct stock in DB and storefront
+          this.deductVariantStockByQuantity(it.variantId, it.quantity);
           break;
         }
       }
