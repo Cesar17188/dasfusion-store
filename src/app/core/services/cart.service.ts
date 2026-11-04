@@ -27,10 +27,17 @@ export class CartService {
 
   private readonly taxService = inject(TaxService);
 
+  private readonly deliveryMethodSignal = signal<'shipping' | 'store_pickup'>('shipping');
+  readonly deliveryMethod = this.deliveryMethodSignal.asReadonly();
+
+  setDeliveryMethod(method: 'shipping' | 'store_pickup'): void {
+    this.deliveryMethodSignal.set(method);
+  }
+
   readonly shipping = computed(() => {
     const sub = this.subtotal();
     if (sub === 0) return 0;
-    return sub >= 150 ? 0 : 15; // Free shipping over $150
+    return this.deliveryMethodSignal() === 'shipping' ? 6 : 0; // $6.00 envío a Ecuador Continental o $0.00 en tienda física
   });
 
   readonly tax = computed(() => {

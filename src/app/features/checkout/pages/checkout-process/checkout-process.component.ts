@@ -70,10 +70,14 @@ export class CheckoutProcessComponent implements OnInit {
     const orderId = this.pendingOrderId();
     const shortId = orderId.slice(0, 8);
     const orderNum = this.pendingOrderNumber();
+    const deliveryLabel = this.cartService.deliveryMethod() === 'shipping'
+      ? 'Servicio de envío a dirección ingresada ($6.00 - Ecuador Continental)'
+      : 'Entrega en tienda física (Sin costo)';
 
     let msg = '¡Hola! He realizado una transferencia bancaria para mi compra en DasFusion Store.';
     msg += `\n*ID del Pedido:* #${shortId} (${orderNum})`;
     msg += `\n*Código de Orden:* ${orderId}`;
+    msg += `\n*Modalidad de Entrega:* ${deliveryLabel}`;
     if (name) {
       msg += `\n*Cliente:* ${name}`;
     }
@@ -118,6 +122,13 @@ export class CheckoutProcessComponent implements OnInit {
     'Tungurahua',
     'Zamora Chinchipe'
   ];
+
+  // Provincias del Ecuador Continental (para el servicio de envío a domicilio de $6.00)
+  readonly continentalEcuadorProvinces: string[] = this.ecuadorProvinces.filter((prov) => prov !== 'Galápagos');
+
+  setDeliveryMethod(method: 'shipping' | 'store_pickup'): void {
+    this.cartService.setDeliveryMethod(method);
+  }
 
   // Formulario principal con los Datos de Factura y de Envío requeridos
   protected readonly checkoutForm = this.fb.nonNullable.group({
@@ -200,8 +211,8 @@ export class CheckoutProcessComponent implements OnInit {
       return;
     }
 
-    // Validar si la dirección de entrega es distinta y faltan campos obligatorios
-    if (!val.sameAsBilling) {
+    // Validar si seleccionó servicio de envío a dirección ingresada y la dirección de entrega es distinta a la de facturación
+    if (this.cartService.deliveryMethod() === 'shipping' && !val.sameAsBilling) {
       if (!val.shippingAddress.trim() || !val.shippingCity.trim() || !val.shippingProvince.trim()) {
         this.checkoutForm.get('shippingAddress')?.markAsTouched();
         this.checkoutForm.get('shippingCity')?.markAsTouched();
@@ -225,9 +236,13 @@ export class CheckoutProcessComponent implements OnInit {
 
     try {
       const billingAddress = `${val.address.trim()}, ${val.city.trim()}, Prov. ${val.province.trim()}`;
-      const shippingAddress = val.sameAsBilling || !val.shippingAddress
+      const targetShippingAddress = val.sameAsBilling || !val.shippingAddress
         ? billingAddress
         : `${val.shippingAddress.trim()}, ${val.shippingCity.trim() || val.city.trim()}, Prov. ${(val.shippingProvince || val.province).trim()}`;
+
+      const shippingAddress = this.cartService.deliveryMethod() === 'store_pickup'
+        ? 'Entrega en tienda física (Bélgica y Eloy Alfaro, Quito - Lunes a Viernes con cita previa)'
+        : `Servicio de envío a dirección ingresada ($6.00 - Ecuador Continental): ${targetShippingAddress}`;
 
       const paymentMethodMap: Record<string, string> = {
         credit_card: 'Tarjeta de Crédito / Débito',

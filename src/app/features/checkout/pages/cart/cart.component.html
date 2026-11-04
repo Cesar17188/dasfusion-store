@@ -142,7 +142,7 @@
               </div>
             }
             <div class="flex justify-between text-on-surface-variant">
-              <span>Envío:</span>
+              <span>{{ cartService.deliveryMethod() === 'shipping' ? 'Envío (Ecuador Continental):' : 'Entrega en tienda física:' }}</span>
               <span class="text-on-surface font-semibold font-mono">
                 {{ cartService.shipping() === 0 ? 'GRATIS' : (cartService.shipping() | currencyFormat) }}
               </span>

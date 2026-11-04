@@ -195,73 +195,183 @@
           </div>
         </div>
 
-        <!-- Opción de Envío a la misma dirección -->
-        <div class="pt-3 border-t border-outline-variant/30 space-y-3">
-          <label class="flex items-center gap-3 cursor-pointer p-3 rounded-xl bg-surface-container-low/70 border border-outline-variant/30 hover:border-outline-variant transition">
-            <input
-              type="checkbox"
-              formControlName="sameAsBilling"
-              class="h-4 w-4 rounded border-outline-variant text-primary focus:ring-primary/30 accent-blue-500"
-            />
-            <div class="text-xs">
-              <span class="text-on-surface font-semibold select-none block">
-                La dirección de entrega es la misma que la dirección de facturación
-              </span>
-              <span class="text-outline text-[11px] block">
-                Desmarca esta casilla si requieres enviar los productos a una dirección física diferente.
-              </span>
-            </div>
-          </label>
+        <!-- Información de Entrega: 2 Opciones -->
+        <div class="pt-4 border-t border-outline-variant/30 space-y-4">
+          <div class="space-y-1">
+            <h4 class="text-sm sm:text-base font-bold text-on-surface flex items-center gap-2">
+              <svg class="w-4 h-4 text-primary shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+              </svg>
+              Información de Entrega
+            </h4>
+            <p class="text-xs text-outline">
+              Selecciona cómo deseas recibir tu pedido:
+            </p>
+          </div>
 
-          @if (!checkoutForm.get('sameAsBilling')?.value) {
-            <div class="p-4 rounded-xl bg-surface-container-low border border-primary/30 space-y-3 animate-fadeIn">
-              <h4 class="text-xs font-bold uppercase tracking-wider text-primary flex items-center gap-2">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                </svg>
-                Dirección Alternativa de Entrega
-              </h4>
-              <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                <div class="sm:col-span-2">
-                  <app-input
-                    label="Dirección de Destino"
-                    placeholder="Calle, número e intersección donde recibirás tu pedido"
-                    [required]="true"
-                    formControlName="shippingAddress"
-                    [error]="!checkoutForm.get('sameAsBilling')?.value && checkoutForm.get('shippingAddress')?.touched && !checkoutForm.get('shippingAddress')?.value ? 'Ingresa la dirección de entrega' : ''"
-                  ></app-input>
-                </div>
-                <div>
-                  <div class="w-full flex flex-col gap-1.5">
-                    <label class="text-xs font-semibold uppercase tracking-wider text-on-surface-variant">
-                      Provincia de Entrega <span class="text-error">*</span>
-                    </label>
-                    <select
-                      formControlName="shippingProvince"
-                      class="w-full bg-surface-container text-on-surface text-sm rounded-lg border border-outline-variant px-3.5 py-2.5 transition-all duration-200 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/25 cursor-pointer"
-                      [class.border-error]="!checkoutForm.get('sameAsBilling')?.value && checkoutForm.get('shippingProvince')?.touched && !checkoutForm.get('shippingProvince')?.value"
-                    >
-                      <option value="" disabled>Selecciona la provincia de entrega</option>
-                      @for (prov of ecuadorProvinces; track prov) {
-                        <option [value]="prov">{{ prov }}</option>
-                      }
-                    </select>
-                    @if (!checkoutForm.get('sameAsBilling')?.value && checkoutForm.get('shippingProvince')?.touched && !checkoutForm.get('shippingProvince')?.value) {
-                      <span class="text-xs text-error mt-0.5">Selecciona la provincia de entrega</span>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <!-- Opción 1: Servicio de envío a dirección ingresada -->
+            <button
+              type="button"
+              (click)="setDeliveryMethod('shipping')"
+              class="p-3.5 rounded-xl border text-left transition cursor-pointer flex flex-col justify-between gap-2"
+              [class.border-primary]="cartService.deliveryMethod() === 'shipping'"
+              [class.bg-primary-container/40]="cartService.deliveryMethod() === 'shipping'"
+              [class.border-outline-variant/40]="cartService.deliveryMethod() !== 'shipping'"
+              [class.bg-surface-container-lowest]="cartService.deliveryMethod() !== 'shipping'"
+            >
+              <div class="flex items-start justify-between gap-2 w-full">
+                <div class="flex items-center gap-2">
+                  <span
+                    class="w-4 h-4 rounded-full border flex items-center justify-center shrink-0"
+                    [class.border-primary]="cartService.deliveryMethod() === 'shipping'"
+                    [class.border-outline]="cartService.deliveryMethod() !== 'shipping'"
+                  >
+                    @if (cartService.deliveryMethod() === 'shipping') {
+                      <span class="w-2 h-2 rounded-full bg-primary"></span>
                     }
+                  </span>
+                  <span class="text-xs sm:text-sm font-bold text-on-surface">
+                    Servicio de envío a dirección ingresada
+                  </span>
+                </div>
+                <span class="px-2 py-0.5 rounded-md bg-primary/15 text-primary border border-primary/30 font-mono text-xs font-extrabold shrink-0">
+                  $6.00
+                </span>
+              </div>
+              <p class="text-[11px] text-outline pl-6">
+                Costo de envío de <strong class="text-on-surface">$6.00</strong> a cualquier lugar del <strong class="text-on-surface">Ecuador Continental</strong>.
+              </p>
+            </button>
+
+            <!-- Opción 2: Entrega en tienda física -->
+            <button
+              type="button"
+              (click)="setDeliveryMethod('store_pickup')"
+              class="p-3.5 rounded-xl border text-left transition cursor-pointer flex flex-col justify-between gap-2"
+              [class.border-primary]="cartService.deliveryMethod() === 'store_pickup'"
+              [class.bg-primary-container/40]="cartService.deliveryMethod() === 'store_pickup'"
+              [class.border-outline-variant/40]="cartService.deliveryMethod() !== 'store_pickup'"
+              [class.bg-surface-container-lowest]="cartService.deliveryMethod() !== 'store_pickup'"
+            >
+              <div class="flex items-start justify-between gap-2 w-full">
+                <div class="flex items-center gap-2">
+                  <span
+                    class="w-4 h-4 rounded-full border flex items-center justify-center shrink-0"
+                    [class.border-primary]="cartService.deliveryMethod() === 'store_pickup'"
+                    [class.border-outline]="cartService.deliveryMethod() !== 'store_pickup'"
+                  >
+                    @if (cartService.deliveryMethod() === 'store_pickup') {
+                      <span class="w-2 h-2 rounded-full bg-primary"></span>
+                    }
+                  </span>
+                  <span class="text-xs sm:text-sm font-bold text-on-surface">
+                    Entrega en tienda física
+                  </span>
+                </div>
+                <span class="px-2 py-0.5 rounded-md bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 font-mono text-[11px] font-extrabold shrink-0">
+                  GRATIS
+                </span>
+              </div>
+              <p class="text-[11px] text-outline pl-6">
+                Retiro directo en nuestra tienda física en Quito (<strong class="text-on-surface">Bélgica y Eloy Alfaro</strong>) sin costo de envío.
+              </p>
+            </button>
+          </div>
+
+          @if (cartService.deliveryMethod() === 'shipping') {
+            <div class="space-y-3">
+              <div class="flex items-center gap-2.5 p-3 rounded-xl bg-primary/10 border border-primary/30 text-xs text-on-surface">
+                <svg class="w-4 h-4 text-primary shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span>
+                  El costo de envío es de <strong>$6.00</strong> a cualquier lugar del <strong>Ecuador Continental</strong>.
+                </span>
+              </div>
+
+              <label class="flex items-center gap-3 cursor-pointer p-3 rounded-xl bg-surface-container-low/70 border border-outline-variant/30 hover:border-outline-variant transition">
+                <input
+                  type="checkbox"
+                  formControlName="sameAsBilling"
+                  class="h-4 w-4 rounded border-outline-variant text-primary focus:ring-primary/30 accent-blue-500"
+                />
+                <div class="text-xs">
+                  <span class="text-on-surface font-semibold select-none block">
+                    La dirección de entrega es la misma que la dirección de facturación
+                  </span>
+                  <span class="text-outline text-[11px] block">
+                    Desmarca esta casilla si requieres enviar los productos a una dirección física diferente dentro del Ecuador Continental.
+                  </span>
+                </div>
+              </label>
+
+              @if (!checkoutForm.get('sameAsBilling')?.value) {
+                <div class="p-4 rounded-xl bg-surface-container-low border border-primary/30 space-y-3 animate-fadeIn">
+                  <h4 class="text-xs font-bold uppercase tracking-wider text-primary flex items-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                    Dirección de Entrega (Ecuador Continental)
+                  </h4>
+                  <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                    <div class="sm:col-span-2">
+                      <app-input
+                        label="Dirección de Destino"
+                        placeholder="Calle, número e intersección donde recibirás tu pedido"
+                        [required]="true"
+                        formControlName="shippingAddress"
+                        [error]="!checkoutForm.get('sameAsBilling')?.value && checkoutForm.get('shippingAddress')?.touched && !checkoutForm.get('shippingAddress')?.value ? 'Ingresa la dirección de entrega' : ''"
+                      ></app-input>
+                    </div>
+                    <div>
+                      <div class="w-full flex flex-col gap-1.5">
+                        <label class="text-xs font-semibold uppercase tracking-wider text-on-surface-variant">
+                          Provincia de Entrega (Ecuador Continental) <span class="text-error">*</span>
+                        </label>
+                        <select
+                          formControlName="shippingProvince"
+                          class="w-full bg-surface-container text-on-surface text-sm rounded-lg border border-outline-variant px-3.5 py-2.5 transition-all duration-200 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/25 cursor-pointer"
+                          [class.border-error]="!checkoutForm.get('sameAsBilling')?.value && checkoutForm.get('shippingProvince')?.touched && !checkoutForm.get('shippingProvince')?.value"
+                        >
+                          <option value="" disabled>Selecciona la provincia de entrega</option>
+                          @for (prov of continentalEcuadorProvinces; track prov) {
+                            <option [value]="prov">{{ prov }}</option>
+                          }
+                        </select>
+                        @if (!checkoutForm.get('sameAsBilling')?.value && checkoutForm.get('shippingProvince')?.touched && !checkoutForm.get('shippingProvince')?.value) {
+                          <span class="text-xs text-error mt-0.5">Selecciona la provincia de entrega</span>
+                        }
+                      </div>
+                    </div>
+                    <div>
+                      <app-input
+                        label="Ciudad de Entrega"
+                        placeholder="Ciudad de destino"
+                        [required]="true"
+                        formControlName="shippingCity"
+                        [error]="!checkoutForm.get('sameAsBilling')?.value && checkoutForm.get('shippingCity')?.touched && !checkoutForm.get('shippingCity')?.value ? 'Ingresa la ciudad de entrega' : ''"
+                      ></app-input>
+                    </div>
                   </div>
                 </div>
-                <div>
-                  <app-input
-                    label="Ciudad de Entrega"
-                    placeholder="Ciudad de destino"
-                    [required]="true"
-                    formControlName="shippingCity"
-                    [error]="!checkoutForm.get('sameAsBilling')?.value && checkoutForm.get('shippingCity')?.touched && !checkoutForm.get('shippingCity')?.value ? 'Ingresa la ciudad de entrega' : ''"
-                  ></app-input>
-                </div>
+              }
+            </div>
+          } @else {
+            <div class="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/30 space-y-1.5 text-xs">
+              <div class="font-bold text-emerald-400 flex items-center gap-2">
+                <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                </svg>
+                Punto de Retiro — Tienda Física DasFusion Store
               </div>
+              <p class="text-on-surface">
+                <strong>Dirección:</strong> Bélgica y Eloy Alfaro, Quito - Ecuador.
+              </p>
+              <p class="text-outline text-[11px]">
+                <strong>Horario de atención:</strong> Lunes a Viernes, con cita previa tras confirmar tu pago.
+              </p>
             </div>
           }
         </div>
@@ -271,10 +381,20 @@
       <!-- 2. MÉTODO DE PAGO -->
       <!-- ========================================== -->
       <div class="bg-surface-container/85 border border-outline-variant/40 rounded-2xl p-4 sm:p-6 backdrop-blur-md space-y-4 shadow-lg">
-        <h3 class="text-base sm:text-lg font-bold text-on-surface flex items-center gap-2.5">
-          <span class="flex h-6 w-6 items-center justify-center rounded-full bg-primary-container text-primary border border-primary/40 text-xs font-bold font-mono">2</span>
-          Método de Pago
-        </h3>
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <h3 class="text-base sm:text-lg font-bold text-on-surface flex items-center gap-2.5">
+            <span class="flex h-6 w-6 items-center justify-center rounded-full bg-primary-container text-primary border border-primary/40 text-xs font-bold font-mono">2</span>
+            Método de Pago
+          </h3>
+        </div>
+
+        <!-- Aviso obligatorio de medios de pago -->
+        <div class="flex items-center gap-2.5 p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs font-medium">
+          <svg class="w-4 h-4 shrink-0 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <span>Los pagos solo pueden ser por medio de tarjeta o transferencia bancaria.</span>
+        </div>
 
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 pt-2">
           <button
@@ -569,9 +689,13 @@
               <span class="font-mono">-{{ cartService.discount() | currencyFormat }}</span>
             </div>
           }
-          <div class="flex justify-between text-on-surface-variant">
-            <span>Envío:</span>
-            <span class="font-mono text-on-surface">{{ cartService.shipping() === 0 ? 'GRATIS' : (cartService.shipping() | currencyFormat) }}</span>
+          <div class="flex justify-between text-on-surface-variant items-start gap-2">
+            <span>
+              {{ cartService.deliveryMethod() === 'shipping' ? 'Envío (Ecuador Continental):' : 'Entrega en tienda física:' }}
+            </span>
+            <span class="font-mono text-on-surface shrink-0">
+              {{ cartService.shipping() === 0 ? 'GRATIS' : (cartService.shipping() | currencyFormat) }}
+            </span>
           </div>
           <div class="flex justify-between text-on-surface-variant items-center">
             <span class="flex items-center gap-1.5">
@@ -607,12 +731,20 @@
               @if (checkoutForm.get('province')?.invalid) { <li>Provincia de facturación</li> }
               @if (checkoutForm.get('city')?.invalid) { <li>Ciudad de facturación</li> }
               @if (checkoutForm.get('address')?.invalid) { <li>Dirección de facturación</li> }
-              @if (!checkoutForm.get('sameAsBilling')?.value && (!checkoutForm.get('shippingAddress')?.value || !checkoutForm.get('shippingProvince')?.value || !checkoutForm.get('shippingCity')?.value)) {
+              @if (cartService.deliveryMethod() === 'shipping' && !checkoutForm.get('sameAsBilling')?.value && (!checkoutForm.get('shippingAddress')?.value || !checkoutForm.get('shippingProvince')?.value || !checkoutForm.get('shippingCity')?.value)) {
                 <li>Dirección, provincia y ciudad de entrega</li>
               }
             </ul>
           </div>
         }
+
+        <!-- Mensaje informativo al momento de pagar -->
+        <div class="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-[11px] flex items-center gap-2">
+          <svg class="w-4 h-4 shrink-0 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <span>Los pagos solo pueden ser por medio de tarjeta o transferencia bancaria.</span>
+        </div>
 
         <!-- Action Submit Button -->
         <app-button
