@@ -183,6 +183,7 @@ import { OrderStatus } from '../../../../core/models/supabase.model';
                 <th class="py-3 px-4">Dirección</th>
                 <th class="py-3 px-4">Ítems</th>
                 <th class="py-3 px-4">Total</th>
+                <th class="py-3 px-4">Comprobante (Opcional)</th>
                 <th class="py-3 px-4">Estado</th>
                 <th class="py-3 px-4 text-right">Acción</th>
               </tr>
@@ -210,6 +211,63 @@ import { OrderStatus } from '../../../../core/models/supabase.model';
                   </td>
                   <td class="py-3.5 px-4 font-bold text-[#e3e2e6]">
                     {{ order.total | currency:'USD':'symbol':'1.2-2' }}
+                  </td>
+                  <td class="py-3.5 px-4">
+                    @if (order.payment_receipt_url) {
+                      <div class="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          (click)="openReceiptPreview(order)"
+                          class="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 text-emerald-300 text-[11px] font-semibold transition cursor-pointer"
+                          title="Ver comprobante de pago"
+                        >
+                          <img
+                            [src]="order.payment_receipt_url"
+                            alt="Comprobante"
+                            class="w-5 h-5 rounded object-cover border border-emerald-500/40 shrink-0"
+                          />
+                          <span>Ver Comprobante</span>
+                        </button>
+                        <label
+                          class="px-2 py-1 rounded-lg bg-surface-container-high hover:bg-[#343538] text-[#aec7f7] text-[10px] font-semibold transition cursor-pointer"
+                          title="Reemplazar imagen del comprobante"
+                        >
+                          {{ uploadingReceiptOrderId() === order.id ? '...' : 'Cambiar' }}
+                          <input
+                            type="file"
+                            accept="image/*"
+                            class="hidden"
+                            [disabled]="uploadingReceiptOrderId() === order.id"
+                            (change)="onReceiptFileSelected(order, $event)"
+                          />
+                        </label>
+                        <button
+                          type="button"
+                          (click)="onRemoveReceipt(order)"
+                          class="p-1 rounded-lg text-outline hover:text-rose-400 hover:bg-rose-950/40 transition cursor-pointer"
+                          title="Eliminar comprobante"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    } @else {
+                      <label
+                        class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-surface-container-high hover:bg-[#343538] border border-outline-variant/40 text-on-surface-variant hover:text-[#e3e2e6] text-[11px] font-semibold transition cursor-pointer"
+                        title="Subir imagen del comprobante de pago (opcional)"
+                      >
+                        <svg class="w-3.5 h-3.5 text-[#aec7f7] shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                        </svg>
+                        <span>{{ uploadingReceiptOrderId() === order.id ? 'Subiendo...' : 'Subir Comprobante' }}</span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          class="hidden"
+                          [disabled]="uploadingReceiptOrderId() === order.id"
+                          (change)="onReceiptFileSelected(order, $event)"
+                        />
+                      </label>
+                    }
                   </td>
                   <td class="py-3.5 px-4">
                     @if (order.status === 'cancelled') {
@@ -265,7 +323,7 @@ import { OrderStatus } from '../../../../core/models/supabase.model';
                 </tr>
               } @empty {
                 <tr>
-                  <td colspan="8" class="text-center py-8 text-outline">
+                  <td colspan="9" class="text-center py-8 text-outline">
                     No se encontraron pedidos con los filtros aplicados.
                   </td>
                 </tr>
@@ -318,6 +376,78 @@ import { OrderStatus } from '../../../../core/models/supabase.model';
               </div>
               <div class="text-outline text-[10px]">{{ selectedOrder()!.created_at | date:'medium' }}</div>
             </div>
+          </div>
+
+          <!-- Comprobante de Pago (Opcional) -->
+          <div class="bg-[#121316] p-4 rounded-xl border border-outline-variant/30 space-y-3 text-xs">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div>
+                <span class="text-[#aec7f7] font-bold uppercase text-[10px] tracking-wider block">
+                  Comprobante de Pago (Opcional)
+                </span>
+                <p class="text-[11px] text-outline">
+                  Adjunta o consulta la imagen del comprobante de transferencia o voucher del pedido.
+                </p>
+              </div>
+              <div class="flex items-center gap-2">
+                <label
+                  class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-primary-container hover:bg-primary/30 text-[#aec7f7] border border-[#aec7f7]/30 text-xs font-bold transition cursor-pointer"
+                >
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                  </svg>
+                  <span>
+                    {{ uploadingReceiptOrderId() === selectedOrder()!.id ? 'Guardando...' : (selectedOrder()!.payment_receipt_url ? 'Cambiar Comprobante' : 'Subir Comprobante') }}
+                  </span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    class="hidden"
+                    [disabled]="uploadingReceiptOrderId() === selectedOrder()!.id"
+                    (change)="onReceiptFileSelected(selectedOrder()!, $event)"
+                  />
+                </label>
+                @if (selectedOrder()!.payment_receipt_url) {
+                  <button
+                    type="button"
+                    (click)="onRemoveReceipt(selectedOrder()!)"
+                    class="px-3 py-1.5 rounded-xl bg-rose-950/70 hover:bg-rose-900 border border-rose-500/30 text-rose-300 text-xs font-semibold transition cursor-pointer"
+                  >
+                    Eliminar
+                  </button>
+                }
+              </div>
+            </div>
+
+            @if (selectedOrder()!.payment_receipt_url) {
+              <div class="flex flex-col sm:flex-row items-start sm:items-center gap-3 p-3 rounded-xl bg-surface-container-low border border-emerald-500/30">
+                <img
+                  [src]="selectedOrder()!.payment_receipt_url!"
+                  alt="Comprobante del pedido"
+                  (click)="openReceiptPreview(selectedOrder()!)"
+                  class="h-24 w-auto max-w-44 rounded-lg object-contain bg-black/50 border border-outline-variant/40 cursor-pointer hover:opacity-90 transition"
+                />
+                <div class="space-y-1">
+                  <span class="inline-flex items-center gap-1 text-emerald-400 font-bold text-xs">
+                    ✓ Comprobante guardado en base de datos
+                  </span>
+                  <p class="text-[11px] text-outline">
+                    Haz clic sobre la imagen para ampliarla a pantalla completa.
+                  </p>
+                  <button
+                    type="button"
+                    (click)="openReceiptPreview(selectedOrder()!)"
+                    class="text-[11px] text-[#aec7f7] hover:underline font-semibold cursor-pointer"
+                  >
+                    Ver en tamaño completo →
+                  </button>
+                </div>
+              </div>
+            } @else {
+              <div class="text-[11px] text-outline italic">
+                Aún no se ha subido un comprobante de pago para este pedido.
+              </div>
+            }
           </div>
 
           <!-- Items Table -->
@@ -564,6 +694,69 @@ import { OrderStatus } from '../../../../core/models/supabase.model';
         </div>
       </div>
     }
+
+    <!-- Payment Receipt Fullscreen Lightbox Modal -->
+    @if (previewReceiptOrder(); as receiptOrder) {
+      <div
+        class="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4"
+        (click)="previewReceiptOrder.set(null)"
+      >
+        <div
+          class="w-full max-w-2xl das-card p-5 space-y-4 border border-outline-variant/60 shadow-2xl"
+          (click)="$event.stopPropagation()"
+        >
+          <div class="flex items-center justify-between pb-3 border-b border-outline-variant/40">
+            <div>
+              <span class="text-[10px] uppercase font-bold text-emerald-400 tracking-wider block">
+                Comprobante de Pago Registrado
+              </span>
+              <h3 class="text-base font-bold text-[#e3e2e6] font-mono">
+                Pedido #{{ receiptOrder.id.slice(0, 8) }} — {{ receiptOrder.customer_name || 'Cliente' }}
+              </h3>
+            </div>
+            <button
+              type="button"
+              (click)="previewReceiptOrder.set(null)"
+              class="text-outline hover:text-white text-lg cursor-pointer px-2"
+            >
+              ✕
+            </button>
+          </div>
+
+          <div class="bg-black/60 rounded-xl p-3 border border-outline-variant/30 flex items-center justify-center max-h-[70vh] overflow-auto">
+            <img
+              [src]="receiptOrder.payment_receipt_url!"
+              alt="Comprobante de Pago"
+              class="max-h-[65vh] w-auto object-contain rounded-lg"
+            />
+          </div>
+
+          <div class="flex items-center justify-between gap-3 pt-2 border-t border-outline-variant/40">
+            <div class="text-xs text-outline">
+              Total del pedido: <strong class="text-emerald-400 font-mono">{{ receiptOrder.total | currency:'USD':'symbol':'1.2-2' }}</strong>
+            </div>
+            <div class="flex items-center gap-2">
+              <a
+                [href]="receiptOrder.payment_receipt_url!"
+                [download]="'comprobante_pedido_' + receiptOrder.id.slice(0, 8) + '.jpg'"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="btn-secondary py-2! px-4! text-xs cursor-pointer"
+              >
+                Descargar / Abrir
+              </a>
+              <button
+                type="button"
+                (click)="previewReceiptOrder.set(null)"
+                class="btn-primary py-2! px-5! text-xs cursor-pointer"
+              >
+                Cerrar
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    }
   `
 })
 export class OrdersManagementComponent {
@@ -575,6 +768,8 @@ export class OrdersManagementComponent {
   selectedOrder = signal<AdminSalesOrderWithDetails | null>(null);
   orderToCancel = signal<AdminSalesOrderWithDetails | null>(null);
   isCancellingOrder = signal<boolean>(false);
+  uploadingReceiptOrderId = signal<string | null>(null);
+  previewReceiptOrder = signal<AdminSalesOrderWithDetails | null>(null);
 
   isCustomTaxModalOpen = signal<boolean>(false);
   customTaxInput = signal<number>(15);
@@ -680,6 +875,52 @@ export class OrdersManagementComponent {
 
   viewOrderDetails(order: AdminSalesOrderWithDetails): void {
     this.selectedOrder.set(order);
+  }
+
+  openReceiptPreview(order: AdminSalesOrderWithDetails): void {
+    if (!order.payment_receipt_url) return;
+    this.previewReceiptOrder.set(order);
+  }
+
+  async onReceiptFileSelected(order: AdminSalesOrderWithDetails, event: Event): Promise<void> {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    if (!file) return;
+
+    this.uploadingReceiptOrderId.set(order.id);
+    try {
+      await this.adminService.uploadOrderPaymentReceipt(order.id, file);
+      const updated = this.adminService.salesOrders().find((o) => o.id === order.id);
+      if (updated) {
+        if (this.selectedOrder()?.id === order.id) {
+          this.selectedOrder.set(updated);
+        }
+        if (this.previewReceiptOrder()?.id === order.id) {
+          this.previewReceiptOrder.set(updated);
+        }
+      }
+    } catch (err) {
+      console.error('Error al subir el comprobante de pago:', err);
+    } finally {
+      this.uploadingReceiptOrderId.set(null);
+      input.value = '';
+    }
+  }
+
+  async onRemoveReceipt(order: AdminSalesOrderWithDetails): Promise<void> {
+    this.uploadingReceiptOrderId.set(order.id);
+    try {
+      await this.adminService.updateOrderPaymentReceipt(order.id, null);
+      const updated = this.adminService.salesOrders().find((o) => o.id === order.id);
+      if (updated && this.selectedOrder()?.id === order.id) {
+        this.selectedOrder.set(updated);
+      }
+      if (this.previewReceiptOrder()?.id === order.id) {
+        this.previewReceiptOrder.set(null);
+      }
+    } finally {
+      this.uploadingReceiptOrderId.set(null);
+    }
   }
 
   printInvoice(): void {

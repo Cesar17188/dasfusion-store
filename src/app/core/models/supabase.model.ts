@@ -149,6 +149,14 @@ export interface DbSalesOrder {
   tax: number; // numeric
   total: number; // numeric
   shipping_address: string;
+  tax_id?: string | null;
+  customer_name?: string | null;
+  customer_email?: string | null;
+  customer_phone?: string | null;
+  billing_address?: string | null;
+  province?: string | null;
+  city?: string | null;
+  payment_receipt_url?: string | null; // Imagen o URL del comprobante de pago (opcional)
   created_at: string; // timestamptz
 }
 

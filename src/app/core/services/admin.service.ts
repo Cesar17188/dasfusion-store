@@ -29,11 +29,12 @@ export interface AdminProductWithVariants extends DbProduct {
 
 export interface AdminSalesOrderWithDetails extends DbSalesOrder {
   customer?: DbProfile;
-  tax_id?: string;
-  customer_name?: string;
-  customer_phone?: string;
-  customer_email?: string;
-  billing_address?: string;
+  tax_id?: string | null;
+  customer_name?: string | null;
+  customer_phone?: string | null;
+  customer_email?: string | null;
+  billing_address?: string | null;
+  payment_receipt_url?: string | null;
   items: Array<DbSalesOrderItem & { variant?: DbProductVariant; product?: DbProduct }>;
 }
 
@@ -1150,23 +1151,31 @@ export class AdminService {
               return { ...it, variant, product };
             });
 
-          let parsedTaxId: string | undefined;
-          let parsedName: string | undefined;
-          let parsedPhone: string | undefined;
-          let parsedEmail: string | undefined;
-          let parsedBillingAddress: string | undefined;
+          let parsedTaxId: string | undefined = o.tax_id || undefined;
+          let parsedName: string | undefined = o.customer_name || undefined;
+          let parsedPhone: string | undefined = o.customer_phone || undefined;
+          let parsedEmail: string | undefined = o.customer_email || undefined;
+          let parsedBillingAddress: string | undefined =
+            o.billing_address && !o.billing_address.startsWith('[RECEIPT_IMG]:')
+              ? o.billing_address
+              : undefined;
+          let parsedReceiptUrl: string | null = o.payment_receipt_url || null;
+
+          if (!parsedReceiptUrl && o.billing_address?.startsWith('[RECEIPT_IMG]:')) {
+            parsedReceiptUrl = o.billing_address.replace('[RECEIPT_IMG]:', '');
+          }
 
           if (o.shipping_address) {
             const taxMatch = o.shipping_address.match(/CI\/RUC:\s*([^|\]]+)/i);
-            if (taxMatch) parsedTaxId = taxMatch[1].trim();
+            if (!parsedTaxId && taxMatch) parsedTaxId = taxMatch[1].trim();
             const nameMatch = o.shipping_address.match(/Factura:\s*([^|\]]+)/i);
-            if (nameMatch) parsedName = nameMatch[1].trim();
+            if (!parsedName && nameMatch) parsedName = nameMatch[1].trim();
             const phoneMatch = o.shipping_address.match(/Tel:\s*([^|\]]+)/i);
-            if (phoneMatch) parsedPhone = phoneMatch[1].trim();
+            if (!parsedPhone && phoneMatch) parsedPhone = phoneMatch[1].trim();
             const emailMatch = o.shipping_address.match(/Email:\s*([^|\]]+)/i);
-            if (emailMatch) parsedEmail = emailMatch[1].trim();
+            if (!parsedEmail && emailMatch) parsedEmail = emailMatch[1].trim();
             const dirMatch = o.shipping_address.match(/Dir:\s*([^|\]]+)/i);
-            if (dirMatch) parsedBillingAddress = dirMatch[1].trim();
+            if (!parsedBillingAddress && dirMatch) parsedBillingAddress = dirMatch[1].trim();
           }
 
           return {
@@ -1177,6 +1186,7 @@ export class AdminService {
             customer_phone: parsedPhone,
             customer_email: parsedEmail,
             billing_address: parsedBillingAddress,
+            payment_receipt_url: parsedReceiptUrl,
             items: orderItems
           };
         });
@@ -1185,11 +1195,28 @@ export class AdminService {
       console.error('Error al cargar órdenes de venta desde Supabase:', err);
     }
 
-    // Merge Supabase orders with locally saved orders (ensures no web/POS orders are ever lost)
+    // Merge Supabase orders with locally saved orders (ensures no web/POS orders or receipts are ever lost)
     const localOrders = this.loadLocalOrders();
     const mergedMap = new Map<string, AdminSalesOrderWithDetails>();
     localOrders.forEach((o) => mergedMap.set(o.id, o));
-    dbOrders.forEach((o) => mergedMap.set(o.id, o));
+    dbOrders.forEach((dbOrd) => {
+      const localOrd = mergedMap.get(dbOrd.id);
+      const effectiveReceipt = dbOrd.payment_receipt_url ?? localOrd?.payment_receipt_url ?? null;
+      let effectiveStatus = dbOrd.status;
+      if (localOrd?.status === 'cancelled') {
+        effectiveStatus = 'cancelled';
+      } else if (effectiveReceipt && effectiveStatus === 'pending') {
+        effectiveStatus = 'processing';
+      } else if (localOrd && localOrd.status !== 'pending' && dbOrd.status === 'pending') {
+        effectiveStatus = localOrd.status;
+      }
+
+      mergedMap.set(dbOrd.id, {
+        ...dbOrd,
+        status: effectiveStatus,
+        payment_receipt_url: effectiveReceipt
+      });
+    });
 
     const mergedList = Array.from(mergedMap.values()).sort(
       (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
@@ -1289,6 +1316,141 @@ export class AdminService {
 
     this.salesOrders.update((orders) => {
       const updated = orders.map((o) => (o.id === orderId ? { ...o, tax, total } : o));
+      this.saveLocalOrders(updated);
+      return updated;
+    });
+  }
+
+  /**
+   * Comprime una imagen en navegador para almacenamiento óptimo en base de datos
+   */
+  private compressReceiptImage(file: File): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onerror = (err) => reject(err);
+      reader.onload = () => {
+        const dataUrl = reader.result as string;
+        if (typeof document === 'undefined') {
+          resolve(dataUrl);
+          return;
+        }
+        const img = new Image();
+        img.onerror = () => resolve(dataUrl);
+        img.onload = () => {
+          const maxDim = 1100;
+          let { width, height } = img;
+          if (width > maxDim || height > maxDim) {
+            if (width > height) {
+              height = Math.round((height * maxDim) / width);
+              width = maxDim;
+            } else {
+              width = Math.round((width * maxDim) / height);
+              height = maxDim;
+            }
+          }
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          if (!ctx) {
+            resolve(dataUrl);
+            return;
+          }
+          ctx.drawImage(img, 0, 0, width, height);
+          resolve(canvas.toDataURL('image/jpeg', 0.82));
+        };
+        img.src = dataUrl;
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+
+  /**
+   * Sube (opcionalmente) la imagen del comprobante de pago de un pedido y la guarda en la base de datos (sales_orders)
+   */
+  async uploadOrderPaymentReceipt(orderId: string, file: File): Promise<string> {
+    let receiptUrl = '';
+
+    // 1. Intentar subir al bucket de Supabase Storage si está habilitado
+    try {
+      const fileExt = file.name.split('.').pop() || 'jpg';
+      const fileName = `receipt_${orderId.slice(0, 8)}_${Date.now()}.${fileExt}`;
+      const filePath = `receipts/${fileName}`;
+
+      const { data, error } = await this.supabase.storage
+        .from('products')
+        .upload(filePath, file, { cacheControl: '3600', upsert: true });
+
+      if (!error && data) {
+        const { data: publicUrlData } = this.supabase.storage
+          .from('products')
+          .getPublicUrl(filePath);
+        if (publicUrlData?.publicUrl) {
+          receiptUrl = publicUrlData.publicUrl;
+        }
+      }
+    } catch {
+      // Fallback a Data URL optimizada
+    }
+
+    // 2. Si Storage no devolvió URL pública, convertir y comprimir a Data URL para guardar en la tabla sales_orders
+    if (!receiptUrl) {
+      receiptUrl = await this.compressReceiptImage(file);
+    }
+
+    await this.updateOrderPaymentReceipt(orderId, receiptUrl);
+    return receiptUrl;
+  }
+
+  /**
+   * Guarda o elimina la URL/imagen del comprobante de pago en la tabla sales_orders de la base de datos.
+   * Si se sube un comprobante (receiptUrl presente) y el pedido no está cancelado, cambia el estado automáticamente a 'processing' (En Proceso).
+   */
+  async updateOrderPaymentReceipt(orderId: string, receiptUrl: string | null): Promise<void> {
+    const existingOrder = this.salesOrders().find((o) => o.id === orderId);
+    const shouldMoveToProcessing = !!receiptUrl && existingOrder?.status !== 'cancelled';
+    const nextStatus: OrderStatus | undefined = shouldMoveToProcessing
+      ? 'processing'
+      : existingOrder?.status;
+
+    try {
+      const updatePayload: Record<string, any> = {
+        payment_receipt_url: receiptUrl
+      };
+      if (shouldMoveToProcessing) {
+        updatePayload['status'] = 'processing';
+      }
+
+      const { error } = await (this.supabase.from('sales_orders') as any)
+        .update(updatePayload)
+        .eq('id', orderId);
+
+      // Si la columna payment_receipt_url aún no ha sido creada en Supabase, respaldar en billing_address de sales_orders y actualizar status
+      if (error) {
+        const fallbackPayload: Record<string, any> = {
+          billing_address: receiptUrl ? `[RECEIPT_IMG]:${receiptUrl}` : null
+        };
+        if (shouldMoveToProcessing) {
+          fallbackPayload['status'] = 'processing';
+        }
+        await (this.supabase.from('sales_orders') as any)
+          .update(fallbackPayload)
+          .eq('id', orderId);
+      }
+    } catch (err) {
+      console.warn('No se pudo persistir el comprobante en Supabase, guardado en estado local:', err);
+    }
+
+    this.salesOrders.update((orders) => {
+      const updated = orders.map((o) =>
+        o.id === orderId
+          ? {
+              ...o,
+              payment_receipt_url: receiptUrl,
+              status: nextStatus || o.status
+            }
+          : o
+      );
       this.saveLocalOrders(updated);
       return updated;
     });
@@ -1502,14 +1664,36 @@ export class AdminService {
       items: orderItems
     };
 
-    // Actualizar estado reactivo para que aparezca en el panel de administrador inmediatamente
+    // Actualizar estado reactivo para que aparezca en el panel de administrador y en Mis Pedidos inmediatamente
     this.salesOrders.update((prev) => {
       const updated = [fullOrder, ...prev];
       this.saveLocalOrders(updated);
       return updated;
     });
 
+    this.saveCustomerOrderId(orderId);
+
     return fullOrder;
+  }
+
+  saveCustomerOrderId(orderId: string): void {
+    if (typeof window === 'undefined') return;
+    try {
+      const existing = this.getCustomerOrderIds();
+      if (!existing.includes(orderId)) {
+        localStorage.setItem('das_customer_order_ids', JSON.stringify([orderId, ...existing]));
+      }
+    } catch {}
+  }
+
+  getCustomerOrderIds(): string[] {
+    if (typeof window === 'undefined') return [];
+    try {
+      const raw = localStorage.getItem('das_customer_order_ids');
+      return raw ? JSON.parse(raw) : [];
+    } catch {
+      return [];
+    }
   }
 
   /**
