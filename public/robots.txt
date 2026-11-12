@@ -3,6 +3,7 @@ User-agent: *
 Allow: /
 Allow: /catalog
 Allow: /pc-builder
+Allow: /brands
 Allow: /llms.txt
 Disallow: /admin
 Disallow: /checkout
@@ -37,5 +38,5 @@ User-agent: Applebot-Extended
 Allow: /
 Disallow: /admin
 
-Sitemap: https://dasfusion.ec/sitemap.xml
+Sitemap: https://store.dasfusion.ec/sitemap.xml
 

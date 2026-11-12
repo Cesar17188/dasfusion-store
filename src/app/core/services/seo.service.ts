@@ -41,8 +41,8 @@ export class SeoService {
   private readonly doc = inject(DOCUMENT);
 
   readonly siteName = 'DASFUSION Store';
-  readonly baseUrl = 'https://dasfusion.ec';
-  readonly defaultImage = 'https://dasfusion.ec/favicon.ico';
+  readonly baseUrl = 'https://store.dasfusion.ec';
+  readonly defaultImage = 'https://store.dasfusion.ec/favicon.ico';
 
   /**
    * Tripletas Semánticas centrales (Sujeto -> Predicado -> Objeto)

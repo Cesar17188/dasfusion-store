@@ -301,6 +301,7 @@ export class AuthService {
         email: credentials.email,
         password: credentials.password,
         options: {
+          emailRedirectTo: this.supabaseService.getRedirectUrl('/catalog'),
           data: {
             name: credentials.name
           }

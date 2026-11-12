@@ -93,4 +93,24 @@ export class SupabaseService {
   get storage() {
     return this.supabase.storage;
   }
+
+  /**
+   * Devuelve el dominio base configurado para redirecciones de Supabase Auth
+   * Prioriza https://store.dasfusion.ec en producción o el origin activo del navegador.
+   */
+  getSiteUrl(): string {
+    if (typeof window !== 'undefined' && window.location?.origin) {
+      const origin = window.location.origin;
+      if (origin.includes('localhost') || origin.includes('127.0.0.1') || origin.includes('vercel.app')) {
+        return origin;
+      }
+    }
+    return environment.siteUrl || 'https://store.dasfusion.ec';
+  }
+
+  getRedirectUrl(path = '/catalog'): string {
+    const base = this.getSiteUrl().replace(/\/+$/, '');
+    const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+    return `${base}${normalizedPath}`;
+  }
 }

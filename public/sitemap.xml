@@ -1,17 +1,22 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
-    <loc>https://dasfusion.ec/catalog</loc>
+    <loc>https://store.dasfusion.ec/catalog</loc>
     <changefreq>daily</changefreq>
     <priority>1.0</priority>
   </url>
   <url>
-    <loc>https://dasfusion.ec/pc-builder</loc>
+    <loc>https://store.dasfusion.ec/pc-builder</loc>
     <changefreq>weekly</changefreq>
     <priority>0.9</priority>
   </url>
   <url>
-    <loc>https://dasfusion.ec/llms.txt</loc>
+    <loc>https://store.dasfusion.ec/brands</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://store.dasfusion.ec/llms.txt</loc>
     <changefreq>monthly</changefreq>
     <priority>0.6</priority>
   </url>
