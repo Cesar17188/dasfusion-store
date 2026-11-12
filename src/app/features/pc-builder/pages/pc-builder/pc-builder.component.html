@@ -118,7 +118,14 @@
                 </div>
 
                 <div class="mt-4 flex flex-col sm:flex-row items-stretch sm:items-center justify-between pt-3 border-t border-outline-variant/30 gap-2">
-                  <span class="text-sm sm:text-base font-bold text-on-surface font-mono">{{ prod.price | currencyFormat }}</span>
+                  <div class="flex flex-col">
+                    <span class="text-sm sm:text-base font-bold text-on-surface font-mono">
+                      {{ taxService.calculatePriceWithTax(prod.price) | currencyFormat }}
+                    </span>
+                    <span class="text-[10px] text-outline">
+                      {{ taxService.taxPercentage() === 0 ? 'IVA 0% (Sin IVA)' : ('IVA ' + taxService.taxPercentage() + '% incl.') }}
+                    </span>
+                  </div>
 
                   @if (isSelected) {
                     <div class="flex items-center gap-2 justify-end animate-in fade-in zoom-in-95 duration-150">
@@ -217,7 +224,9 @@
         <span>•</span>
         <span class="text-primary">{{ pcBuilderService.compatibility().isCompatible ? 'Compatible ✓' : 'Conflicto ⚠' }}</span>
       </div>
-      <span class="text-base font-extrabold text-on-surface font-mono">{{ pcBuilderService.totalPrice() | currencyFormat }}</span>
+      <span class="text-base font-extrabold text-on-surface font-mono">
+        {{ taxService.calculatePriceWithTax(pcBuilderService.totalPrice()) | currencyFormat }}
+      </span>
     </div>
 
     <div class="flex items-center gap-2">

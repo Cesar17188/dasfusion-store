@@ -95,7 +95,11 @@
           </span>
         </div>
         <span class="text-[10px] text-outline mt-0.5 truncate" [title]="'Precio sin IVA: ' + (product().price | currencyFormat)">
-          Sin IVA: {{ product().price | currencyFormat }}
+          @if (taxService.taxPercentage() === 0) {
+            Exonerado de IVA (0%)
+          } @else {
+            Sin IVA: {{ product().price | currencyFormat }}
+          }
         </span>
       </div>
 

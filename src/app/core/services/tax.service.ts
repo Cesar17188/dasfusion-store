@@ -1,4 +1,5 @@
-import { Injectable, signal, computed } from '@angular/core';
+import { Injectable, signal, computed, inject } from '@angular/core';
+import { SupabaseService } from './supabase.service';
 
 export interface TaxPreset {
   rate: number;
@@ -26,6 +27,7 @@ export const TAX_PRESETS: TaxPreset[] = [
   providedIn: 'root'
 })
 export class TaxService {
+  private readonly supabase = inject(SupabaseService);
   private readonly STORAGE_RATE_KEY = 'das_tax_rate';
   private readonly STORAGE_REASON_KEY = 'das_tax_reason';
 
@@ -44,6 +46,23 @@ export class TaxService {
 
   constructor() {
     this.loadPersistedTaxConfig();
+    this.listenToStorageEvents();
+    this.syncTaxConfigFromDatabase();
+  }
+
+  private listenToStorageEvents(): void {
+    if (typeof window === 'undefined') return;
+    window.addEventListener('storage', (event: StorageEvent) => {
+      if (event.key === this.STORAGE_RATE_KEY && event.newValue !== null) {
+        const parsed = parseFloat(event.newValue);
+        if (!isNaN(parsed) && parsed >= 0 && parsed <= 1) {
+          this.taxRate.set(parsed);
+        }
+      }
+      if (event.key === this.STORAGE_REASON_KEY && event.newValue) {
+        this.taxReason.set(event.newValue);
+      }
+    });
   }
 
   private loadPersistedTaxConfig(): void {
@@ -70,7 +89,57 @@ export class TaxService {
     }
   }
 
-  setTaxRate(rate: number, reason?: string): void {
+  /**
+   * Sincroniza la tarifa de IVA configurada por el Administrador desde Supabase
+   * para que se refleje en todos los dispositivos y navegadores de la tienda.
+   */
+  async syncTaxConfigFromDatabase(): Promise<void> {
+    try {
+      const { data, error } = await (this.supabase.publicFrom('product_variants') as any)
+        .select('id, attributes, created_at')
+        .limit(50);
+
+      if (!error && Array.isArray(data)) {
+        // Buscar la configuración global de IVA más reciente guardada en attributes
+        let latestUpdatedAt = 0;
+        let foundRate: number | null = null;
+        let foundReason: string | null = null;
+
+        for (const row of data) {
+          const attrs = row?.attributes;
+          if (attrs && typeof attrs['store_tax_rate'] === 'number') {
+            const ts = typeof attrs['store_tax_updated_at'] === 'number' ? attrs['store_tax_updated_at'] : 1;
+            if (ts >= latestUpdatedAt) {
+              latestUpdatedAt = ts;
+              foundRate = attrs['store_tax_rate'];
+              foundReason = typeof attrs['store_tax_reason'] === 'string' ? attrs['store_tax_reason'] : null;
+            }
+          }
+        }
+
+        if (foundRate !== null && foundRate >= 0 && foundRate <= 1) {
+          const clamped = Math.max(0, Math.min(1, Math.round(foundRate * 100) / 100));
+          const reason =
+            foundReason ||
+            (clamped === 0.15
+              ? 'Tarifa Estándar (15%)'
+              : clamped === 0
+              ? 'Día Sin IVA / Exonerado (0%)'
+              : `Tarifa Personalizada (${Math.round(clamped * 100)}%)`);
+
+          this.taxRate.set(clamped);
+          this.taxReason.set(reason);
+
+          if (typeof window !== 'undefined') {
+            localStorage.setItem(this.STORAGE_RATE_KEY, clamped.toString());
+            localStorage.setItem(this.STORAGE_REASON_KEY, reason);
+          }
+        }
+      }
+    } catch {}
+  }
+
+  async setTaxRate(rate: number, reason?: string): Promise<void> {
     const clampedRate = Math.max(0, Math.min(1, Math.round(rate * 100) / 100));
     this.taxRate.set(clampedRate);
 
@@ -87,6 +156,31 @@ export class TaxService {
       localStorage.setItem(this.STORAGE_RATE_KEY, clampedRate.toString());
       localStorage.setItem(this.STORAGE_REASON_KEY, finalReason);
     }
+
+    // Persistir globalmente en Supabase para que todos los visitantes de la tienda vean la nueva tarifa
+    try {
+      const { data } = await (this.supabase.from('product_variants') as any)
+        .select('id, attributes')
+        .limit(10);
+
+      if (Array.isArray(data) && data.length > 0) {
+        const updatedAt = Date.now();
+        await Promise.allSettled(
+          data.map((row: any) =>
+            (this.supabase.from('product_variants') as any)
+              .update({
+                attributes: {
+                  ...(row.attributes || {}),
+                  store_tax_rate: clampedRate,
+                  store_tax_reason: finalReason,
+                  store_tax_updated_at: updatedAt
+                }
+              })
+              .eq('id', row.id)
+          )
+        );
+      }
+    } catch {}
   }
 
   calculateTax(subtotal: number): number {

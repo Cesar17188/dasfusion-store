@@ -49,7 +49,11 @@
             [class.bg-emerald-400]="!taxService.isSpecialRate()"
             [class.bg-amber-400]="taxService.isSpecialRate()"
           ></span>
-          Precios con IVA ({{ taxService.taxPercentage() }}%) incluido
+          @if (taxService.taxPercentage() === 0) {
+            <span>Precios con IVA 0% (Exonerado de IVA)</span>
+          } @else {
+            <span>Precios con IVA ({{ taxService.taxPercentage() }}%) incluido</span>
+          }
           @if (taxService.isSpecialRate()) {
             • <span class="font-bold">{{ taxService.taxReason() }}</span>
           }
@@ -255,8 +259,12 @@
                   <div class="text-sm sm:text-base font-extrabold text-on-surface font-mono leading-tight">
                     {{ taxService.calculatePriceWithTax(newProd.price) | currencyFormat }}
                   </div>
-                  <div class="text-[10px] text-outline truncate">
-                    IVA incl. ({{ taxService.taxPercentage() }}%)
+                  <div
+                    class="text-[10px] truncate font-medium"
+                    [class.text-amber-300]="taxService.taxPercentage() === 0"
+                    [class.text-outline]="taxService.taxPercentage() !== 0"
+                  >
+                    {{ taxService.taxPercentage() === 0 ? 'IVA 0% (Sin IVA)' : ('IVA incl. (' + taxService.taxPercentage() + '%)') }}
                   </div>
                 </div>
 

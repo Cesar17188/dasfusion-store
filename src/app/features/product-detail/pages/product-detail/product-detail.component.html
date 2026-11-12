@@ -195,7 +195,11 @@
             }
           </div>
           <div class="text-xs text-outline mt-1">
-            Precio neto (sin IVA): <span class="font-mono text-on-surface-variant font-medium">{{ currentDisplayPrice() | currencyFormat }}</span>
+            @if (taxService.taxPercentage() === 0) {
+              Tarifa activa: <span class="font-semibold text-amber-300">0% IVA ({{ taxService.taxReason() }})</span>
+            } @else {
+              Precio neto (sin IVA): <span class="font-mono text-on-surface-variant font-medium">{{ currentDisplayPrice() | currencyFormat }}</span>
+            }
           </div>
 
           <!-- Stock availability indicator -->
@@ -247,7 +251,7 @@
                     [class.text-primary]="selectedVariant()?.id === variant.id"
                     [class.text-on-surface]="selectedVariant()?.id !== variant.id"
                   >
-                    {{ variant.price | currencyFormat }}
+                    {{ taxService.calculatePriceWithTax(variant.price) | currencyFormat }}
                   </span>
                 </button>
               }
@@ -393,7 +397,13 @@
             <span class="text-lg font-black text-on-surface font-mono">
               {{ (currentDisplayPriceWithTax() * quantity()) | currencyFormat }}
             </span>
-            <span class="text-[10px] font-bold text-emerald-400">IVA incl.</span>
+            <span
+              class="text-[10px] font-bold"
+              [class.text-emerald-400]="!taxService.isSpecialRate()"
+              [class.text-amber-300]="taxService.isSpecialRate()"
+            >
+              {{ taxService.taxPercentage() === 0 ? 'IVA 0% Exonerado' : ('IVA ' + taxService.taxPercentage() + '% incl.') }}
+            </span>
           </div>
         </div>
 

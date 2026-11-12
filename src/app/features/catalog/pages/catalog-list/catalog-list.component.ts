@@ -84,6 +84,7 @@ export class CatalogListComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
+    this.taxService.syncTaxConfigFromDatabase();
     if (this.productService.products().length === 0 && !this.productService.isLoading()) {
       this.productService.loadProductsFromDatabase();
     }

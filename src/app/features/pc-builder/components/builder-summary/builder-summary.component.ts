@@ -2,6 +2,7 @@ import { Component, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { PcBuilderService } from '../../services/pc-builder.service';
 import { CartService } from '../../../../core/services/cart.service';
+import { TaxService } from '../../../../core/services/tax.service';
 import { CurrencyFormatPipe } from '../../../../shared/pipes/currency-format.pipe';
 import { ButtonComponent } from '../../../../shared/components/button/button.component';
 import { Router } from '@angular/router';
@@ -65,7 +66,7 @@ import { Router } from '@angular/router';
 
             @if (item) {
               <div class="flex items-center gap-2">
-                <span class="font-bold text-primary font-mono">{{ item.product.price | currencyFormat }}</span>
+                <span class="font-bold text-primary font-mono">{{ taxService.calculatePriceWithTax(item.product.price) | currencyFormat }}</span>
                 <button
                   type="button"
                   (click)="pcBuilderService.removeComponent(step.id)"
@@ -81,9 +82,15 @@ import { Router } from '@angular/router';
 
       <!-- Total & Action -->
       <div class="pt-4 border-t border-outline-variant/40 space-y-4">
-        <div class="flex items-baseline justify-between">
-          <span class="text-sm font-medium text-on-surface-variant">Total Build:</span>
-          <span class="text-2xl font-black text-on-surface font-mono">{{ pcBuilderService.totalPrice() | currencyFormat }}</span>
+        <div class="space-y-1">
+          <div class="flex items-center justify-between text-xs text-outline">
+            <span>IVA ({{ taxService.taxPercentage() }}%):</span>
+            <span class="font-mono">{{ taxService.calculateTax(pcBuilderService.totalPrice()) | currencyFormat }}</span>
+          </div>
+          <div class="flex items-baseline justify-between">
+            <span class="text-sm font-medium text-on-surface-variant">Total Build:</span>
+            <span class="text-2xl font-black text-on-surface font-mono">{{ taxService.calculatePriceWithTax(pcBuilderService.totalPrice()) | currencyFormat }}</span>
+          </div>
         </div>
 
         <app-button
@@ -100,6 +107,7 @@ import { Router } from '@angular/router';
 })
 export class BuilderSummaryComponent {
   readonly pcBuilderService = inject(PcBuilderService);
+  readonly taxService = inject(TaxService);
   private readonly cartService = inject(CartService);
   private readonly router = inject(Router);
 

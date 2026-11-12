@@ -6,6 +6,7 @@ import { BuilderSummaryComponent } from '../../components/builder-summary/builde
 import { Product } from '../../../../core/models/product.model';
 import { ProductService } from '../../../../core/services/product.service';
 import { SeoService } from '../../../../core/services/seo.service';
+import { TaxService } from '../../../../core/services/tax.service';
 import { CurrencyFormatPipe } from '../../../../shared/pipes/currency-format.pipe';
 import { ButtonComponent } from '../../../../shared/components/button/button.component';
 import {
@@ -21,6 +22,7 @@ import {
 })
 export class PcBuilderComponent {
   readonly pcBuilderService = inject(PcBuilderService);
+  readonly taxService = inject(TaxService);
   private readonly productService = inject(ProductService);
   private readonly seoService = inject(SeoService);
 
