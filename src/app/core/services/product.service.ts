@@ -4,6 +4,9 @@ import { SupabaseService } from './supabase.service';
 import { DbProduct, DbCategory, DbBrand } from '../models/supabase.model';
 import { TaxService } from './tax.service';
 
+const NEW_PROMO_STORAGE_KEY = 'das_new_products_promo_ids_v1';
+const NEW_PROMO_CUSTOMIZED_KEY = 'das_new_products_promo_customized_v1';
+
 @Injectable({
   providedIn: 'root'
 })
@@ -19,9 +22,36 @@ export class ProductService {
   readonly dbBrands = this.rawBrandsSignal.asReadonly();
   readonly isLoading = signal<boolean>(true);
 
-  // Store only displays products where isActive !== false
-  readonly products = computed(() => {
-    return this.productsSignal().filter((p) => p.isActive !== false);
+  /**
+   * IDs of products selected by the administrator to appear in the
+   * "Franja de Productos Nuevos" below the promotional banner carousel.
+   */
+  readonly newPromoProductIds = signal<string[]>(this.loadNewPromoIdsFromStorage());
+
+  // Store only displays products where isActive !== false, with isNew synced to newPromoProductIds
+  readonly products = computed<Product[]>(() => {
+    const newIds = new Set(this.newPromoProductIds());
+    return this.productsSignal()
+      .filter((p) => p.isActive !== false)
+      .map((p): Product => ({
+        ...p,
+        isNew: newIds.has(p.id)
+      }));
+  });
+
+  /**
+   * Ordered list of active products selected for the "Productos Nuevos" strip
+   */
+  readonly newPromoProducts = computed<Product[]>(() => {
+    const activeMap = new Map<string, Product>(this.products().map((p) => [p.id, p]));
+    const result: Product[] = [];
+    for (const id of this.newPromoProductIds()) {
+      const found = activeMap.get(id);
+      if (found) {
+        result.push(found);
+      }
+    }
+    return result;
   });
 
   readonly categories = computed(() => {
@@ -170,6 +200,42 @@ export class ProductService {
 
         // Set strictly the database products, without hardcoded mocks
         this.productsSignal.set(mapped);
+
+        // Synchronize "Productos Nuevos" selection from DB variant attributes or localStorage
+        const dbExplicitFlags = varData.some(
+          (v) => v.attributes?.['is_new_promo'] === true || v.attributes?.['is_new_promo'] === false
+        );
+
+        if (dbExplicitFlags) {
+          const selectedEntries: Array<{ productId: string; order: number }> = [];
+          const seenProdIds = new Set<string>();
+          for (const v of varData) {
+            if (v.attributes?.['is_new_promo'] === true && v.product_id && !seenProdIds.has(v.product_id)) {
+              seenProdIds.add(v.product_id);
+              selectedEntries.push({
+                productId: v.product_id,
+                order: typeof v.attributes?.['new_promo_order'] === 'number' ? v.attributes['new_promo_order'] : 9999
+              });
+            }
+          }
+          selectedEntries.sort((a, b) => a.order - b.order);
+          const dbIds = selectedEntries.map((e) => e.productId);
+          this.newPromoProductIds.set(dbIds);
+          this.saveNewPromoIdsToStorage(dbIds, true);
+        } else if (!this.hasCustomNewPromoInStorage()) {
+          // Default initial selection: up to 4 most recent active products so the strip is populated out of the box
+          const defaultIds = mapped
+            .filter((p) => p.isActive !== false)
+            .slice(0, 4)
+            .map((p) => p.id);
+          this.newPromoProductIds.set(defaultIds);
+          this.saveNewPromoIdsToStorage(defaultIds, false);
+        } else {
+          // Filter stored IDs to ensure they still exist in mapped products
+          const validIds = new Set(mapped.map((p) => p.id));
+          const cleaned = this.newPromoProductIds().filter((id) => validIds.has(id));
+          this.newPromoProductIds.set(cleaned);
+        }
       } else {
         this.productsSignal.set([]);
       }
@@ -179,6 +245,146 @@ export class ProductService {
     } finally {
       this.isLoading.set(false);
     }
+  }
+
+  private loadNewPromoIdsFromStorage(): string[] {
+    if (typeof window === 'undefined') return [];
+    try {
+      const raw = localStorage.getItem(NEW_PROMO_STORAGE_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+          return parsed.filter((id) => typeof id === 'string');
+        }
+      }
+    } catch {}
+    return [];
+  }
+
+  private hasCustomNewPromoInStorage(): boolean {
+    if (typeof window === 'undefined') return false;
+    try {
+      return localStorage.getItem(NEW_PROMO_CUSTOMIZED_KEY) === 'true';
+    } catch {
+      return false;
+    }
+  }
+
+  private saveNewPromoIdsToStorage(ids: string[], customized = true): void {
+    if (typeof window === 'undefined') return;
+    try {
+      localStorage.setItem(NEW_PROMO_STORAGE_KEY, JSON.stringify(ids));
+      localStorage.setItem(NEW_PROMO_CUSTOMIZED_KEY, customized ? 'true' : 'false');
+    } catch {}
+  }
+
+  isProductInNewStrip(productId: string): boolean {
+    return this.newPromoProductIds().includes(productId);
+  }
+
+  async toggleProductInNewStrip(productId: string, forceState?: boolean): Promise<boolean> {
+    const current = this.newPromoProductIds();
+    const exists = current.includes(productId);
+    const shouldInclude = forceState !== undefined ? forceState : !exists;
+
+    let updated: string[];
+    if (shouldInclude && !exists) {
+      updated = [...current, productId];
+    } else if (!shouldInclude && exists) {
+      updated = current.filter((id) => id !== productId);
+    } else {
+      updated = [...current];
+    }
+
+    this.newPromoProductIds.set(updated);
+    this.saveNewPromoIdsToStorage(updated, true);
+    await this.persistProductNewPromoFlagInDb(productId, shouldInclude, updated.indexOf(productId) + 1);
+    return shouldInclude;
+  }
+
+  async moveProductInNewStrip(productId: string, direction: 'left' | 'right'): Promise<void> {
+    const current = [...this.newPromoProductIds()];
+    const idx = current.indexOf(productId);
+    if (idx === -1) return;
+    const targetIdx = direction === 'left' ? idx - 1 : idx + 1;
+    if (targetIdx < 0 || targetIdx >= current.length) return;
+
+    const [removed] = current.splice(idx, 1);
+    current.splice(targetIdx, 0, removed);
+
+    this.newPromoProductIds.set(current);
+    this.saveNewPromoIdsToStorage(current, true);
+
+    await Promise.allSettled(
+      current.map((id, i) => this.persistProductNewPromoFlagInDb(id, true, i + 1))
+    );
+  }
+
+  async clearNewStripProducts(): Promise<void> {
+    const previous = [...this.newPromoProductIds()];
+    this.newPromoProductIds.set([]);
+    this.saveNewPromoIdsToStorage([], true);
+    await Promise.allSettled(
+      previous.map((id) => this.persistProductNewPromoFlagInDb(id, false, null))
+    );
+  }
+
+  async restoreDefaultNewStripProducts(count = 4): Promise<void> {
+    const previous = [...this.newPromoProductIds()];
+    const defaultIds = this.productsSignal()
+      .filter((p) => p.isActive !== false)
+      .slice(0, count)
+      .map((p) => p.id);
+
+    this.newPromoProductIds.set(defaultIds);
+    this.saveNewPromoIdsToStorage(defaultIds, true);
+
+    const toDisable = previous.filter((id) => !defaultIds.includes(id));
+    await Promise.allSettled([
+      ...toDisable.map((id) => this.persistProductNewPromoFlagInDb(id, false, null)),
+      ...defaultIds.map((id, idx) => this.persistProductNewPromoFlagInDb(id, true, idx + 1))
+    ]);
+  }
+
+  private async persistProductNewPromoFlagInDb(
+    productId: string,
+    isNewPromo: boolean,
+    order: number | null
+  ): Promise<void> {
+    const prod = this.productsSignal().find((p) => p.id === productId);
+    const variants = prod?.variants || [];
+
+    // Update in-memory variant attributes as well
+    this.productsSignal.update((list) =>
+      list.map((p) => {
+        if (p.id !== productId) return p;
+        return {
+          ...p,
+          isNew: isNewPromo,
+          variants: (p.variants || []).map((v) => ({
+            ...v,
+            attributes: {
+              ...(v.attributes || {}),
+              is_new_promo: isNewPromo,
+              new_promo_order: order
+            }
+          }))
+        };
+      })
+    );
+
+    try {
+      for (const v of variants) {
+        const nextAttrs = {
+          ...(v.attributes || {}),
+          is_new_promo: isNewPromo,
+          new_promo_order: order
+        };
+        await (this.supabaseService.from('product_variants') as any)
+          .update({ attributes: nextAttrs })
+          .eq('id', v.id);
+      }
+    } catch {}
   }
 
   /**

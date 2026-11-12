@@ -1,20 +1,22 @@
 import { Component, inject, signal, computed, effect, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { ActivatedRoute, Router } from '@angular/router';
-import { ProductFilter } from '../../../../core/models/product.model';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { Product, ProductFilter } from '../../../../core/models/product.model';
 import { ProductService } from '../../../../core/services/product.service';
 import { AuthService } from '../../../../core/services/auth.service';
 import { TaxService } from '../../../../core/services/tax.service';
 import { SeoService } from '../../../../core/services/seo.service';
 import { BannerService } from '../../../../core/services/banner.service';
+import { CartService } from '../../../../core/services/cart.service';
+import { CurrencyFormatPipe } from '../../../../shared/pipes/currency-format.pipe';
 import { ProductCardComponent } from '../../components/product-card/product-card.component';
 import { ProductFiltersComponent } from '../../components/product-filters/product-filters.component';
 
 @Component({
   selector: 'app-catalog-list',
   standalone: true,
-  imports: [CommonModule, FormsModule, ProductCardComponent, ProductFiltersComponent],
+  imports: [CommonModule, FormsModule, RouterLink, CurrencyFormatPipe, ProductCardComponent, ProductFiltersComponent],
   templateUrl: './catalog-list.component.html'
 })
 export class CatalogListComponent implements OnInit, OnDestroy {
@@ -23,6 +25,7 @@ export class CatalogListComponent implements OnInit, OnDestroy {
   readonly taxService = inject(TaxService);
   readonly seoService = inject(SeoService);
   readonly bannerService = inject(BannerService);
+  private readonly cartService = inject(CartService);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
 
@@ -38,6 +41,9 @@ export class CatalogListComponent implements OnInit, OnDestroy {
   readonly currentBannerIndex = signal<number>(0);
   private bannerAutoPlayTimer: ReturnType<typeof setInterval> | null = null;
   private bannerTouchStartX = 0;
+
+  // State for "Franja de Productos Nuevos" below Promotional Banner Carousel
+  readonly addedNewPromoId = signal<string | null>(null);
 
   readonly activeBanner = computed(() => {
     const list = this.bannerService.banners();
@@ -168,6 +174,27 @@ export class CatalogListComponent implements OnInit, OnDestroy {
         }
       }
     }
+  }
+
+  scrollNewPromoStrip(container: HTMLElement, direction: 'left' | 'right'): void {
+    if (!container) return;
+    const scrollAmount = Math.max(280, Math.round(container.clientWidth * 0.75));
+    container.scrollBy({
+      left: direction === 'right' ? scrollAmount : -scrollAmount,
+      behavior: 'smooth'
+    });
+  }
+
+  addNewPromoToCart(product: Product, event: MouseEvent): void {
+    event.stopPropagation();
+    event.preventDefault();
+    this.cartService.addItem(product);
+    this.addedNewPromoId.set(product.id);
+    setTimeout(() => {
+      if (this.addedNewPromoId() === product.id) {
+        this.addedNewPromoId.set(null);
+      }
+    }, 1500);
   }
 
   async activateAdminAndGo(): Promise<void> {

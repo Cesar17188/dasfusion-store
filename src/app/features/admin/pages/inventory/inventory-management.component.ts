@@ -209,6 +209,19 @@ export interface ParsedImportItem {
               >
                 ⚠️ Solo Stock Bajo (≤5)
               </button>
+
+              <!-- New Strip Products Toggle -->
+              <button
+                type="button"
+                (click)="onlyNewStrip.update((v) => !v)"
+                [class.bg-primary-container]="onlyNewStrip()"
+                [class.text-primary]="onlyNewStrip()"
+                [class.border-primary]="onlyNewStrip()"
+                class="px-3 py-2 rounded-lg text-xs font-semibold bg-surface-container text-on-surface-variant border border-outline-variant/40 hover:bg-surface-container-high transition cursor-pointer"
+                title="Filtrar productos seleccionados en la Franja de Productos Nuevos"
+              >
+                ✨ Franja Nuevos ({{ productService.newPromoProductIds().length }})
+              </button>
             </div>
           </div>
 
@@ -485,21 +498,38 @@ export interface ParsedImportItem {
                         }
                       </td>
                       <td class="py-3.5 px-4 text-center">
-                        <button
-                          type="button"
-                          (click)="toggleProductVisibility(item.product.id)"
-                          [class.bg-emerald-950]="item.product.is_active !== false"
-                          [class.text-emerald-300]="item.product.is_active !== false"
-                          [class.border-emerald-500/40]="item.product.is_active !== false"
-                          [class.bg-surface-container-high]="item.product.is_active === false"
-                          [class.text-outline]="item.product.is_active === false"
-                          [class.border-outline-variant]="item.product.is_active === false"
-                          class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold border transition cursor-pointer hover:brightness-125"
-                          [title]="item.product.is_active !== false ? 'Producto visible en tienda. Clic para ocultar' : 'Producto oculto. Clic para mostrar en tienda'"
-                        >
-                          <span class="h-2 w-2 rounded-full" [class.bg-emerald-400]="item.product.is_active !== false" [class.bg-outline]="item.product.is_active === false"></span>
-                          <span>{{ item.product.is_active !== false ? '👁️ Visible' : '🚫 Oculto' }}</span>
-                        </button>
+                        <div class="flex flex-col items-center gap-1.5">
+                          <button
+                            type="button"
+                            (click)="toggleProductVisibility(item.product.id)"
+                            [class.bg-emerald-950]="item.product.is_active !== false"
+                            [class.text-emerald-300]="item.product.is_active !== false"
+                            [class.border-emerald-500/40]="item.product.is_active !== false"
+                            [class.bg-surface-container-high]="item.product.is_active === false"
+                            [class.text-outline]="item.product.is_active === false"
+                            [class.border-outline-variant]="item.product.is_active === false"
+                            class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold border transition cursor-pointer hover:brightness-125"
+                            [title]="item.product.is_active !== false ? 'Producto visible en tienda. Clic para ocultar' : 'Producto oculto. Clic para mostrar en tienda'"
+                          >
+                            <span class="h-2 w-2 rounded-full" [class.bg-emerald-400]="item.product.is_active !== false" [class.bg-outline]="item.product.is_active === false"></span>
+                            <span>{{ item.product.is_active !== false ? '👁️ Visible' : '🚫 Oculto' }}</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            (click)="productService.toggleProductInNewStrip(item.product.id)"
+                            [class.bg-primary-container]="productService.isProductInNewStrip(item.product.id)"
+                            [class.text-primary]="productService.isProductInNewStrip(item.product.id)"
+                            [class.border-primary/40]="productService.isProductInNewStrip(item.product.id)"
+                            [class.bg-surface-container-high]="!productService.isProductInNewStrip(item.product.id)"
+                            [class.text-outline]="!productService.isProductInNewStrip(item.product.id)"
+                            [class.border-outline-variant/40]="!productService.isProductInNewStrip(item.product.id)"
+                            class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold border transition cursor-pointer hover:brightness-125 whitespace-nowrap"
+                            [title]="productService.isProductInNewStrip(item.product.id) ? 'En la Franja de Productos Nuevos (Clic para quitar)' : 'Agregar a la Franja de Productos Nuevos'"
+                          >
+                            <span>{{ productService.isProductInNewStrip(item.product.id) ? '✨ En Franja Nuevos' : '+ Franja Nuevos' }}</span>
+                          </button>
+                        </div>
                       </td>
                       <td class="py-3.5 px-4 text-right">
                         <div class="flex items-center justify-end gap-1.5">
@@ -2555,6 +2585,7 @@ export class InventoryManagementComponent {
   selectedBrand = signal<string>('ALL');
   selectedVisibility = signal<'ALL' | 'VISIBLE' | 'HIDDEN'>('ALL');
   onlyLowStock = signal<boolean>(false);
+  onlyNewStrip = signal<boolean>(false);
 
   // Import Modal & Parser State
   isImportModalOpen = signal<boolean>(false);
@@ -2733,10 +2764,13 @@ export class InventoryManagementComponent {
     const brand = this.selectedBrand();
     const vis = this.selectedVisibility();
     const lowStock = this.onlyLowStock();
+    const onlyNew = this.onlyNewStrip();
+    const newSet = new Set(this.productService.newPromoProductIds());
 
     for (const p of this.adminService.products()) {
       if (vis === 'VISIBLE' && p.is_active === false) continue;
       if (vis === 'HIDDEN' && p.is_active !== false) continue;
+      if (onlyNew && !newSet.has(p.id)) continue;
       if (cat !== 'ALL' && p.category_id !== cat) continue;
       if (brand !== 'ALL' && p.brand_id !== brand) continue;
 

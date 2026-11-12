@@ -152,6 +152,138 @@
     </div>
   }
 
+  <!-- Franja de Productos Nuevos (Seleccionados desde el Administrador) -->
+  @if (productService.newPromoProducts().length > 0) {
+    <section
+      aria-label="Franja de Productos Nuevos"
+      class="relative overflow-hidden rounded-2xl sm:rounded-3xl border border-primary/30 bg-linear-to-r from-surface-container via-surface-container-low to-surface-container p-4 sm:p-6 shadow-xl space-y-4"
+    >
+      <!-- Strip Header -->
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-outline-variant/40 pb-3.5">
+        <div class="flex items-center gap-3">
+          <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary-container border border-primary/30 text-primary shadow-md">
+            <span class="text-lg">✨</span>
+          </div>
+          <div>
+            <div class="flex items-center gap-2 flex-wrap">
+              <span class="px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-widest bg-primary/15 text-primary border border-primary/30">
+                Lanzamientos Recientes
+              </span>
+              <span class="text-[11px] font-mono text-outline">
+                {{ productService.newPromoProducts().length }} {{ productService.newPromoProducts().length === 1 ? 'producto' : 'productos' }}
+              </span>
+            </div>
+            <h2 class="text-base sm:text-xl font-extrabold text-on-surface tracking-tight mt-0.5">
+              Productos Nuevos en Tienda
+            </h2>
+          </div>
+        </div>
+
+        <!-- Lateral Scroll Controls -->
+        @if (productService.newPromoProducts().length > 1) {
+          <div class="flex items-center gap-2 self-end sm:self-auto">
+            <button
+              type="button"
+              (click)="scrollNewPromoStrip(newPromoScrollContainer, 'left')"
+              aria-label="Desplazar productos nuevos a la izquierda"
+              class="h-8 w-8 rounded-xl bg-surface hover:bg-surface-container-high border border-outline-variant/50 hover:border-primary/50 text-on-surface flex items-center justify-center transition cursor-pointer"
+            >
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
+            <button
+              type="button"
+              (click)="scrollNewPromoStrip(newPromoScrollContainer, 'right')"
+              aria-label="Desplazar productos nuevos a la derecha"
+              class="h-8 w-8 rounded-xl bg-surface hover:bg-surface-container-high border border-outline-variant/50 hover:border-primary/50 text-on-surface flex items-center justify-center transition cursor-pointer"
+            >
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
+          </div>
+        }
+      </div>
+
+      <!-- Horizontal Scrollable Strip -->
+      <div
+        #newPromoScrollContainer
+        class="flex flex-nowrap items-stretch gap-3.5 sm:gap-4 overflow-x-auto pb-2.5 pt-0.5 scroll-smooth snap-x snap-mandatory"
+      >
+        @for (newProd of productService.newPromoProducts(); track newProd.id) {
+          <article
+            [routerLink]="['/catalog', newProd.slug]"
+            class="group relative flex flex-col justify-between gap-3 w-64 sm:w-68 lg:w-72 shrink-0 snap-start rounded-2xl bg-surface/90 hover:bg-surface-container-high border border-outline-variant/40 hover:border-primary/50 p-3.5 transition-all duration-300 hover:-translate-y-0.5 shadow-md cursor-pointer"
+          >
+            <!-- Badge NUEVO -->
+            <div class="absolute top-2.5 left-2.5 z-10 flex items-center gap-1">
+              <span class="px-2 py-0.5 rounded-full text-[9px] font-extrabold uppercase tracking-wider bg-primary text-on-primary shadow">
+                NUEVO
+              </span>
+              @if (newProd.discountPercentage && newProd.discountPercentage > 0) {
+                <span class="px-1.5 py-0.5 rounded-full text-[9px] font-extrabold uppercase bg-tertiary-container text-tertiary border border-tertiary/30">
+                  -{{ newProd.discountPercentage }}%
+                </span>
+              }
+            </div>
+
+            <!-- Product Thumbnail -->
+            <div class="relative h-36 w-full shrink-0 overflow-hidden rounded-xl bg-surface-container-lowest border border-outline-variant/25 flex items-center justify-center p-2.5">
+              <img
+                [src]="newProd.images[0] || 'https://images.unsplash.com/photo-1587202372775-e229f172b9d7?auto=format&fit=crop&w=400&q=80'"
+                [alt]="newProd.name"
+                class="h-full w-full object-contain object-center transition-transform duration-300 group-hover:scale-105"
+                loading="lazy"
+              />
+            </div>
+
+            <!-- Info & Quick Add -->
+            <div class="flex flex-1 flex-col justify-between min-w-0 w-full">
+              <div>
+                <div class="flex items-center justify-between gap-2 text-[10px] text-outline uppercase font-bold tracking-wider">
+                  <span class="truncate">{{ newProd.brand }}</span>
+                  <span class="text-primary/80 truncate">{{ newProd.category }}</span>
+                </div>
+                <h3 class="text-xs sm:text-sm font-bold text-on-surface group-hover:text-primary transition-colors line-clamp-2 mt-0.5">
+                  {{ newProd.name }}
+                </h3>
+              </div>
+
+              <div class="mt-2.5 pt-2 border-t border-outline-variant/30 flex items-center justify-between gap-2">
+                <div class="min-w-0">
+                  <div class="text-sm sm:text-base font-extrabold text-on-surface font-mono leading-tight">
+                    {{ taxService.calculatePriceWithTax(newProd.price) | currencyFormat }}
+                  </div>
+                  <div class="text-[10px] text-outline truncate">
+                    IVA incl. ({{ taxService.taxPercentage() }}%)
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  (click)="addNewPromoToCart(newProd, $event)"
+                  class="px-3 py-1.5 rounded-xl text-[11px] font-extrabold transition cursor-pointer shrink-0 flex items-center gap-1 shadow-sm"
+                  [class.bg-emerald-500]="addedNewPromoId() === newProd.id"
+                  [class.text-black]="addedNewPromoId() === newProd.id"
+                  [class.bg-primary]="addedNewPromoId() !== newProd.id"
+                  [class.hover:bg-primary-fixed]="addedNewPromoId() !== newProd.id"
+                  [class.text-on-primary]="addedNewPromoId() !== newProd.id"
+                >
+                  @if (addedNewPromoId() === newProd.id) {
+                    <span>✓ Listo</span>
+                  } @else {
+                    <span>+ Carrito</span>
+                  }
+                </button>
+              </div>
+            </div>
+          </article>
+        }
+      </div>
+    </section>
+  }
+
   <!-- Quick Category Filter Chips (Mobile-First Touch Scrollable) -->
   <div class="flex items-center gap-2 overflow-x-auto pb-2 no-scrollbar">
     <button
