@@ -3,11 +3,12 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AdminService, AdminSalesOrderWithDetails } from '../../../../core/services/admin.service';
 import { DbProfile, DbCrmLead, DbCrmSupportTicket, DbCrmInteraction } from '../../../../core/models/supabase.model';
+import { AdminPaginationComponent } from '../../../../shared/components/admin-pagination/admin-pagination.component';
 
 @Component({
   selector: 'app-customers-management',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, AdminPaginationComponent],
   template: `
     <div class="space-y-6">
       <!-- Header -->
@@ -80,7 +81,7 @@ import { DbProfile, DbCrmLead, DbCrmSupportTicket, DbCrmInteraction } from '../.
               </tr>
             </thead>
             <tbody class="divide-y divide-outline-variant/30">
-              @for (cust of filteredCustomers(); track cust.id) {
+              @for (cust of paginatedCustomers(); track cust.id) {
                 <tr class="hover:bg-surface-container/60 transition">
                   <td class="py-3.5 px-4">
                     <div class="flex items-center gap-2.5">
@@ -127,6 +128,12 @@ import { DbProfile, DbCrmLead, DbCrmSupportTicket, DbCrmInteraction } from '../.
             </tbody>
           </table>
         </div>
+        <app-admin-pagination
+          [currentPage]="customersPage()"
+          [totalItems]="filteredCustomers().length"
+          [pageSize]="pageSize"
+          (pageChange)="customersPage.set($event)"
+        ></app-admin-pagination>
       </div>
     </div>
 
@@ -285,6 +292,9 @@ export class CustomersManagementComponent {
     role: 'customer'
   };
 
+  readonly pageSize = 10;
+  readonly customersPage = signal<number>(1);
+
   readonly filteredCustomers = computed(() => {
     const list = this.adminService.customers();
     const query = this.searchQuery().toLowerCase().trim();
@@ -296,6 +306,14 @@ export class CustomersManagementComponent {
       const addr = (c.address || '').toLowerCase();
       return full.includes(query) || phone.includes(query) || addr.includes(query);
     });
+  });
+
+  readonly paginatedCustomers = computed(() => {
+    const list = this.filteredCustomers();
+    const totalPages = Math.max(1, Math.ceil(list.length / this.pageSize));
+    const safePage = Math.max(1, Math.min(this.customersPage(), totalPages));
+    const start = (safePage - 1) * this.pageSize;
+    return list.slice(start, start + this.pageSize);
   });
 
   readonly activeBuyersCount = computed(() => {

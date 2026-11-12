@@ -62,6 +62,96 @@
     </div>
   </div>
 
+  <!-- Promotional Banner Carousel Strip -->
+  @if (bannerService.banners().length > 0 && activeBanner(); as banner) {
+    <div
+      class="relative overflow-hidden rounded-2xl sm:rounded-3xl border border-outline-variant/40 bg-surface-container shadow-2xl group select-none"
+      (touchstart)="onBannerTouchStart($event)"
+      (touchend)="onBannerTouchEnd($event)"
+    >
+      <!-- Banner Slide Image & Overlay (Clickable Redirect) -->
+      <div
+        (click)="onBannerClick(banner.link_url)"
+        [title]="'Ir a ' + (banner.link_url || '/')"
+        class="relative h-44 sm:h-64 md:h-72 lg:h-80 w-full overflow-hidden cursor-pointer"
+      >
+        <img
+          [src]="banner.image_url"
+          [alt]="banner.title || 'Banner publicitario DASFUSION Store'"
+          class="h-full w-full object-cover object-center transition-all duration-500 group-hover:scale-[1.02]"
+        />
+
+        <!-- Subtle Gradient Overlay for Text Readability -->
+        @if (banner.title || banner.subtitle) {
+          <div class="absolute inset-0 bg-linear-to-t from-black/85 via-black/35 to-transparent flex flex-col justify-end p-4 sm:p-7">
+            <div class="max-w-2xl space-y-1 sm:space-y-1.5">
+              <span class="inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-widest bg-primary/90 text-on-primary shadow">
+                Destacado DASFUSION
+              </span>
+              @if (banner.title) {
+                <h2 class="text-base sm:text-2xl font-extrabold text-white drop-shadow-md leading-tight">
+                  {{ banner.title }}
+                </h2>
+              }
+              @if (banner.subtitle) {
+                <p class="text-[11px] sm:text-sm text-white/85 line-clamp-2 max-w-xl">
+                  {{ banner.subtitle }}
+                </p>
+              }
+            </div>
+          </div>
+        }
+
+        <!-- Slide Counter Badge -->
+        @if (bannerService.banners().length > 1) {
+          <span class="absolute top-3 right-3 z-10 px-2.5 py-1 rounded-full text-[10px] sm:text-[11px] font-bold bg-black/60 text-white/90 backdrop-blur-md border border-white/15 font-mono">
+            {{ ((currentBannerIndex() % bannerService.banners().length) + bannerService.banners().length) % bannerService.banners().length + 1 }} / {{ bannerService.banners().length }}
+          </span>
+
+          <!-- Previous Slide Button -->
+          <button
+            type="button"
+            (click)="prevBanner($event)"
+            aria-label="Banner anterior"
+            class="absolute left-2.5 sm:left-4 top-1/2 -translate-y-1/2 z-10 h-9 w-9 sm:h-10 sm:w-10 rounded-full bg-black/55 hover:bg-black/80 text-white border border-white/20 backdrop-blur-md flex items-center justify-center transition-all duration-200 hover:scale-110 active:scale-95 cursor-pointer opacity-85 sm:opacity-0 sm:group-hover:opacity-100"
+          >
+            <svg class="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7" />
+            </svg>
+          </button>
+
+          <!-- Next Slide Button -->
+          <button
+            type="button"
+            (click)="nextBanner($event)"
+            aria-label="Siguiente banner"
+            class="absolute right-2.5 sm:right-4 top-1/2 -translate-y-1/2 z-10 h-9 w-9 sm:h-10 sm:w-10 rounded-full bg-black/55 hover:bg-black/80 text-white border border-white/20 backdrop-blur-md flex items-center justify-center transition-all duration-200 hover:scale-110 active:scale-95 cursor-pointer opacity-85 sm:opacity-0 sm:group-hover:opacity-100"
+          >
+            <svg class="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7" />
+            </svg>
+          </button>
+
+          <!-- Indicator Dots -->
+          <div class="absolute bottom-3 right-4 z-10 flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black/50 backdrop-blur-md border border-white/10">
+            @for (item of bannerService.banners(); track item.id; let idx = $index) {
+              <button
+                type="button"
+                (click)="goToBanner(idx, $event)"
+                [attr.aria-label]="'Ir al banner ' + (idx + 1)"
+                class="h-2 rounded-full transition-all duration-300 cursor-pointer"
+                [class.w-6]="(((currentBannerIndex() % bannerService.banners().length) + bannerService.banners().length) % bannerService.banners().length) === idx"
+                [class.bg-primary]="(((currentBannerIndex() % bannerService.banners().length) + bannerService.banners().length) % bannerService.banners().length) === idx"
+                [class.w-2]="(((currentBannerIndex() % bannerService.banners().length) + bannerService.banners().length) % bannerService.banners().length) !== idx"
+                [class.bg-white/45]="(((currentBannerIndex() % bannerService.banners().length) + bannerService.banners().length) % bannerService.banners().length) !== idx"
+              ></button>
+            }
+          </div>
+        }
+      </div>
+    </div>
+  }
+
   <!-- Quick Category Filter Chips (Mobile-First Touch Scrollable) -->
   <div class="flex items-center gap-2 overflow-x-auto pb-2 no-scrollbar">
     <button
@@ -109,7 +199,8 @@
       <input
         type="search"
         placeholder="Buscar por nombre, marca, categoría o etiqueta (ej. iPhone, Sony, 4K, Shure, RGB)..."
-        [(ngModel)]="searchQuery"
+        [ngModel]="searchQuery()"
+        (ngModelChange)="onSearchQueryChange($event)"
         class="w-full bg-surface border border-outline-variant rounded-xl px-4 py-2.5 pl-10 text-xs sm:text-sm text-on-surface placeholder-outline focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/30"
       />
       <svg class="absolute left-3 top-3 h-4 sm:h-5 w-4 sm:w-5 text-outline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -162,7 +253,37 @@
     </div>
 
     <!-- Products Grid (1 col on mobile, 2 cols on sm, 3 cols on xl) -->
-    <div class="lg:col-span-3">
+    <div class="lg:col-span-3 space-y-5">
+      <!-- Page Size Dropdown & Results Counter Bar (Before Products) -->
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-surface-container/60 border border-outline-variant/40 rounded-2xl px-4 py-3 backdrop-blur-md">
+        <div class="text-xs text-on-surface-variant">
+          @if (filteredProducts().length > 0) {
+            Mostrando <strong class="text-on-surface font-bold">{{ showingStart() }}–{{ showingEnd() }}</strong> de
+            <strong class="text-primary font-bold">{{ filteredProducts().length }}</strong> productos
+          } @else {
+            <span class="text-outline">0 productos encontrados</span>
+          }
+        </div>
+
+        <div class="flex items-center justify-between sm:justify-end gap-2.5">
+          <label for="page-size-select" class="text-xs font-semibold text-on-surface-variant whitespace-nowrap">
+            Productos a mostrar:
+          </label>
+          <select
+            id="page-size-select"
+            [ngModel]="pageSize()"
+            (ngModelChange)="onPageSizeChange($event)"
+            class="bg-surface border border-outline-variant text-xs font-bold text-on-surface rounded-xl px-3 py-2 focus:outline-none focus:border-primary cursor-pointer"
+          >
+            @for (option of pageSizeOptions; track option) {
+              <option [ngValue]="option">
+                {{ option }} productos
+              </option>
+            }
+          </select>
+        </div>
+      </div>
+
       @if (productService.isLoading() && productService.products().length === 0) {
         <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6">
           @for (item of [1, 2, 3, 4, 5, 6]; track item) {
@@ -191,10 +312,60 @@
         </div>
       } @else {
         <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6">
-          @for (product of filteredProducts(); track product.id) {
+          @for (product of paginatedProducts(); track product.id) {
             <app-product-card [product]="product"></app-product-card>
           }
         </div>
+
+        <!-- Pagination Controls -->
+        @if (totalPages() > 1) {
+          <nav
+            aria-label="Paginación de productos"
+            class="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 border-t border-outline-variant/40"
+          >
+            <span class="text-xs text-outline">
+              Página <strong class="text-on-surface">{{ currentPage() }}</strong> de <strong class="text-on-surface">{{ totalPages() }}</strong>
+            </span>
+
+            <div class="flex items-center gap-1.5 flex-wrap justify-center">
+              <button
+                type="button"
+                (click)="prevPage()"
+                [disabled]="currentPage() <= 1"
+                class="px-3.5 py-2 rounded-xl border border-outline-variant bg-surface text-xs font-bold text-on-surface hover:border-primary hover:text-white disabled:opacity-40 disabled:pointer-events-none transition cursor-pointer"
+              >
+                ← Anterior
+              </button>
+
+              @for (page of pageNumbers(); track page) {
+                <button
+                  type="button"
+                  (click)="goToPage(page)"
+                  class="min-w-9 h-9 px-2.5 rounded-xl border text-xs font-bold transition cursor-pointer"
+                  [class.bg-primary]="currentPage() === page"
+                  [class.text-on-primary]="currentPage() === page"
+                  [class.border-primary]="currentPage() === page"
+                  [class.shadow-md]="currentPage() === page"
+                  [class.bg-surface]="currentPage() !== page"
+                  [class.text-on-surface]="currentPage() !== page"
+                  [class.border-outline-variant]="currentPage() !== page"
+                  [class.hover:border-primary]="currentPage() !== page"
+                >
+                  {{ page }}
+                </button>
+              }
+
+              <button
+                type="button"
+                (click)="nextPage()"
+                [disabled]="currentPage() >= totalPages()"
+                class="px-3.5 py-2 rounded-xl border border-outline-variant bg-surface text-xs font-bold text-on-surface hover:border-primary hover:text-white disabled:opacity-40 disabled:pointer-events-none transition cursor-pointer"
+              >
+                Siguiente →
+              </button>
+            </div>
+          </nav>
+        }
       }
     </div>
   </div>

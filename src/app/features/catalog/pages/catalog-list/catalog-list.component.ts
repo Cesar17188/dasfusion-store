@@ -1,4 +1,4 @@
-import { Component, inject, signal, computed, effect, OnInit } from '@angular/core';
+import { Component, inject, signal, computed, effect, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -7,6 +7,7 @@ import { ProductService } from '../../../../core/services/product.service';
 import { AuthService } from '../../../../core/services/auth.service';
 import { TaxService } from '../../../../core/services/tax.service';
 import { SeoService } from '../../../../core/services/seo.service';
+import { BannerService } from '../../../../core/services/banner.service';
 import { ProductCardComponent } from '../../components/product-card/product-card.component';
 import { ProductFiltersComponent } from '../../components/product-filters/product-filters.component';
 
@@ -16,11 +17,12 @@ import { ProductFiltersComponent } from '../../components/product-filters/produc
   imports: [CommonModule, FormsModule, ProductCardComponent, ProductFiltersComponent],
   templateUrl: './catalog-list.component.html'
 })
-export class CatalogListComponent implements OnInit {
+export class CatalogListComponent implements OnInit, OnDestroy {
   readonly productService = inject(ProductService);
   readonly authService = inject(AuthService);
   readonly taxService = inject(TaxService);
   readonly seoService = inject(SeoService);
+  readonly bannerService = inject(BannerService);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
 
@@ -29,6 +31,21 @@ export class CatalogListComponent implements OnInit {
   protected readonly isMobileFiltersOpen = signal<boolean>(false);
   protected readonly showAdminNotice = signal<boolean>(false);
 
+  readonly pageSizeOptions: readonly number[] = [9, 15, 21];
+  readonly pageSize = signal<number>(9);
+  readonly currentPage = signal<number>(1);
+
+  readonly currentBannerIndex = signal<number>(0);
+  private bannerAutoPlayTimer: ReturnType<typeof setInterval> | null = null;
+  private bannerTouchStartX = 0;
+
+  readonly activeBanner = computed(() => {
+    const list = this.bannerService.banners();
+    if (list.length === 0) return null;
+    const safeIdx = ((this.currentBannerIndex() % list.length) + list.length) % list.length;
+    return list[safeIdx];
+  });
+
   constructor() {
     this.route.queryParams.subscribe((params) => {
       if (params['accessDenied'] === 'admin_required') {
@@ -36,6 +53,20 @@ export class CatalogListComponent implements OnInit {
       }
       if (params['q']) {
         this.searchQuery.set(params['q']);
+      }
+      if (params['brand']) {
+        this.currentFilter.update((f) => ({
+          ...f,
+          brand: [params['brand']]
+        }));
+        this.currentPage.set(1);
+      }
+      if (params['category']) {
+        this.currentFilter.update((f) => ({
+          ...f,
+          category: params['category']
+        }));
+        this.currentPage.set(1);
       }
     });
 
@@ -49,6 +80,93 @@ export class CatalogListComponent implements OnInit {
   ngOnInit(): void {
     if (this.productService.products().length === 0 && !this.productService.isLoading()) {
       this.productService.loadProductsFromDatabase();
+    }
+    this.startBannerAutoPlay();
+  }
+
+  ngOnDestroy(): void {
+    this.stopBannerAutoPlay();
+  }
+
+  private startBannerAutoPlay(): void {
+    this.stopBannerAutoPlay();
+    if (typeof window !== 'undefined') {
+      this.bannerAutoPlayTimer = setInterval(() => {
+        const count = this.bannerService.banners().length;
+        if (count > 1) {
+          this.currentBannerIndex.update((idx) => (idx + 1) % count);
+        }
+      }, 5000);
+    }
+  }
+
+  private stopBannerAutoPlay(): void {
+    if (this.bannerAutoPlayTimer) {
+      clearInterval(this.bannerAutoPlayTimer);
+      this.bannerAutoPlayTimer = null;
+    }
+  }
+
+  nextBanner(event?: Event): void {
+    event?.stopPropagation();
+    const count = this.bannerService.banners().length;
+    if (count <= 1) return;
+    this.currentBannerIndex.update((idx) => (idx + 1) % count);
+    this.startBannerAutoPlay();
+  }
+
+  prevBanner(event?: Event): void {
+    event?.stopPropagation();
+    const count = this.bannerService.banners().length;
+    if (count <= 1) return;
+    this.currentBannerIndex.update((idx) => (idx - 1 + count) % count);
+    this.startBannerAutoPlay();
+  }
+
+  goToBanner(index: number, event?: Event): void {
+    event?.stopPropagation();
+    const count = this.bannerService.banners().length;
+    if (index >= 0 && index < count) {
+      this.currentBannerIndex.set(index);
+      this.startBannerAutoPlay();
+    }
+  }
+
+  onBannerClick(linkUrl?: string | null): void {
+    const target = (linkUrl || '').trim() || '/';
+    if (/^https?:\/\//i.test(target)) {
+      if (typeof window !== 'undefined') {
+        window.location.href = target;
+      }
+      return;
+    }
+
+    if (target === '/' || target === '/catalog') {
+      this.currentFilter.update((f) => ({ ...f, category: undefined, brand: undefined }));
+      this.searchQuery.set('');
+      this.currentPage.set(1);
+    }
+
+    this.router.navigateByUrl(target);
+  }
+
+  onBannerTouchStart(event: TouchEvent): void {
+    if (event.changedTouches && event.changedTouches.length > 0) {
+      this.bannerTouchStartX = event.changedTouches[0].screenX;
+    }
+  }
+
+  onBannerTouchEnd(event: TouchEvent): void {
+    if (event.changedTouches && event.changedTouches.length > 0) {
+      const endX = event.changedTouches[0].screenX;
+      const diff = this.bannerTouchStartX - endX;
+      if (Math.abs(diff) > 40) {
+        if (diff > 0) {
+          this.nextBanner();
+        } else {
+          this.prevBanner();
+        }
+      }
     }
   }
 
@@ -71,6 +189,68 @@ export class CatalogListComponent implements OnInit {
     return this.productService.filterProducts(this.currentFilter(), this.searchQuery());
   });
 
+  readonly totalPages = computed(() => {
+    const total = this.filteredProducts().length;
+    return Math.max(1, Math.ceil(total / this.pageSize()));
+  });
+
+  readonly paginatedProducts = computed(() => {
+    const list = this.filteredProducts();
+    const size = this.pageSize();
+    const safePage = Math.min(this.currentPage(), this.totalPages());
+    const start = (safePage - 1) * size;
+    return list.slice(start, start + size);
+  });
+
+  readonly showingStart = computed(() => {
+    const total = this.filteredProducts().length;
+    if (total === 0) return 0;
+    const safePage = Math.min(this.currentPage(), this.totalPages());
+    return (safePage - 1) * this.pageSize() + 1;
+  });
+
+  readonly showingEnd = computed(() => {
+    const total = this.filteredProducts().length;
+    if (total === 0) return 0;
+    const safePage = Math.min(this.currentPage(), this.totalPages());
+    return Math.min(safePage * this.pageSize(), total);
+  });
+
+  readonly pageNumbers = computed(() => {
+    const total = this.totalPages();
+    return Array.from({ length: total }, (_, i) => i + 1);
+  });
+
+  onSearchQueryChange(value: string): void {
+    this.searchQuery.set(value);
+    this.currentPage.set(1);
+  }
+
+  onPageSizeChange(value: number | string | Event): void {
+    const rawValue =
+      typeof value === 'object' && value !== null && 'target' in value
+        ? (value.target as HTMLSelectElement).value
+        : value;
+    const nextSize = Number(rawValue);
+    if (this.pageSizeOptions.includes(nextSize)) {
+      this.pageSize.set(nextSize);
+      this.currentPage.set(1);
+    }
+  }
+
+  goToPage(page: number): void {
+    const target = Math.max(1, Math.min(page, this.totalPages()));
+    this.currentPage.set(target);
+  }
+
+  prevPage(): void {
+    this.goToPage(this.currentPage() - 1);
+  }
+
+  nextPage(): void {
+    this.goToPage(this.currentPage() + 1);
+  }
+
   onCategoryChipClick(category: string): void {
     const current = this.currentFilter().category;
     const nextCategory = (!category || current === category) ? undefined : category;
@@ -83,6 +263,7 @@ export class CatalogListComponent implements OnInit {
       category: nextCategory,
       brand: updatedBrands && updatedBrands.length > 0 ? updatedBrands : undefined
     }));
+    this.currentPage.set(1);
   }
 
   openMobileFilters(): void {
@@ -102,10 +283,12 @@ export class CatalogListComponent implements OnInit {
       ...newFilter,
       brand: updatedBrands && updatedBrands.length > 0 ? updatedBrands : undefined
     }));
+    this.currentPage.set(1);
   }
 
   onSortChange(event: Event): void {
     const value = (event.target as HTMLSelectElement).value as ProductFilter['sortBy'];
     this.currentFilter.update((f) => ({ ...f, sortBy: value }));
+    this.currentPage.set(1);
   }
 }

@@ -1,0 +1,182 @@
+<div class="space-y-6 sm:space-y-8">
+  <!-- Hero Header -->
+  <div class="relative overflow-hidden rounded-2xl sm:rounded-3xl bg-linear-to-r from-primary-container via-surface-container to-surface border border-primary/20 p-6 sm:p-10 shadow-2xl">
+    <div class="relative z-10 max-w-2xl space-y-2.5">
+      <div class="flex items-center gap-2 flex-wrap">
+        <span class="text-[11px] sm:text-xs font-bold uppercase tracking-widest text-primary">
+          Directorio Oficial DASFUSION
+        </span>
+        <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-primary/15 text-primary border border-primary/30">
+          {{ allBrands().length }} Marcas Registradas
+        </span>
+      </div>
+      <h1 class="text-2xl sm:text-4xl font-extrabold text-on-surface tracking-tight">
+        Nuestras Marcas Aliadas
+      </h1>
+      <p class="text-xs sm:text-sm text-on-surface-variant leading-relaxed">
+        Explora todas las marcas registradas en nuestra base de datos oficial. Haz clic en cualquier marca para ver sus equipos y productos disponibles en el catálogo.
+      </p>
+    </div>
+  </div>
+
+  <!-- Search & Category Filter Controls -->
+  <div class="space-y-4">
+    <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-surface-container/70 p-3.5 sm:p-4 rounded-2xl border border-outline-variant/40 backdrop-blur-md">
+      <div class="relative flex-1">
+        <input
+          type="search"
+          [(ngModel)]="searchQuery"
+          placeholder="Buscar marca por nombre o categoría (ej. Sony, Apple, ASUS, Audio, Cámaras)..."
+          class="w-full bg-surface border border-outline-variant rounded-xl px-4 py-2.5 pl-10 text-xs sm:text-sm text-on-surface placeholder-outline focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/30"
+        />
+        <svg class="absolute left-3 top-3 h-4 sm:h-5 w-4 sm:w-5 text-outline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+        </svg>
+      </div>
+
+      <div class="text-xs text-on-surface-variant font-medium px-1">
+        Mostrando <strong class="text-on-surface font-bold">{{ filteredBrands().length }}</strong> de
+        <strong class="text-primary font-bold">{{ allBrands().length }}</strong> marcas
+      </div>
+    </div>
+
+    <!-- Category Filter Chips -->
+    @if (availableCategories().length > 0) {
+      <div class="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
+        <button
+          type="button"
+          (click)="selectCategory('')"
+          class="px-3.5 py-2 rounded-full text-xs font-bold whitespace-nowrap transition cursor-pointer border"
+          [class.bg-primary]="!selectedCategory()"
+          [class.text-on-primary]="!selectedCategory()"
+          [class.border-primary]="!selectedCategory()"
+          [class.bg-surface-container]="!!selectedCategory()"
+          [class.text-on-surface]="!!selectedCategory()"
+          [class.border-outline-variant]="!!selectedCategory()"
+          [class.hover:border-primary]="!!selectedCategory()"
+        >
+          Todas las Categorías ({{ allBrands().length }})
+        </button>
+
+        @for (cat of availableCategories(); track cat) {
+          <button
+            type="button"
+            (click)="selectCategory(cat)"
+            class="px-3.5 py-2 rounded-full text-xs font-bold whitespace-nowrap transition cursor-pointer border"
+            [class.bg-primary]="selectedCategory() === cat"
+            [class.text-on-primary]="selectedCategory() === cat"
+            [class.border-primary]="selectedCategory() === cat"
+            [class.bg-surface-container]="selectedCategory() !== cat"
+            [class.text-on-surface]="selectedCategory() !== cat"
+            [class.border-outline-variant]="selectedCategory() !== cat"
+            [class.hover:border-primary]="selectedCategory() !== cat"
+          >
+            {{ cat }}
+          </button>
+        }
+      </div>
+    }
+  </div>
+
+  <!-- Brands Grid -->
+  @if (productService.isLoading() && allBrands().length === 0) {
+    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
+      @for (item of [1, 2, 3, 4, 5, 6, 7, 8]; track item) {
+        <div class="rounded-2xl border border-outline-variant/30 bg-surface-container/60 p-6 space-y-4 animate-pulse">
+          <div class="h-20 w-20 mx-auto rounded-2xl bg-surface-container-highest/50"></div>
+          <div class="h-4 w-2/3 mx-auto rounded bg-surface-container-highest/60"></div>
+          <div class="h-3 w-1/2 mx-auto rounded bg-surface-container-highest/40"></div>
+        </div>
+      }
+    </div>
+  } @else if (filteredBrands().length === 0) {
+    <div class="flex flex-col items-center justify-center rounded-2xl border border-dashed border-outline-variant/50 py-16 px-4 text-center">
+      <svg class="h-12 w-12 text-outline mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+      </svg>
+      <h3 class="text-base font-semibold text-on-surface">No se encontraron marcas</h3>
+      <p class="text-xs text-outline mt-1 max-w-sm">
+        Intenta buscar con otro término o selecciona todas las categorías.
+      </p>
+    </div>
+  } @else {
+    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
+      @for (brand of filteredBrands(); track brand.id) {
+        <a
+          [routerLink]="['/catalog']"
+          [queryParams]="{ brand: brand.name }"
+          class="group rounded-2xl bg-surface-container/80 border border-outline-variant/40 hover:border-primary/60 p-5 sm:p-6 flex flex-col justify-between gap-4 shadow-lg hover:shadow-2xl transition-all duration-300 hover:-translate-y-1 cursor-pointer"
+        >
+          <div class="space-y-4">
+            <!-- Brand Logo Showcase Container -->
+            <div class="relative h-24 w-full rounded-xl bg-surface-container-lowest/90 border border-outline-variant/30 group-hover:border-primary/30 flex items-center justify-center p-4 overflow-hidden transition">
+              @if (getLogoStage(brand.id) === 0) {
+                <img
+                  [src]="brand.primaryLogoUrl"
+                  [alt]="'Logotipo de ' + brand.name"
+                  (error)="onLogoError(brand.id)"
+                  class="max-h-12 max-w-35 w-auto h-auto object-contain transition-transform duration-300 group-hover:scale-110"
+                  loading="lazy"
+                />
+              } @else if (getLogoStage(brand.id) === 1) {
+                <img
+                  [src]="brand.fallbackLogoUrl"
+                  [alt]="'Logotipo de ' + brand.name"
+                  (error)="onLogoError(brand.id)"
+                  class="max-h-12 max-w-35 w-auto h-auto object-contain rounded-lg transition-transform duration-300 group-hover:scale-110"
+                  loading="lazy"
+                />
+              } @else {
+                <div class="flex flex-col items-center justify-center">
+                  <div class="h-12 w-12 rounded-xl bg-primary-container/80 border border-primary/40 flex items-center justify-center text-base font-black text-primary tracking-wider shadow-inner">
+                    {{ brand.initials }}
+                  </div>
+                </div>
+              }
+
+              <span class="absolute top-2 right-2 px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider bg-surface-container-high text-on-surface-variant border border-outline-variant/40">
+                Oficial
+              </span>
+            </div>
+
+            <!-- Brand Name & Associated Categories -->
+            <div class="space-y-2 text-center">
+              <h2 class="text-base sm:text-lg font-extrabold text-on-surface group-hover:text-primary transition">
+                {{ brand.name }}
+              </h2>
+
+              @if (brand.categories.length > 0) {
+                <div class="flex items-center justify-center gap-1.5 flex-wrap">
+                  @for (cat of brand.categories.slice(0, 3); track cat) {
+                    <span class="px-2 py-0.5 rounded-md text-[10px] font-medium bg-surface-container-high text-on-surface-variant border border-outline-variant/30">
+                      {{ cat }}
+                    </span>
+                  }
+                  @if (brand.categories.length > 3) {
+                    <span class="px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-primary-container/50 text-primary">
+                      +{{ brand.categories.length - 3 }}
+                    </span>
+                  }
+                </div>
+              } @else {
+                <span class="inline-block text-[11px] text-outline">Marca Registrada DASFUSION</span>
+              }
+            </div>
+          </div>
+
+          <!-- Footer CTA: Product Count & Link -->
+          <div class="pt-3 border-t border-outline-variant/30 flex items-center justify-between text-xs">
+            <span class="text-outline font-medium">
+              <strong class="text-on-surface font-mono">{{ brand.productCount }}</strong>
+              {{ brand.productCount === 1 ? 'producto' : 'productos' }}
+            </span>
+            <span class="text-primary font-bold group-hover:translate-x-0.5 transition-transform inline-flex items-center gap-1">
+              Ver catálogo →
+            </span>
+          </div>
+        </a>
+      }
+    </div>
+  }
+</div>
+

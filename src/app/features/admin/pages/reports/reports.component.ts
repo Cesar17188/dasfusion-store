@@ -2,11 +2,12 @@ import { Component, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AdminService } from '../../../../core/services/admin.service';
+import { AdminPaginationComponent } from '../../../../shared/components/admin-pagination/admin-pagination.component';
 
 @Component({
   selector: 'app-reports',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, AdminPaginationComponent],
   template: `
     <div class="space-y-6">
       <!-- Header -->
@@ -128,7 +129,7 @@ import { AdminService } from '../../../../core/services/admin.service';
                   </tr>
                 </thead>
                 <tbody class="divide-y divide-outline-variant/30">
-                  @for (order of adminService.salesOrders(); track order.id) {
+                  @for (order of paginatedSalesOrders(); track order.id) {
                     <tr class="hover:bg-surface-container/60 transition">
                       <td class="py-3.5 px-4 font-mono font-bold text-primary">
                         #{{ order.id.slice(0, 8).toUpperCase() }}
@@ -171,6 +172,12 @@ import { AdminService } from '../../../../core/services/admin.service';
                 </tbody>
               </table>
             </div>
+            <app-admin-pagination
+              [currentPage]="salesPage()"
+              [totalItems]="adminService.salesOrders().length"
+              [pageSize]="pageSize"
+              (pageChange)="salesPage.set($event)"
+            ></app-admin-pagination>
           </div>
         </div>
       }
@@ -227,7 +234,7 @@ import { AdminService } from '../../../../core/services/admin.service';
                   </tr>
                 </thead>
                 <tbody class="divide-y divide-outline-variant/30">
-                  @for (po of adminService.purchaseOrders(); track po.id) {
+                  @for (po of paginatedPurchaseOrders(); track po.id) {
                     <tr class="hover:bg-surface-container/60 transition">
                       <td class="py-3.5 px-4 font-mono font-bold text-primary">
                         #{{ po.id }}
@@ -262,6 +269,12 @@ import { AdminService } from '../../../../core/services/admin.service';
                 </tbody>
               </table>
             </div>
+            <app-admin-pagination
+              [currentPage]="purchasesPage()"
+              [totalItems]="adminService.purchaseOrders().length"
+              [pageSize]="pageSize"
+              (pageChange)="purchasesPage.set($event)"
+            ></app-admin-pagination>
           </div>
 
           <!-- Suppliers Directory Table -->
@@ -281,7 +294,7 @@ import { AdminService } from '../../../../core/services/admin.service';
                   </tr>
                 </thead>
                 <tbody class="divide-y divide-outline-variant/20">
-                  @for (sup of adminService.suppliers(); track sup.id) {
+                  @for (sup of paginatedSuppliers(); track sup.id) {
                     <tr>
                       <td class="py-3 px-4 font-bold text-on-surface">{{ sup.business_name }}</td>
                       <td class="py-3 px-4">{{ sup.contact_name || '-' }}</td>
@@ -293,6 +306,12 @@ import { AdminService } from '../../../../core/services/admin.service';
                 </tbody>
               </table>
             </div>
+            <app-admin-pagination
+              [currentPage]="suppliersPage()"
+              [totalItems]="adminService.suppliers().length"
+              [pageSize]="pageSize"
+              (pageChange)="suppliersPage.set($event)"
+            ></app-admin-pagination>
           </div>
         </div>
       }
@@ -303,6 +322,34 @@ export class ReportsComponent {
   readonly adminService = inject(AdminService);
 
   activeTab = signal<'sales' | 'purchases'>('sales');
+  readonly pageSize = 10;
+  readonly salesPage = signal<number>(1);
+  readonly purchasesPage = signal<number>(1);
+  readonly suppliersPage = signal<number>(1);
+
+  readonly paginatedSalesOrders = computed(() => {
+    const list = this.adminService.salesOrders();
+    const totalPages = Math.max(1, Math.ceil(list.length / this.pageSize));
+    const safePage = Math.max(1, Math.min(this.salesPage(), totalPages));
+    const start = (safePage - 1) * this.pageSize;
+    return list.slice(start, start + this.pageSize);
+  });
+
+  readonly paginatedPurchaseOrders = computed(() => {
+    const list = this.adminService.purchaseOrders();
+    const totalPages = Math.max(1, Math.ceil(list.length / this.pageSize));
+    const safePage = Math.max(1, Math.min(this.purchasesPage(), totalPages));
+    const start = (safePage - 1) * this.pageSize;
+    return list.slice(start, start + this.pageSize);
+  });
+
+  readonly paginatedSuppliers = computed(() => {
+    const list = this.adminService.suppliers();
+    const totalPages = Math.max(1, Math.ceil(list.length / this.pageSize));
+    const safePage = Math.max(1, Math.min(this.suppliersPage(), totalPages));
+    const start = (safePage - 1) * this.pageSize;
+    return list.slice(start, start + this.pageSize);
+  });
 
   readonly totalActiveSalesCount = computed(() => {
     return this.adminService.salesOrders().filter((o) => o.status !== 'cancelled').length;

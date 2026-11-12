@@ -3,11 +3,12 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AdminService } from '../../../../core/services/admin.service';
 import { DbCrmLead, LeadStage, TicketStatus, TicketPriority } from '../../../../core/models/supabase.model';
+import { AdminPaginationComponent } from '../../../../shared/components/admin-pagination/admin-pagination.component';
 
 @Component({
   selector: 'app-crm-dashboard',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, AdminPaginationComponent],
   template: `
     <div class="space-y-6">
       <!-- Header with Title & Action Button -->
@@ -290,7 +291,7 @@ import { DbCrmLead, LeadStage, TicketStatus, TicketPriority } from '../../../../
           </div>
 
           <div class="space-y-3">
-            @for (ticket of adminService.tickets(); track ticket.id) {
+            @for (ticket of paginatedTickets(); track ticket.id) {
               <div class="p-3 rounded-xl bg-surface-container-low border border-outline-variant/40 flex items-start justify-between gap-3">
                 <div class="space-y-1">
                   <div class="text-xs font-semibold text-[#e3e2e6]">{{ ticket.subject }}</div>
@@ -317,6 +318,12 @@ import { DbCrmLead, LeadStage, TicketStatus, TicketPriority } from '../../../../
               <p class="text-xs text-outline py-4 text-center">No hay tickets de soporte registrados.</p>
             }
           </div>
+          <app-admin-pagination
+            [currentPage]="ticketsPage()"
+            [totalItems]="adminService.tickets().length"
+            [pageSize]="pageSize"
+            (pageChange)="ticketsPage.set($event)"
+          ></app-admin-pagination>
         </div>
 
         <!-- Recent CRM Interactions Feed -->
@@ -332,7 +339,7 @@ import { DbCrmLead, LeadStage, TicketStatus, TicketPriority } from '../../../../
           </div>
 
           <div class="space-y-3">
-            @for (inter of adminService.interactions(); track inter.id) {
+            @for (inter of paginatedInteractions(); track inter.id) {
               <div class="p-3 rounded-xl bg-surface-container-low border border-outline-variant/40 space-y-1.5">
                 <div class="flex items-center justify-between">
                   <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-primary-container text-[#aec7f7] border border-[#aec7f7]/30">
@@ -346,6 +353,12 @@ import { DbCrmLead, LeadStage, TicketStatus, TicketPriority } from '../../../../
               <p class="text-xs text-outline py-4 text-center">Sin interacciones recientes registradas.</p>
             }
           </div>
+          <app-admin-pagination
+            [currentPage]="interactionsPage()"
+            [totalItems]="adminService.interactions().length"
+            [pageSize]="pageSize"
+            (pageChange)="interactionsPage.set($event)"
+          ></app-admin-pagination>
         </div>
       </div>
     </div>
@@ -510,6 +523,26 @@ import { DbCrmLead, LeadStage, TicketStatus, TicketPriority } from '../../../../
 })
 export class CrmDashboardComponent {
   readonly adminService = inject(AdminService);
+
+  readonly pageSize = 10;
+  readonly ticketsPage = signal<number>(1);
+  readonly interactionsPage = signal<number>(1);
+
+  readonly paginatedTickets = computed(() => {
+    const list = this.adminService.tickets();
+    const totalPages = Math.max(1, Math.ceil(list.length / this.pageSize));
+    const safePage = Math.max(1, Math.min(this.ticketsPage(), totalPages));
+    const start = (safePage - 1) * this.pageSize;
+    return list.slice(start, start + this.pageSize);
+  });
+
+  readonly paginatedInteractions = computed(() => {
+    const list = this.adminService.interactions();
+    const totalPages = Math.max(1, Math.ceil(list.length / this.pageSize));
+    const safePage = Math.max(1, Math.min(this.interactionsPage(), totalPages));
+    const start = (safePage - 1) * this.pageSize;
+    return list.slice(start, start + this.pageSize);
+  });
 
   readonly isLeadModalOpen = signal<boolean>(false);
   readonly isInteractionModalOpen = signal<boolean>(false);

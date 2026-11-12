@@ -36,6 +36,13 @@
         <span>PC Builder</span>
         <span class="rounded-full bg-primary-container px-2 py-0.5 text-[10px] font-bold text-primary border border-primary/30">PRO</span>
       </a>
+      <a
+        routerLink="/brands"
+        routerLinkActive="text-primary border-b-2 border-primary pb-1"
+        class="text-on-surface-variant transition-colors hover:text-on-surface"
+      >
+        Marcas
+      </a>
       @if (authService.isAdmin()) {
         <a
           routerLink="/admin/crm"

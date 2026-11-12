@@ -6,6 +6,7 @@ import { AdminService, AdminProductWithVariants } from '../../../../core/service
 import { ProductService } from '../../../../core/services/product.service';
 import { DbProductVariant, DbCategory, DbBrand } from '../../../../core/models/supabase.model';
 import { ProductSpecification } from '../../../../core/models/product.model';
+import { AdminPaginationComponent } from '../../../../shared/components/admin-pagination/admin-pagination.component';
 
 export interface SpecGroupItem {
   key: string;
@@ -40,7 +41,7 @@ export interface ParsedImportItem {
 @Component({
   selector: 'app-inventory-management',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, AdminPaginationComponent],
   template: `
     <div class="space-y-6">
       <!-- Header -->
@@ -275,7 +276,7 @@ export interface ParsedImportItem {
                   </tr>
                 </thead>
                 <tbody class="divide-y divide-outline-variant/30">
-                  @for (item of flattenedVariants(); track item.variant.id) {
+                  @for (item of paginatedVariants(); track item.variant.id) {
                     <tr
                       class="hover:bg-surface-container/60 transition"
                       [class.opacity-60]="item.product.is_active === false"
@@ -545,6 +546,12 @@ export interface ParsedImportItem {
                 </tbody>
               </table>
             </div>
+            <app-admin-pagination
+              [currentPage]="inventoryPage()"
+              [totalItems]="flattenedVariants().length"
+              [pageSize]="pageSize"
+              (pageChange)="inventoryPage.set($event)"
+            ></app-admin-pagination>
           </div>
         </div>
       }
@@ -582,7 +589,7 @@ export interface ParsedImportItem {
                   </tr>
                 </thead>
                 <tbody class="divide-y divide-outline-variant/20">
-                  @for (cat of organizedCategories(); track cat.id) {
+                  @for (cat of paginatedCategories(); track cat.id) {
                     <tr class="hover:bg-surface-container/60 transition" [class.bg-surface-container/20]="cat.parent_id">
                       <td class="py-3.5 px-4">
                         <div class="flex items-center gap-2">
@@ -659,6 +666,12 @@ export interface ParsedImportItem {
                 </tbody>
               </table>
             </div>
+            <app-admin-pagination
+              [currentPage]="categoriesPage()"
+              [totalItems]="organizedCategories().length"
+              [pageSize]="pageSize"
+              (pageChange)="categoriesPage.set($event)"
+            ></app-admin-pagination>
           </div>
         </div>
       }
@@ -696,7 +709,7 @@ export interface ParsedImportItem {
                   </tr>
                 </thead>
                 <tbody class="divide-y divide-outline-variant/20">
-                  @for (brand of adminService.brands(); track brand.id) {
+                  @for (brand of paginatedBrands(); track brand.id) {
                     <tr class="hover:bg-surface-container/60 transition">
                       <td class="py-3.5 px-4 font-bold text-on-surface">
                         <div class="flex items-center gap-2">
@@ -774,6 +787,12 @@ export interface ParsedImportItem {
                 </tbody>
               </table>
             </div>
+            <app-admin-pagination
+              [currentPage]="brandsPage()"
+              [totalItems]="adminService.brands().length"
+              [pageSize]="pageSize"
+              (pageChange)="brandsPage.set($event)"
+            ></app-admin-pagination>
           </div>
         </div>
       }
@@ -2526,6 +2545,10 @@ export class InventoryManagementComponent {
   readonly productService = inject(ProductService);
 
   activeTab = signal<'inventory' | 'categories' | 'brands'>('inventory');
+  readonly pageSize = 10;
+  readonly inventoryPage = signal<number>(1);
+  readonly categoriesPage = signal<number>(1);
+  readonly brandsPage = signal<number>(1);
 
   searchQuery = signal<string>('');
   selectedCategory = signal<string>('ALL');
@@ -2732,6 +2755,30 @@ export class InventoryManagementComponent {
     }
 
     return list;
+  });
+
+  readonly paginatedVariants = computed(() => {
+    const list = this.flattenedVariants();
+    const totalPages = Math.max(1, Math.ceil(list.length / this.pageSize));
+    const safePage = Math.max(1, Math.min(this.inventoryPage(), totalPages));
+    const start = (safePage - 1) * this.pageSize;
+    return list.slice(start, start + this.pageSize);
+  });
+
+  readonly paginatedCategories = computed(() => {
+    const list = this.organizedCategories();
+    const totalPages = Math.max(1, Math.ceil(list.length / this.pageSize));
+    const safePage = Math.max(1, Math.min(this.categoriesPage(), totalPages));
+    const start = (safePage - 1) * this.pageSize;
+    return list.slice(start, start + this.pageSize);
+  });
+
+  readonly paginatedBrands = computed(() => {
+    const list = this.adminService.brands();
+    const totalPages = Math.max(1, Math.ceil(list.length / this.pageSize));
+    const safePage = Math.max(1, Math.min(this.brandsPage(), totalPages));
+    const start = (safePage - 1) * this.pageSize;
+    return list.slice(start, start + this.pageSize);
   });
 
   // Multiple Selection State

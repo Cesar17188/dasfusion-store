@@ -15,6 +15,8 @@ export class ProductService {
   private readonly brandsSignal = signal<string[]>([]);
   private readonly rawCategoriesSignal = signal<DbCategory[]>([]);
   private readonly rawBrandsSignal = signal<DbBrand[]>([]);
+  readonly dbCategories = this.rawCategoriesSignal.asReadonly();
+  readonly dbBrands = this.rawBrandsSignal.asReadonly();
   readonly isLoading = signal<boolean>(true);
 
   // Store only displays products where isActive !== false

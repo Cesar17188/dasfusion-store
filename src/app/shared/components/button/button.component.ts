@@ -43,7 +43,7 @@ export class ButtonComponent {
 
   buttonClasses(): string {
     const base =
-      'inline-flex items-center justify-center font-bold font-sans transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-[#121316] disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer rounded-lg';
+      'inline-flex items-center justify-center font-bold font-sans transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-surface disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer rounded-lg';
 
     const sizeMap: Record<ButtonSize, string> = {
       sm: 'px-3 py-1.5 text-xs',
@@ -53,12 +53,12 @@ export class ButtonComponent {
 
     // DASFusion Core high-contrast button tokens
     const variantMap: Record<ButtonVariant, string> = {
-      primary: 'bg-[#f2f3f5] text-[#0a1b33] hover:bg-[#ffffff] hover:text-[#000000] hover:shadow-[0_4px_16px_rgba(242,243,245,0.35)] hover:-translate-y-0.5 active:bg-[#f2f3f5]/90 active:translate-y-0 focus:ring-[#aec7f7]',
-      secondary: 'bg-transparent text-[#ffffff] border-2 border-[#aec7f7]/80 hover:border-[#aec7f7] hover:bg-[#aec7f7]/15 hover:text-white focus:ring-[#aec7f7]',
-      accent: 'bg-[#1b365d] text-[#ffffff] border border-[#aec7f7]/50 hover:bg-[#234577] hover:border-[#aec7f7] focus:ring-[#aec7f7]',
-      outline: 'bg-transparent text-[#e3e2e6] border border-[#5a5d66] hover:border-[#aec7f7] hover:text-[#ffffff] hover:bg-[#1e2022]',
-      danger: 'bg-[#ba1a1a] text-[#ffffff] hover:bg-[#93000a] border border-[#ffb4ab]/40 focus:ring-[#ffb4ab]',
-      ghost: 'bg-transparent text-[#c4c6cf] hover:text-[#ffffff] hover:bg-[#292a2d]'
+      primary: 'bg-[#f2f3f5] text-[#0a1b33] hover:bg-white hover:text-black hover:shadow-[0_4px_16px_rgba(242,243,245,0.35)] hover:-translate-y-0.5 active:bg-[#f2f3f5]/90 active:translate-y-0 focus:ring-primary',
+      secondary: 'bg-transparent text-white border-2 border-primary/80 hover:border-primary hover:bg-primary/15 hover:text-white focus:ring-primary',
+      accent: 'bg-primary-container text-white border border-primary/50 hover:bg-[#234577] hover:border-primary focus:ring-primary',
+      outline: 'bg-transparent text-on-surface border border-[#5a5d66] hover:border-primary hover:text-white hover:bg-surface-container',
+      danger: 'bg-[#ba1a1a] text-white hover:bg-error-container border border-error/40 focus:ring-error',
+      ghost: 'bg-transparent text-on-surface-variant hover:text-white hover:bg-surface-container-high'
     };
 
     const width = this.fullWidth() ? 'w-full' : '';

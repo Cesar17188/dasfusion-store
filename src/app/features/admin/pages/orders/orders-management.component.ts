@@ -4,11 +4,12 @@ import { FormsModule } from '@angular/forms';
 import { AdminService, AdminSalesOrderWithDetails } from '../../../../core/services/admin.service';
 import { TaxService } from '../../../../core/services/tax.service';
 import { OrderStatus } from '../../../../core/models/supabase.model';
+import { AdminPaginationComponent } from '../../../../shared/components/admin-pagination/admin-pagination.component';
 
 @Component({
   selector: 'app-orders-management',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, AdminPaginationComponent],
   template: `
     <div class="space-y-6">
       <!-- Header -->
@@ -189,7 +190,7 @@ import { OrderStatus } from '../../../../core/models/supabase.model';
               </tr>
             </thead>
             <tbody class="divide-y divide-outline-variant/30">
-              @for (order of filteredOrders(); track order.id) {
+              @for (order of paginatedOrders(); track order.id) {
                 <tr class="hover:bg-surface-container/60 transition">
                   <td class="py-3.5 px-4 font-mono font-bold text-[#aec7f7]">
                     #{{ order.id.slice(0, 8) }}
@@ -331,6 +332,12 @@ import { OrderStatus } from '../../../../core/models/supabase.model';
             </tbody>
           </table>
         </div>
+        <app-admin-pagination
+          [currentPage]="ordersPage()"
+          [totalItems]="filteredOrders().length"
+          [pageSize]="pageSize"
+          (pageChange)="ordersPage.set($event)"
+        ></app-admin-pagination>
       </div>
     </div>
 
@@ -775,6 +782,9 @@ export class OrdersManagementComponent {
   customTaxInput = signal<number>(15);
   customTaxReason = signal<string>('Tarifa Estándar SRI (15%)');
 
+  readonly pageSize = 10;
+  readonly ordersPage = signal<number>(1);
+
   readonly filteredOrders = computed(() => {
     let list = this.adminService.salesOrders();
     const filter = this.selectedStatusFilter();
@@ -797,6 +807,14 @@ export class OrdersManagementComponent {
     }
 
     return list;
+  });
+
+  readonly paginatedOrders = computed(() => {
+    const list = this.filteredOrders();
+    const totalPages = Math.max(1, Math.ceil(list.length / this.pageSize));
+    const safePage = Math.max(1, Math.min(this.ordersPage(), totalPages));
+    const start = (safePage - 1) * this.pageSize;
+    return list.slice(start, start + this.pageSize);
   });
 
   countByStatus(status: OrderStatus): number {

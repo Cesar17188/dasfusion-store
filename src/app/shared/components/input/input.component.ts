@@ -16,10 +16,10 @@ import { CommonModule } from '@angular/common';
   template: `
     <div class="w-full flex flex-col gap-1.5">
       @if (label()) {
-        <label [for]="id()" class="text-xs font-semibold uppercase tracking-wider text-[#c4c6cf]">
+        <label [for]="id()" class="text-xs font-semibold uppercase tracking-wider text-on-surface-variant">
           {{ label() }}
           @if (required()) {
-            <span class="text-[#ffb4ab]">*</span>
+            <span class="text-error">*</span>
           }
         </label>
       }
@@ -33,15 +33,15 @@ import { CommonModule } from '@angular/common';
           [value]="value()"
           (input)="onInput($event)"
           (blur)="onBlur()"
-          class="w-full bg-[#1e2022] text-[#e3e2e6] placeholder-[#8e9099] text-sm rounded-lg border border-[#44474e] px-3.5 py-2.5 transition-all duration-200 focus:outline-none focus:border-[#aec7f7] focus:ring-2 focus:ring-[#aec7f7]/25 disabled:opacity-40 disabled:cursor-not-allowed"
-          [class.border-[#ffb4ab]]="!!error()"
+          class="w-full bg-surface-container text-on-surface placeholder-outline text-sm rounded-lg border border-outline-variant px-3.5 py-2.5 transition-all duration-200 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/25 disabled:opacity-40 disabled:cursor-not-allowed"
+          [class.border-error]="!!error()"
         />
       </div>
 
       @if (error()) {
-        <span class="text-xs text-[#ffb4ab] mt-0.5">{{ error() }}</span>
+        <span class="text-xs text-error mt-0.5">{{ error() }}</span>
       } @else if (hint()) {
-        <span class="text-xs text-[#8e9099] mt-0.5">{{ hint() }}</span>
+        <span class="text-xs text-outline mt-0.5">{{ hint() }}</span>
       }
     </div>
   `

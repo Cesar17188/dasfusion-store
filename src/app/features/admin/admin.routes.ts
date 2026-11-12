@@ -40,6 +40,11 @@ export const ADMIN_ROUTES: Routes = [
         path: 'reports',
         loadComponent: () =>
           import('./pages/reports/reports.component').then((m) => m.ReportsComponent)
+      },
+      {
+        path: 'banners',
+        loadComponent: () =>
+          import('./pages/banners/banners-management.component').then((m) => m.BannersManagementComponent)
       }
     ]
   }
